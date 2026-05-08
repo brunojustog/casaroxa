@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, FileUp } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -54,13 +54,22 @@ export default async function ComprasPage({
         title="Compras"
         description="Lançamentos de compras de fornecedores. Confirmar uma compra alimenta o estoque e atualiza o custo dos ingredientes."
         actions={
-          <Link
-            href="/compras/nova"
-            className="inline-flex h-10 items-center gap-1.5 rounded-md bg-roxa-700 px-4 text-sm font-medium text-white hover:bg-roxa-800"
-          >
-            <Plus className="h-4 w-4" />
-            Nova compra
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/compras/importar-nfe"
+              className="inline-flex h-10 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <FileUp className="h-4 w-4" />
+              Importar NFe
+            </Link>
+            <Link
+              href="/compras/nova"
+              className="inline-flex h-10 items-center gap-1.5 rounded-md bg-roxa-700 px-4 text-sm font-medium text-white hover:bg-roxa-800"
+            >
+              <Plus className="h-4 w-4" />
+              Nova compra
+            </Link>
+          </div>
         }
       />
 
