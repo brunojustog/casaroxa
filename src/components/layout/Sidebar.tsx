@@ -13,6 +13,7 @@ import {
   FileBarChart2,
   Settings as SettingsIcon,
   Upload,
+  Warehouse,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +23,7 @@ const NAV = [
   { href: "/produtos",        label: "Produtos",         icon: Package },
   { href: "/fichas-tecnicas", label: "Fichas Técnicas",  icon: ClipboardList },
   { href: "/combos",          label: "Combos",           icon: Boxes },
+  { href: "/estoque",         label: "Estoque",          icon: Warehouse },
   { href: "/simulador",       label: "Simulador",        icon: Calculator },
   { href: "/cenarios",        label: "Cenários",         icon: TrendingUp },
   { href: "/relatorios",      label: "Relatórios",       icon: FileBarChart2 },
@@ -71,7 +73,7 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-slate-200 p-3 text-[11px] text-slate-400">
-        v0.1 — Fase 1 (Foundation)
+        v0.2 — Estoque base
       </div>
     </aside>
   );

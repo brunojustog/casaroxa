@@ -65,6 +65,11 @@ export default async function DashboardPage() {
           label="Ticket médio alvo"
           value={formatBRL(d.settings?.targetAverageTicket ?? 0)}
         />
+        <KpiCard
+          label="Movimentos de estoque"
+          value={String(d.counts.stockMovementsLast30Days)}
+          hint="últimos 30 dias"
+        />
       </section>
 
       {/* Alertas + distribuição lado a lado */}
