@@ -79,6 +79,8 @@ export async function createProduct(input: ProductFormData) {
       notes: input.notes,
       status: input.status,
       active: input.active,
+      imageUrl: input.imageUrl,
+      showInMenu: input.showInMenu,
       priceHistory: input.salePrice
         ? { create: { oldPrice: null, newPrice: input.salePrice } }
         : undefined,
@@ -123,6 +125,8 @@ export async function updateProduct(id: string, input: ProductFormData) {
         notes: input.notes,
         status: input.status,
         active: input.active,
+        imageUrl: input.imageUrl,
+        showInMenu: input.showInMenu,
       },
     });
 

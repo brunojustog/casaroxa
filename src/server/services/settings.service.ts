@@ -64,5 +64,17 @@ function serializeSettings(s: Awaited<ReturnType<typeof getSettings>>) {
     porkRibLossPercent: Number(s.porkRibLossPercent),
     pancetaLossPercent: Number(s.pancetaLossPercent),
     porkLoinLossPercent: Number(s.porkLoinLossPercent),
+    siteSlogan: s.siteSlogan,
+    whatsappNumber: s.whatsappNumber,
+    address: s.address,
+    addressNeighborhood: s.addressNeighborhood,
+    openingHours: s.openingHours,
+    instagramUrl: s.instagramUrl,
+    facebookUrl: s.facebookUrl,
+    pickupEnabled: s.pickupEnabled,
+    deliveryEnabled: s.deliveryEnabled,
+    deliveryFeeNote: s.deliveryFeeNote,
+    minimumOrderValue:
+      s.minimumOrderValue !== null ? Number(s.minimumOrderValue) : null,
   };
 }

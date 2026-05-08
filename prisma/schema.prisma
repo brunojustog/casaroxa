@@ -119,6 +119,7 @@ enum SaleSource {
   LOJA
   IFOOD
   WHATSAPP
+  SITE // pedido vindo do cardápio online (carrinho público)
   OUTRO
 }
 
@@ -223,6 +224,10 @@ model Product {
   status       ProductStatus   @default(ATIVO)
   active       Boolean         @default(true)
   totalCost    Decimal         @default(0) @db.Decimal(12, 4)
+  /// URL pública da foto (relativa, ex: /menu/frango.jpg, ou absoluta).
+  imageUrl     String?
+  /// Se true, aparece no cardápio online público.
+  showInMenu   Boolean         @default(false)
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
@@ -232,6 +237,7 @@ model Product {
   saleItems    SaleItem[]
 
   @@index([category, active])
+  @@index([showInMenu, active])
 }
 
 model ProductPriceHistory {
@@ -314,12 +320,18 @@ model Combo {
   notes       String?
   active      Boolean         @default(true)
   totalCost   Decimal         @default(0) @db.Decimal(12, 4)
+  /// URL pública da foto (relativa, ex: /menu/combo.jpg, ou absoluta).
+  imageUrl    String?
+  /// Se true, aparece no cardápio online público.
+  showInMenu  Boolean         @default(false)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
   saleItems SaleItem[]
 
   items ComboItem[]
+
+  @@index([showInMenu, active])
 }
 
 model ComboItem {
@@ -344,29 +356,54 @@ model ComboItem {
 // ============================================================
 
 model Settings {
-  id                     Int      @id @default(1)
-  businessName           String   @default("Casa Roxa Assados")
-  fixedMonthlyCost       Decimal  @default(1500) @db.Decimal(12, 2)
-  investedAmount         Decimal  @default(5000) @db.Decimal(12, 2)
-  plannedInvestment      Decimal  @default(5000) @db.Decimal(12, 2)
-  targetAverageTicket    Decimal  @default(75) @db.Decimal(10, 2)
-  targetOrdersPerWeekend Int      @default(100)
-  weekendsPerMonth       Int      @default(4)
-  defaultCmvChicken      Decimal  @default(0.50) @db.Decimal(5, 4)
-  defaultCmvBeefRib      Decimal  @default(0.50) @db.Decimal(5, 4)
-  defaultCmvPork         Decimal  @default(0.50) @db.Decimal(5, 4)
-  defaultCmvSides        Decimal  @default(0.35) @db.Decimal(5, 4)
-  defaultCmvExtras       Decimal  @default(0.35) @db.Decimal(5, 4)
-  defaultCmvBeverages    Decimal  @default(0.70) @db.Decimal(5, 4)
-  defaultCmvCombos       Decimal  @default(0.45) @db.Decimal(5, 4)
-  cardFeePercent         Decimal  @default(0) @db.Decimal(5, 4)
-  appFeePercent          Decimal  @default(0) @db.Decimal(5, 4)
-  beefRibLossPercent     Decimal  @default(0.35) @db.Decimal(5, 4)
-  porkRibLossPercent     Decimal  @default(0.30) @db.Decimal(5, 4)
-  pancetaLossPercent     Decimal  @default(0.30) @db.Decimal(5, 4)
-  porkLoinLossPercent    Decimal  @default(0.25) @db.Decimal(5, 4)
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  id                     Int     @id @default(1)
+  businessName           String  @default("Casa Roxa Assados")
+  fixedMonthlyCost       Decimal @default(1500) @db.Decimal(12, 2)
+  investedAmount         Decimal @default(5000) @db.Decimal(12, 2)
+  plannedInvestment      Decimal @default(5000) @db.Decimal(12, 2)
+  targetAverageTicket    Decimal @default(75) @db.Decimal(10, 2)
+  targetOrdersPerWeekend Int     @default(100)
+  weekendsPerMonth       Int     @default(4)
+  defaultCmvChicken      Decimal @default(0.50) @db.Decimal(5, 4)
+  defaultCmvBeefRib      Decimal @default(0.50) @db.Decimal(5, 4)
+  defaultCmvPork         Decimal @default(0.50) @db.Decimal(5, 4)
+  defaultCmvSides        Decimal @default(0.35) @db.Decimal(5, 4)
+  defaultCmvExtras       Decimal @default(0.35) @db.Decimal(5, 4)
+  defaultCmvBeverages    Decimal @default(0.70) @db.Decimal(5, 4)
+  defaultCmvCombos       Decimal @default(0.45) @db.Decimal(5, 4)
+  cardFeePercent         Decimal @default(0) @db.Decimal(5, 4)
+  appFeePercent          Decimal @default(0) @db.Decimal(5, 4)
+  beefRibLossPercent     Decimal @default(0.35) @db.Decimal(5, 4)
+  porkRibLossPercent     Decimal @default(0.30) @db.Decimal(5, 4)
+  pancetaLossPercent     Decimal @default(0.30) @db.Decimal(5, 4)
+  porkLoinLossPercent    Decimal @default(0.25) @db.Decimal(5, 4)
+
+  // ----- Cardápio online -----
+  /// Slogan que aparece no hero da landing pública.
+  siteSlogan          String?
+  /// Número WhatsApp completo (E.164 ou só dígitos, ex: 5511999999999).
+  whatsappNumber      String?
+  /// Endereço completo (rua, número, complemento).
+  address             String?
+  /// Bairro / Cidade.
+  addressNeighborhood String?
+  /// Texto livre com horários (ex: "Sáb e Dom 11h às 17h").
+  openingHours        String?
+  /// URL do Instagram (https://...).
+  instagramUrl        String?
+  /// URL do Facebook (https://...).
+  facebookUrl         String?
+  /// Habilita opção de retirada no checkout público.
+  pickupEnabled       Boolean  @default(true)
+  /// Habilita opção de delivery no checkout público.
+  deliveryEnabled     Boolean  @default(true)
+  /// Texto livre sobre taxa/área de entrega (ex: "Taxa conforme distância — combinamos no WhatsApp").
+  deliveryFeeNote     String?
+  /// Pedido mínimo opcional (em R$). Se null/0, sem mínimo.
+  minimumOrderValue   Decimal? @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   history SettingsHistory[]
 }

@@ -26,6 +26,23 @@ const percentField = z
   .pipe(z.number().min(0).max(100))
   .transform((v) => v / 100);
 
+const optionalString = (max = 500) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : null));
+
+const optionalPositive = z
+  .union([z.string(), z.number()])
+  .optional()
+  .transform((v) => {
+    if (v === undefined || v === null || v === "") return null;
+    const n = typeof v === "string" ? Number(v.replace(",", ".")) : v;
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  });
+
 export const settingsFormSchema = z.object({
   businessName: z.string().trim().min(1, "Nome do negócio obrigatório").max(120),
   investedAmount: positive,
@@ -46,6 +63,19 @@ export const settingsFormSchema = z.object({
   porkRibLossPercent: percentField,
   pancetaLossPercent: percentField,
   porkLoinLossPercent: percentField,
+
+  // Cardápio online
+  siteSlogan: optionalString(200),
+  whatsappNumber: optionalString(40),
+  address: optionalString(300),
+  addressNeighborhood: optionalString(200),
+  openingHours: optionalString(200),
+  instagramUrl: optionalString(300),
+  facebookUrl: optionalString(300),
+  pickupEnabled: z.coerce.boolean().default(true),
+  deliveryEnabled: z.coerce.boolean().default(true),
+  deliveryFeeNote: optionalString(300),
+  minimumOrderValue: optionalPositive,
 });
 
 export type SettingsFormInput = z.input<typeof settingsFormSchema>;

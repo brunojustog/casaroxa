@@ -51,6 +51,8 @@ export const saveComboSchema = z.object({
   targetCmv: optionalPercent,
   notes: optionalString(2000),
   active: z.coerce.boolean().default(true),
+  imageUrl: optionalString(500),
+  showInMenu: z.coerce.boolean().default(false),
   items: z.array(comboItemInputSchema),
 });
 

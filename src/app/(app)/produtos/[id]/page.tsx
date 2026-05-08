@@ -124,6 +124,8 @@ export default async function EditarProdutoPage({
                   notes: product.notes,
                   status: product.status,
                   active: product.active,
+                  imageUrl: product.imageUrl,
+                  showInMenu: product.showInMenu,
                 }}
               />
             </CardContent>

@@ -46,6 +46,8 @@ type FormShape = {
   notes: string;
   status: ProductStatus;
   active: boolean;
+  imageUrl: string;
+  showInMenu: boolean;
 };
 
 export type ProductFormDefaults = Partial<{
@@ -60,6 +62,8 @@ export type ProductFormDefaults = Partial<{
   notes: string | null;
   status: ProductStatus;
   active: boolean;
+  imageUrl: string | null;
+  showInMenu: boolean;
 }>;
 
 const EMPTY: FormShape = {
@@ -73,6 +77,8 @@ const EMPTY: FormShape = {
   notes: "",
   status: "ATIVO",
   active: true,
+  imageUrl: "",
+  showInMenu: false,
 };
 
 function toFormShape(d: ProductFormDefaults | undefined): FormShape {
@@ -87,6 +93,8 @@ function toFormShape(d: ProductFormDefaults | undefined): FormShape {
     notes: d?.notes ?? "",
     status: d?.status ?? EMPTY.status,
     active: d?.active ?? true,
+    imageUrl: d?.imageUrl ?? "",
+    showInMenu: d?.showInMenu ?? false,
   };
 }
 
@@ -217,6 +225,30 @@ export function ProductForm({
       <Field label="Observações internas" htmlFor="notes">
         <Textarea id="notes" rows={3} {...form.register("notes")} />
       </Field>
+
+      <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <h3 className="text-sm font-semibold text-slate-700 mb-3">Cardápio online</h3>
+        <div className="space-y-4">
+          <Field
+            label="URL da foto"
+            htmlFor="imageUrl"
+            hint="Ex.: /menu/frango.jpg (arquivo em /public/menu/) ou URL completa."
+          >
+            <Input
+              id="imageUrl"
+              type="text"
+              {...form.register("imageUrl")}
+              placeholder="/menu/frango.jpg"
+            />
+          </Field>
+          <div className="flex items-center gap-2">
+            <Checkbox id="showInMenu" {...form.register("showInMenu")} />
+            <label htmlFor="showInMenu" className="text-sm text-slate-700">
+              Mostrar no cardápio online (apenas se ativo e com preço)
+            </label>
+          </div>
+        </div>
+      </section>
 
       <div className="flex items-center gap-2">
         <Checkbox id="active" {...form.register("active")} />

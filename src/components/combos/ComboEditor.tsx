@@ -52,6 +52,8 @@ export function ComboEditor({
   initialTargetCmvPercent,
   initialNotes,
   initialActive,
+  initialImageUrl,
+  initialShowInMenu,
   initialItems,
   products,
 }: {
@@ -64,6 +66,8 @@ export function ComboEditor({
   initialTargetCmvPercent: string;
   initialNotes: string;
   initialActive: boolean;
+  initialImageUrl: string;
+  initialShowInMenu: boolean;
   initialItems: EditorComboItem[];
   products: EditorProduct[];
 }) {
@@ -79,6 +83,8 @@ export function ComboEditor({
   const [targetCmvPercent, setTargetCmvPercent] = useState(initialTargetCmvPercent);
   const [notes, setNotes] = useState(initialNotes);
   const [active, setActive] = useState(initialActive);
+  const [imageUrl, setImageUrl] = useState(initialImageUrl);
+  const [showInMenu, setShowInMenu] = useState(initialShowInMenu);
 
   // items
   const [items, setItems] = useState<EditorComboItem[]>(initialItems);
@@ -146,6 +152,8 @@ export function ComboEditor({
       targetCmv: targetCmvPercent,
       notes,
       active,
+      imageUrl,
+      showInMenu,
       items: items
         .filter((i) => i.productId && Number(String(i.quantity).replace(",", ".")) > 0)
         .map((i) => ({
@@ -272,6 +280,29 @@ export function ComboEditor({
             <label htmlFor="active" className="text-sm text-slate-700">
               Combo ativo
             </label>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-slate-700">Cardápio online</h3>
+            <Field label="URL da foto" htmlFor="imageUrl" hint="Ex.: /menu/combo.jpg ou URL completa.">
+              <Input
+                id="imageUrl"
+                type="text"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.currentTarget.value)}
+                placeholder="/menu/combo.jpg"
+              />
+            </Field>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="showInMenu"
+                checked={showInMenu}
+                onChange={(e) => setShowInMenu(e.currentTarget.checked)}
+              />
+              <label htmlFor="showInMenu" className="text-sm text-slate-700">
+                Mostrar no cardápio online (apenas se ativo e com preço)
+              </label>
+            </div>
           </div>
         </CardContent>
       </Card>

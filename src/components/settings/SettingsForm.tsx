@@ -6,6 +6,8 @@ import Link from "next/link";
 import { Save, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Field } from "@/components/ui/field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatBRL } from "@/lib/format";
@@ -32,6 +34,18 @@ type Defaults = {
   porkRibLossPercent: number;
   pancetaLossPercent: number;
   porkLoinLossPercent: number;
+  // Cardápio online
+  siteSlogan: string | null;
+  whatsappNumber: string | null;
+  address: string | null;
+  addressNeighborhood: string | null;
+  openingHours: string | null;
+  instagramUrl: string | null;
+  facebookUrl: string | null;
+  pickupEnabled: boolean;
+  deliveryEnabled: boolean;
+  deliveryFeeNote: string | null;
+  minimumOrderValue: number | null;
 };
 
 const FACTORY_DEFAULTS: Defaults = {
@@ -55,6 +69,17 @@ const FACTORY_DEFAULTS: Defaults = {
   porkRibLossPercent: 0.3,
   pancetaLossPercent: 0.3,
   porkLoinLossPercent: 0.25,
+  siteSlogan: null,
+  whatsappNumber: null,
+  address: null,
+  addressNeighborhood: null,
+  openingHours: null,
+  instagramUrl: null,
+  facebookUrl: null,
+  pickupEnabled: true,
+  deliveryEnabled: true,
+  deliveryFeeNote: null,
+  minimumOrderValue: null,
 };
 
 function toState(d: Defaults) {
@@ -78,6 +103,20 @@ function toState(d: Defaults) {
     porkRibLossPercent: String(d.porkRibLossPercent * 100),
     pancetaLossPercent: String(d.pancetaLossPercent * 100),
     porkLoinLossPercent: String(d.porkLoinLossPercent * 100),
+    siteSlogan: d.siteSlogan ?? "",
+    whatsappNumber: d.whatsappNumber ?? "",
+    address: d.address ?? "",
+    addressNeighborhood: d.addressNeighborhood ?? "",
+    openingHours: d.openingHours ?? "",
+    instagramUrl: d.instagramUrl ?? "",
+    facebookUrl: d.facebookUrl ?? "",
+    pickupEnabled: d.pickupEnabled,
+    deliveryEnabled: d.deliveryEnabled,
+    deliveryFeeNote: d.deliveryFeeNote ?? "",
+    minimumOrderValue:
+      d.minimumOrderValue !== null && d.minimumOrderValue !== undefined
+        ? String(d.minimumOrderValue)
+        : "",
   };
 }
 
@@ -87,7 +126,7 @@ export function SettingsForm({ initial }: { initial: Defaults }) {
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [state, setState] = useState(toState(initial));
 
-  function set<K extends keyof typeof state>(key: K, value: string) {
+  function set<K extends keyof typeof state>(key: K, value: typeof state[K]) {
     setState((s) => ({ ...s, [key]: value }));
   }
 
@@ -201,6 +240,116 @@ export function SettingsForm({ initial }: { initial: Defaults }) {
           <Field label="Taxa média de delivery/app">
             <Input type="number" step="0.1" min="0" max="100" value={state.appFeePercent} onChange={(e) => set("appFeePercent", e.currentTarget.value)} />
           </Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Cardápio online</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Slogan" hint="Aparece no hero da landing pública.">
+              <Input
+                value={state.siteSlogan}
+                onChange={(e) => set("siteSlogan", e.currentTarget.value)}
+                placeholder="Sabor de domingo feito em família"
+              />
+            </Field>
+            <Field
+              label="WhatsApp"
+              hint="Apenas dígitos com DDI/DDD. Ex.: 5511999999999."
+            >
+              <Input
+                value={state.whatsappNumber}
+                onChange={(e) => set("whatsappNumber", e.currentTarget.value)}
+                placeholder="5511999999999"
+              />
+            </Field>
+          </div>
+          <Field label="Endereço">
+            <Input
+              value={state.address}
+              onChange={(e) => set("address", e.currentTarget.value)}
+              placeholder="Rua das Flores, 123"
+            />
+          </Field>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Bairro / Cidade">
+              <Input
+                value={state.addressNeighborhood}
+                onChange={(e) => set("addressNeighborhood", e.currentTarget.value)}
+                placeholder="Centro, São Paulo"
+              />
+            </Field>
+            <Field label="Horário de funcionamento">
+              <Input
+                value={state.openingHours}
+                onChange={(e) => set("openingHours", e.currentTarget.value)}
+                placeholder="Sáb e Dom · 11h às 17h"
+              />
+            </Field>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Instagram (URL)">
+              <Input
+                value={state.instagramUrl}
+                onChange={(e) => set("instagramUrl", e.currentTarget.value)}
+                placeholder="https://instagram.com/casaroxa"
+              />
+            </Field>
+            <Field label="Facebook (URL)">
+              <Input
+                value={state.facebookUrl}
+                onChange={(e) => set("facebookUrl", e.currentTarget.value)}
+                placeholder="https://facebook.com/casaroxa"
+              />
+            </Field>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
+            <h4 className="text-sm font-semibold text-slate-700">Modalidades de pedido</h4>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="pickupEnabled"
+                checked={state.pickupEnabled}
+                onChange={(e) => set("pickupEnabled", e.currentTarget.checked)}
+              />
+              <label htmlFor="pickupEnabled" className="text-sm text-slate-700">
+                Aceitar retirada no local
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="deliveryEnabled"
+                checked={state.deliveryEnabled}
+                onChange={(e) => set("deliveryEnabled", e.currentTarget.checked)}
+              />
+              <label htmlFor="deliveryEnabled" className="text-sm text-slate-700">
+                Aceitar delivery
+              </label>
+            </div>
+            <Field
+              label="Observação sobre taxa de entrega"
+              hint="Texto livre. Aparece no checkout quando o cliente escolhe delivery."
+            >
+              <Textarea
+                rows={2}
+                value={state.deliveryFeeNote}
+                onChange={(e) => set("deliveryFeeNote", e.currentTarget.value)}
+                placeholder="Taxa calculada conforme distância — combinamos pelo WhatsApp."
+              />
+            </Field>
+            <Field label="Pedido mínimo (R$)" hint="Vazio = sem mínimo.">
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={state.minimumOrderValue}
+                onChange={(e) => set("minimumOrderValue", e.currentTarget.value)}
+              />
+            </Field>
+          </div>
         </CardContent>
       </Card>
 

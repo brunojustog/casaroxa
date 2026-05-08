@@ -50,6 +50,8 @@ export default async function NovoComboPage() {
         initialTargetCmvPercent={defaultTargetPercent}
         initialNotes=""
         initialActive={true}
+        initialImageUrl=""
+        initialShowInMenu={false}
         initialItems={[]}
         products={editorProducts}
       />
