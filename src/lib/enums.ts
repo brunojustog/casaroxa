@@ -8,9 +8,12 @@ import {
   IngredientCategory,
   IngredientUnit,
   ImportStatus,
+  PaymentMethod,
   ProductCategory,
   ProductStatus,
   ProductType,
+  SaleSource,
+  SaleStatus,
   SimulationTarget,
   UserRole,
 } from "@prisma/client";
@@ -89,6 +92,29 @@ export const FIXED_COST_CATEGORY_LABEL: Record<FixedCostCategory, string> = {
 export const FIXED_COST_FREQUENCY_LABEL: Record<FixedCostFrequency, string> = {
   MENSAL: "Mensal",
   ANUAL: "Anual (rateio /12)",
+};
+
+export const SALE_SOURCE_LABEL: Record<SaleSource, string> = {
+  LOJA: "Loja",
+  IFOOD: "iFood",
+  WHATSAPP: "WhatsApp",
+  OUTRO: "Outro",
+};
+
+export const SALE_STATUS_LABEL: Record<SaleStatus, string> = {
+  ABERTA: "Aberta",
+  CONCLUIDA: "Concluída",
+  CANCELADA: "Cancelada",
+};
+
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  DINHEIRO: "Dinheiro",
+  PIX: "PIX",
+  CARTAO_CREDITO: "Cartão crédito",
+  CARTAO_DEBITO: "Cartão débito",
+  APP_IFOOD: "iFood (app)",
+  APP_OUTRO: "Outro app",
+  OUTRO: "Outro",
 };
 
 export const USER_ROLE_LABEL: Record<UserRole, string> = {

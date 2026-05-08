@@ -70,6 +70,21 @@ export default async function DashboardPage() {
           value={String(d.counts.stockMovementsLast30Days)}
           hint="últimos 30 dias"
         />
+        <KpiCard
+          label="Faturamento real (30d)"
+          value={d.sales.revenue > 0 ? formatBRL(d.sales.revenue) : "—"}
+          hint={`${d.counts.salesLast30Days} venda${d.counts.salesLast30Days === 1 ? "" : "s"} concluída${d.counts.salesLast30Days === 1 ? "" : "s"}`}
+        />
+        <KpiCard
+          label="CMV real (30d)"
+          value={d.sales.cmv !== null ? formatPercent(d.sales.cmv) : "—"}
+          tone={
+            d.sales.cmv !== null && d.sales.cmv > targetProductCmv
+              ? "warning"
+              : "success"
+          }
+          hint={d.sales.cmv !== null ? `${formatBRL(d.sales.cost)} de custo` : "sem vendas concluídas"}
+        />
       </section>
 
       {/* Alertas + distribuição lado a lado */}
