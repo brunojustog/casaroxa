@@ -9,7 +9,7 @@ export default function RelatoriosIndexPage() {
     <div className="space-y-5">
       <PageHeader
         title="Relatórios"
-        description="12 relatórios prontos. Cada um aceita filtros e pode ser exportado em CSV ou PDF."
+        description="Relatórios prontos com filtros e export em CSV/PDF — produtos, combos, ingredientes, fichas, histórico de preços, cenários e vendas."
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
