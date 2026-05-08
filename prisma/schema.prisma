@@ -97,6 +97,24 @@ enum ChatRole {
   SYSTEM
 }
 
+enum FixedCostCategory {
+  ALUGUEL
+  ENERGIA
+  AGUA
+  INTERNET
+  FOLHA
+  IMPOSTOS
+  CONTADOR
+  MARKETING
+  EQUIPAMENTOS
+  OUTROS
+}
+
+enum FixedCostFrequency {
+  MENSAL // valor já é mensal
+  ANUAL // valor anual; rateio /12 ao somar
+}
+
 // ============================================================
 // AUTENTICAÇÃO
 // ============================================================
@@ -116,6 +134,8 @@ model User {
   stockMovements         StockMovement[]
   purchases              Purchase[]
   chatConversations      ChatConversation[]
+  fixedCostItems         FixedCostItem[]
+  fixedCostChanges       FixedCostItemHistory[]
 }
 
 // ============================================================
@@ -507,6 +527,47 @@ model ChatMessage {
   conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
+}
+
+// ============================================================
+// CUSTOS FIXOS (componentes do custo fixo mensal)
+// ============================================================
+
+model FixedCostItem {
+  id          String             @id @default(cuid())
+  name        String
+  category    FixedCostCategory
+  frequency   FixedCostFrequency @default(MENSAL)
+  amount      Decimal            @db.Decimal(12, 2)
+  notes       String?
+  active      Boolean            @default(true)
+  createdById String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  createdBy User?                  @relation(fields: [createdById], references: [id])
+  history   FixedCostItemHistory[]
+
+  @@index([category, active])
+  @@index([active])
+}
+
+model FixedCostItemHistory {
+  id           String             @id @default(cuid())
+  itemId       String
+  oldAmount    Decimal            @db.Decimal(12, 2)
+  newAmount    Decimal            @db.Decimal(12, 2)
+  oldFrequency FixedCostFrequency
+  newFrequency FixedCostFrequency
+  oldActive    Boolean
+  newActive    Boolean
+  changedAt    DateTime           @default(now())
+  changedById  String?
+
+  item      FixedCostItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  changedBy User?         @relation(fields: [changedById], references: [id])
+
+  @@index([itemId, changedAt])
 }
 
 model AiUsageLog {
