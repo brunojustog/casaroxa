@@ -19,6 +19,7 @@ import {
   Sparkles,
   Receipt,
   DollarSign,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +37,7 @@ const NAV = [
   { href: "/simulador",       label: "Simulador",        icon: Calculator },
   { href: "/cenarios",        label: "Cenários",         icon: TrendingUp },
   { href: "/custos-fixos",    label: "Custos Fixos",     icon: Receipt },
+  { href: "/resultado",       label: "Resultado / DRE",  icon: Activity },
   { href: "/relatorios",      label: "Relatórios",       icon: FileBarChart2 },
   { href: "/configuracoes",   label: "Configurações",    icon: SettingsIcon },
   { href: "/importar",        label: "Importar Planilha", icon: Upload },

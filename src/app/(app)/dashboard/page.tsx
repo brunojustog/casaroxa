@@ -85,6 +85,26 @@ export default async function DashboardPage() {
           }
           hint={d.sales.cmv !== null ? `${formatBRL(d.sales.cost)} de custo` : "sem vendas concluídas"}
         />
+        <KpiCard
+          label="Resultado do mês"
+          value={
+            d.currentMonth.salesCount > 0
+              ? formatBRL(d.currentMonth.operatingResult)
+              : "—"
+          }
+          tone={
+            d.currentMonth.salesCount === 0
+              ? "default"
+              : d.currentMonth.operatingResult >= 0
+                ? "success"
+                : "warning"
+          }
+          hint={
+            d.currentMonth.salesCount > 0
+              ? `${d.currentMonth.salesCount} venda${d.currentMonth.salesCount === 1 ? "" : "s"} no mês`
+              : "sem vendas concluídas"
+          }
+        />
       </section>
 
       {/* Alertas + distribuição lado a lado */}

@@ -14,6 +14,7 @@ import {
   countOpenSalesOlderThan24h,
   getRevenueLast30Days,
 } from "./sales.service";
+import { getCurrentMonthResult } from "./financial.service";
 import type { ProductCategory } from "@prisma/client";
 
 export type AlertSeverity = "danger" | "warning" | "info";
@@ -54,6 +55,7 @@ export async function getDashboardData() {
     stockMovementsLast30Days,
     salesLast30Days,
     openSalesStale,
+    currentMonth,
   ] = await Promise.all([
     prisma.ingredient.findMany({
       where: { active: true },
@@ -80,6 +82,7 @@ export async function getDashboardData() {
     countMovementsLast30Days(),
     getRevenueLast30Days(),
     countOpenSalesOlderThan24h(),
+    getCurrentMonthResult(),
   ]);
 
   // ---------------- KPIs básicos ----------------
@@ -352,6 +355,7 @@ export async function getDashboardData() {
       comboCmv: avgComboCmv,
     },
     sales: salesLast30Days,
+    currentMonth,
     issues: {
       productsWithoutCost,
       productsWithoutPrice,
