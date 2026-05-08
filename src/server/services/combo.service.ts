@@ -98,6 +98,8 @@ export async function saveCombo(input: SaveComboData, options: { id?: string }) 
           targetCmv: input.targetCmv ?? null,
           notes: input.notes,
           active: input.active,
+          imageUrl: input.imageUrl,
+          showInMenu: input.showInMenu,
         },
       });
       comboId = created.id;
@@ -112,6 +114,8 @@ export async function saveCombo(input: SaveComboData, options: { id?: string }) 
           targetCmv: input.targetCmv ?? null,
           notes: input.notes,
           active: input.active,
+          imageUrl: input.imageUrl,
+          showInMenu: input.showInMenu,
         },
       });
       // Limpa itens anteriores

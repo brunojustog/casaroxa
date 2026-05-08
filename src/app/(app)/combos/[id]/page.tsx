@@ -99,6 +99,8 @@ export default async function EditarComboPage({
         initialTargetCmvPercent={targetPercent}
         initialNotes={combo.notes ?? ""}
         initialActive={combo.active}
+        initialImageUrl={combo.imageUrl ?? ""}
+        initialShowInMenu={combo.showInMenu}
         initialItems={initialItems}
         products={Array.from(productMap.values())}
       />

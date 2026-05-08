@@ -49,6 +49,8 @@ export const productFormSchema = z.object({
     errorMap: () => ({ message: "Status inválido" }),
   }),
   active: z.coerce.boolean().default(true),
+  imageUrl: optionalString(500),
+  showInMenu: z.coerce.boolean().default(false),
 });
 
 export type ProductFormInput = z.input<typeof productFormSchema>;

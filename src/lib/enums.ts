@@ -98,6 +98,7 @@ export const SALE_SOURCE_LABEL: Record<SaleSource, string> = {
   LOJA: "Loja",
   IFOOD: "iFood",
   WHATSAPP: "WhatsApp",
+  SITE: "Site (cardápio online)",
   OUTRO: "Outro",
 };
 

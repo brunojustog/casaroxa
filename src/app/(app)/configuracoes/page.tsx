@@ -47,6 +47,19 @@ export default async function ConfiguracoesPage() {
               porkRibLossPercent: Number(settings.porkRibLossPercent),
               pancetaLossPercent: Number(settings.pancetaLossPercent),
               porkLoinLossPercent: Number(settings.porkLoinLossPercent),
+              siteSlogan: settings.siteSlogan,
+              whatsappNumber: settings.whatsappNumber,
+              address: settings.address,
+              addressNeighborhood: settings.addressNeighborhood,
+              openingHours: settings.openingHours,
+              instagramUrl: settings.instagramUrl,
+              facebookUrl: settings.facebookUrl,
+              pickupEnabled: settings.pickupEnabled,
+              deliveryEnabled: settings.deliveryEnabled,
+              deliveryFeeNote: settings.deliveryFeeNote,
+              minimumOrderValue: settings.minimumOrderValue
+                ? Number(settings.minimumOrderValue)
+                : null,
             }}
           />
         </div>
