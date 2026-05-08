@@ -1,0 +1,101 @@
+# Stack Docker Swarm para deploy em infra Simplifica Online.
+#
+# Pré-requisitos no host Swarm:
+#   - Traefik externo já rodando (não subir outro aqui).
+#   - Rede overlay externa 'traefik-public' já criada.
+#   - Certresolver 'le' configurado no Traefik externo.
+#   - Imagem da app já buildada e publicada (ghcr.io/brunojustog/casa-roxa-gestao:latest).
+#
+# Deploy:
+#   docker stack deploy -c deploy/casa-roxa.stack.yml casa-roxa --with-registry-auth
+#
+# Variáveis necessárias: ver .env.production.example (no Portainer, criar como
+# stack environment ou docker config).
+
+version: "3.8"
+
+services:
+  app:
+    image: ghcr.io/brunojustog/casa-roxa-gestao:latest
+    networks:
+      - traefik-public
+      - casa-roxa-internal
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public"
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_TRUST_HOST: "true"
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Casa Roxa — Gestão}
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      AI_MONTHLY_BUDGET_USD: ${AI_MONTHLY_BUDGET_USD:-30}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Administrador}
+      NODE_ENV: production
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+      update_config:
+        order: start-first
+        failure_action: rollback
+      labels:
+        # Habilita Traefik
+        - "traefik.enable=true"
+        - "traefik.docker.network=traefik-public"
+
+        # Router público — cardápio (com www opcional)
+        - "traefik.http.routers.casa-roxa-public.rule=Host(`${PUBLIC_DOMAIN}`) || Host(`www.${PUBLIC_DOMAIN}`)"
+        - "traefik.http.routers.casa-roxa-public.entrypoints=websecure"
+        - "traefik.http.routers.casa-roxa-public.tls=true"
+        - "traefik.http.routers.casa-roxa-public.tls.certresolver=le"
+        - "traefik.http.routers.casa-roxa-public.service=casa-roxa-app"
+
+        # Router admin — login + sistema interno
+        - "traefik.http.routers.casa-roxa-admin.rule=Host(`${ADMIN_DOMAIN}`)"
+        - "traefik.http.routers.casa-roxa-admin.entrypoints=websecure"
+        - "traefik.http.routers.casa-roxa-admin.tls=true"
+        - "traefik.http.routers.casa-roxa-admin.tls.certresolver=le"
+        - "traefik.http.routers.casa-roxa-admin.service=casa-roxa-app"
+
+        # Backend único — mesmo container responde aos dois hosts.
+        # O middleware do Next decide o conteúdo baseado no Host header.
+        - "traefik.http.services.casa-roxa-app.loadbalancer.server.port=3000"
+
+  postgres:
+    image: postgres:16-alpine
+    networks:
+      - casa-roxa-internal
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - casa_roxa_postgres_data:/var/lib/postgresql/data
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+
+networks:
+  traefik-public:
+    external: true
+
+  casa-roxa-internal:
+    driver: overlay
+    attachable: true
+
+volumes:
+  casa_roxa_postgres_data:
+    driver: local

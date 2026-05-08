@@ -21,7 +21,8 @@ RUN npm run build
 
 # --- runner ---
 FROM node:20-alpine AS runner
-RUN apk add --no-cache libc6-compat openssl
+# netcat-openbsd é usado pelo entrypoint pra esperar Postgres aceitar conexão (Swarm).
+RUN apk add --no-cache libc6-compat openssl netcat-openbsd
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
