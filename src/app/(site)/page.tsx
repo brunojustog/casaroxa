@@ -126,20 +126,40 @@ export default async function HomePage() {
               <Link
                 key={cat.category}
                 href={`/cardapio?cat=${encodeURIComponent(String(cat.category))}`}
-                className="group flex flex-col overflow-hidden rounded-xl border border-roxa-100 bg-white p-6 shadow-sm transition hover:shadow-md"
+                className="group flex flex-col overflow-hidden rounded-xl border border-roxa-100 bg-white shadow-sm transition hover:shadow-md"
               >
-                <span className="text-xs font-semibold uppercase tracking-wider text-roxa-500">
-                  Categoria
-                </span>
-                <h3 className="mt-1 font-serif text-2xl font-semibold text-roxa-900">
-                  {cat.label}
-                </h3>
-                <p className="mt-2 text-sm text-slate-600">
-                  {cat.items.length} item{cat.items.length === 1 ? "" : "s"}
-                </p>
-                <span className="mt-auto pt-4 text-sm font-medium text-roxa-700 group-hover:underline">
-                  Explorar →
-                </span>
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-roxa-100">
+                  {cat.coverImageUrl ? (
+                    <Image
+                      src={cat.coverImageUrl}
+                      alt={cat.label}
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      className="object-cover transition group-hover:scale-105"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="grid h-full place-items-center text-roxa-300">
+                      <UtensilsCrossed className="h-10 w-10" />
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-roxa-900/85 via-roxa-900/40 to-transparent p-4">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-roxa-200">
+                      Categoria
+                    </span>
+                    <h3 className="mt-0.5 font-serif text-2xl font-semibold text-white">
+                      {cat.label}
+                    </h3>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2 p-4">
+                  <p className="text-sm text-slate-600">
+                    {cat.items.length} item{cat.items.length === 1 ? "" : "s"}
+                  </p>
+                  <span className="text-sm font-medium text-roxa-700 group-hover:underline">
+                    Explorar →
+                  </span>
+                </div>
               </Link>
             ))}
           </div>

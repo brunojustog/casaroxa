@@ -165,6 +165,12 @@ export async function setComboActive(id: string, active: boolean) {
   return prisma.combo.update({ where: { id }, data: { active } });
 }
 
+export async function setComboShowInMenu(id: string, show: boolean) {
+  const c = await prisma.combo.findUnique({ where: { id }, select: { id: true } });
+  if (!c) throw new BusinessError("Combo não encontrado.");
+  return prisma.combo.update({ where: { id }, data: { showInMenu: show } });
+}
+
 // ---------- Hard delete ----------
 
 export async function deleteCombo(id: string) {

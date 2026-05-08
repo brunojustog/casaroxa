@@ -180,6 +180,12 @@ export async function setProductActive(id: string, active: boolean) {
   return prisma.product.update({ where: { id }, data: { active } });
 }
 
+export async function setProductShowInMenu(id: string, show: boolean) {
+  const p = await prisma.product.findUnique({ where: { id }, select: { id: true } });
+  if (!p) throw new BusinessError("Produto não encontrado.");
+  return prisma.product.update({ where: { id }, data: { showInMenu: show } });
+}
+
 // ---------- Hard delete ----------
 
 export async function deleteProduct(id: string) {

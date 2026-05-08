@@ -23,6 +23,8 @@ export type PublicMenuItem = {
 export type PublicMenuCategory = {
   category: ProductCategory | "COMBOS";
   label: string;
+  /** Foto representativa: primeiro item da categoria com imageUrl, se houver. */
+  coverImageUrl: string | null;
   items: PublicMenuItem[];
 };
 
@@ -106,11 +108,16 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
     byCategory.set("COMBOS", comboItems);
   }
 
-  return CATEGORY_ORDER.filter((c) => byCategory.has(c)).map((c) => ({
-    category: c,
-    label: c === "COMBOS" ? "Combos" : PRODUCT_CATEGORY_LABEL[c as ProductCategory],
-    items: byCategory.get(c) ?? [],
-  }));
+  return CATEGORY_ORDER.filter((c) => byCategory.has(c)).map((c) => {
+    const items = byCategory.get(c) ?? [];
+    const cover = items.find((i) => i.imageUrl)?.imageUrl ?? null;
+    return {
+      category: c,
+      label: c === "COMBOS" ? "Combos" : PRODUCT_CATEGORY_LABEL[c as ProductCategory],
+      coverImageUrl: cover,
+      items,
+    };
+  });
 }
 
 export type PublicSiteSettings = {

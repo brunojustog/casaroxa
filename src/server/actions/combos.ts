@@ -8,6 +8,7 @@ import {
   duplicateCombo,
   saveCombo,
   setComboActive,
+  setComboShowInMenu,
 } from "@/server/services/combo.service";
 import {
   BusinessError,
@@ -20,6 +21,12 @@ function revalidateCombos(id?: string) {
   revalidatePath("/combos");
   if (id) revalidatePath(`/combos/${id}`);
   revalidatePath("/dashboard");
+}
+
+function revalidateCombosAndMenu(id?: string) {
+  revalidateCombos(id);
+  revalidatePath("/cardapio");
+  revalidatePath("/");
 }
 
 export async function saveComboAction(
@@ -48,6 +55,18 @@ export async function setComboActiveAction(
     await setComboActive(id, active);
   });
   if (result.ok) revalidateCombos(id);
+  return result;
+}
+
+export async function setComboShowInMenuAction(
+  id: string,
+  show: boolean,
+): Promise<ActionResult> {
+  const result = await runAction(async () => {
+    await requireAuth();
+    await setComboShowInMenu(id, show);
+  });
+  if (result.ok) revalidateCombosAndMenu(id);
   return result;
 }
 

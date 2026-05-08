@@ -253,7 +253,11 @@ export function ComboEditor({
             </Field>
           </div>
 
-          <Field label="Descrição comercial" htmlFor="description">
+          <Field
+            label="Descrição comercial (opcional)"
+            htmlFor="description"
+            hint="Aparece no cardápio online."
+          >
             <Textarea
               id="description"
               rows={2}
@@ -262,7 +266,11 @@ export function ComboEditor({
             />
           </Field>
 
-          <Field label="Observações internas" htmlFor="notes">
+          <Field
+            label="Observações internas (opcional)"
+            htmlFor="notes"
+            hint="Apenas você vê. Não aparece no cardápio."
+          >
             <Textarea
               id="notes"
               rows={2}
