@@ -28,6 +28,7 @@ import { toDecimal, sumDecimal } from "@/lib/decimal";
 import type {
   SaleHeaderFormData,
   SaleItemFormData,
+  SaleItemUpdateData,
   SaleListFilters,
   SalePaymentFormData,
 } from "@/schemas/sale.schema";
@@ -244,6 +245,40 @@ export async function removeSaleItem(itemId: string) {
 
     await tx.saleItem.delete({ where: { id: itemId } });
     await recomputeSaleTotals(tx, item.saleId);
+  });
+}
+
+/**
+ * Edita inline um item já existente: quantidade e/ou preço unitário.
+ * Mantém o snapshot de unitCost (não precisa re-buscar produto).
+ */
+export async function updateSaleItem(
+  itemId: string,
+  input: SaleItemUpdateData,
+) {
+  return prisma.$transaction(async (tx) => {
+    const item = await tx.saleItem.findUnique({
+      where: { id: itemId },
+      select: { id: true, saleId: true, unitCost: true },
+    });
+    if (!item) throw new BusinessError("Item de venda não encontrado.");
+    await ensureEditable(tx, item.saleId);
+
+    const totalPrice = toDecimal(input.quantity).mul(input.unitPrice);
+    const totalCost = toDecimal(input.quantity).mul(toDecimal(item.unitCost));
+
+    await tx.saleItem.update({
+      where: { id: itemId },
+      data: {
+        quantity: input.quantity,
+        unitPrice: input.unitPrice.toFixed(2),
+        totalPrice: totalPrice.toFixed(2),
+        totalCost: totalCost.toFixed(4),
+      },
+    });
+
+    await recomputeSaleTotals(tx, item.saleId);
+    return item.saleId;
   });
 }
 
