@@ -218,11 +218,19 @@ export function ProductForm({
         </div>
       </section>
 
-      <Field label="Descrição comercial" htmlFor="description">
+      <Field
+        label="Descrição comercial (opcional)"
+        htmlFor="description"
+        hint="Aparece no cardápio online e em PDFs."
+      >
         <Textarea id="description" rows={2} {...form.register("description")} />
       </Field>
 
-      <Field label="Observações internas" htmlFor="notes">
+      <Field
+        label="Observações internas (opcional)"
+        htmlFor="notes"
+        hint="Apenas você vê. Não aparece no cardápio."
+      >
         <Textarea id="notes" rows={3} {...form.register("notes")} />
       </Field>
 

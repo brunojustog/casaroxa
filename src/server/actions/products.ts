@@ -8,6 +8,7 @@ import {
   deleteProduct,
   duplicateProduct,
   setProductActive,
+  setProductShowInMenu,
   updateProduct,
 } from "@/server/services/product.service";
 import {
@@ -65,6 +66,23 @@ export async function setProductActiveAction(
   if (result.ok) {
     revalidatePath("/produtos");
     revalidatePath(`/produtos/${id}`);
+  }
+  return result;
+}
+
+export async function setProductShowInMenuAction(
+  id: string,
+  show: boolean,
+): Promise<ActionResult> {
+  const result = await runAction(async () => {
+    await requireAuth();
+    await setProductShowInMenu(id, show);
+  });
+  if (result.ok) {
+    revalidatePath("/produtos");
+    revalidatePath(`/produtos/${id}`);
+    revalidatePath("/cardapio");
+    revalidatePath("/");
   }
   return result;
 }

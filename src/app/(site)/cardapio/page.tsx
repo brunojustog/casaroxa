@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { MessageCircle } from "lucide-react";
 import { MenuItemCard } from "@/components/public/MenuItemCard";
 import { getPublicMenu, getSiteSettings } from "@/server/services/public-menu.service";
-import { whatsappLink } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +13,6 @@ export default async function CardapioPage({
   const selectedCat = typeof sp.cat === "string" ? sp.cat : null;
 
   const [menu, settings] = await Promise.all([getPublicMenu(), getSiteSettings()]);
-  const wa = whatsappLink(
-    settings.whatsappNumber,
-    "Olá! Vim pelo site e quero fazer um pedido.",
-  );
 
   const filtered = selectedCat
     ? menu.filter((c) => String(c.category) === selectedCat)
@@ -87,20 +81,6 @@ export default async function CardapioPage({
         ))
       )}
 
-      {/* CTA fixo de pedido */}
-      {wa && totalItems > 0 && (
-        <div className="sticky bottom-4 z-20 mx-auto flex max-w-md justify-center">
-          <a
-            href={wa}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-full bg-green-600 px-6 py-3 text-sm font-semibold text-white shadow-lg ring-4 ring-green-600/20 transition hover:bg-green-700"
-          >
-            <MessageCircle className="h-5 w-5" />
-            Fazer pedido pelo WhatsApp
-          </a>
-        </div>
-      )}
     </div>
   );
 }

@@ -157,7 +157,11 @@ export default async function ProdutosPage({
                     )}
                   </TD>
                   <TD className="text-right pr-2">
-                    <ProductRowActions id={p.id} active={p.active} />
+                    <ProductRowActions
+                      id={p.id}
+                      active={p.active}
+                      showInMenu={p.showInMenu}
+                    />
                   </TD>
                 </TR>
               );

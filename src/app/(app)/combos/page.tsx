@@ -127,7 +127,11 @@ export default async function CombosPage({
                     )}
                   </TD>
                   <TD className="text-right pr-2">
-                    <ComboRowActions id={c.id} active={c.active} />
+                    <ComboRowActions
+                      id={c.id}
+                      active={c.active}
+                      showInMenu={c.showInMenu}
+                    />
                   </TD>
                 </TR>
               );
