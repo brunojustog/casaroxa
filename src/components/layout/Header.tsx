@@ -17,7 +17,7 @@ export async function Header() {
         <h1 className="text-base font-semibold text-slate-900">
           {settings?.businessName ?? "Casa Roxa Assados"}
         </h1>
-        <p className="text-xs text-slate-500">Gestão de Custos</p>
+        <p className="text-xs text-slate-500">Gestão</p>
       </div>
 
       <div className="flex items-center gap-3">

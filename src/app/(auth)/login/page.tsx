@@ -22,7 +22,7 @@ export default async function LoginPage({
           </div>
           <div>
             <p className="text-lg font-semibold text-slate-900 leading-tight">Casa Roxa</p>
-            <p className="text-xs text-slate-500 leading-tight">Gestão de Custos</p>
+            <p className="text-xs text-slate-500 leading-tight">Gestão</p>
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-// Casa Roxa Gestão de Custos — Prisma schema
+// Casa Roxa — Gestão — Prisma schema
 // Veja README.md para instruções de bootstrap.
 
 generator client {

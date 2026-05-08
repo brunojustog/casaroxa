@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Casa Roxa Gestão de Custos",
-  description: "Fichas técnicas, precificação e combos da Casa Roxa Assados",
+  title: "Casa Roxa — Gestão",
+  description: "Sistema de gestão da Casa Roxa Assados",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,5 +1,5 @@
 /**
- * Seed inicial da Casa Roxa Gestão de Custos.
+ * Seed inicial da Casa Roxa — Gestão.
  *
  * Cria:
  *  - 1 usuário admin (env SEED_ADMIN_*)

@@ -23,25 +23,53 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const NAV = [
-  { href: "/dashboard",       label: "Dashboard",        icon: LayoutDashboard },
-  { href: "/ingredientes",    label: "Ingredientes",     icon: Carrot },
-  { href: "/produtos",        label: "Produtos",         icon: Package },
-  { href: "/fichas-tecnicas", label: "Fichas Técnicas",  icon: ClipboardList },
-  { href: "/combos",          label: "Combos",           icon: Boxes },
-  { href: "/estoque",         label: "Estoque",          icon: Warehouse },
-  { href: "/fornecedores",    label: "Fornecedores",     icon: Truck },
-  { href: "/compras",         label: "Compras",          icon: ShoppingCart },
-  { href: "/vendas",          label: "Vendas",           icon: DollarSign },
-  { href: "/assistente",      label: "Assistente IA",    icon: Sparkles },
-  { href: "/simulador",       label: "Simulador",        icon: Calculator },
-  { href: "/cenarios",        label: "Cenários",         icon: TrendingUp },
-  { href: "/custos-fixos",    label: "Custos Fixos",     icon: Receipt },
-  { href: "/resultado",       label: "Resultado / DRE",  icon: Activity },
-  { href: "/relatorios",      label: "Relatórios",       icon: FileBarChart2 },
-  { href: "/configuracoes",   label: "Configurações",    icon: SettingsIcon },
-  { href: "/importar",        label: "Importar Planilha", icon: Upload },
-] as const;
+type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
+type NavSection = { section: string; items: NavItem[] };
+
+const NAV: NavSection[] = [
+  {
+    section: "Cadastros",
+    items: [
+      { href: "/ingredientes",    label: "Ingredientes",    icon: Carrot },
+      { href: "/produtos",        label: "Produtos",        icon: Package },
+      { href: "/fichas-tecnicas", label: "Fichas Técnicas", icon: ClipboardList },
+      { href: "/combos",          label: "Combos",          icon: Boxes },
+      { href: "/fornecedores",    label: "Fornecedores",    icon: Truck },
+    ],
+  },
+  {
+    section: "Operação",
+    items: [
+      { href: "/estoque",  label: "Estoque",  icon: Warehouse },
+      { href: "/compras",  label: "Compras",  icon: ShoppingCart },
+      { href: "/vendas",   label: "Vendas",   icon: DollarSign },
+    ],
+  },
+  {
+    section: "Financeiro",
+    items: [
+      { href: "/custos-fixos", label: "Custos Fixos",    icon: Receipt },
+      { href: "/resultado",    label: "Resultado / DRE", icon: Activity },
+      { href: "/cenarios",     label: "Cenários",        icon: TrendingUp },
+      { href: "/simulador",    label: "Simulador",       icon: Calculator },
+    ],
+  },
+  {
+    section: "Análise",
+    items: [
+      { href: "/dashboard",  label: "Dashboard",  icon: LayoutDashboard },
+      { href: "/relatorios", label: "Relatórios", icon: FileBarChart2 },
+    ],
+  },
+  {
+    section: "Ferramentas",
+    items: [
+      { href: "/assistente",    label: "Assistente IA", icon: Sparkles },
+      { href: "/importar",      label: "Importar",      icon: Upload },
+      { href: "/configuracoes", label: "Configurações", icon: SettingsIcon },
+    ],
+  },
+];
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -54,38 +82,48 @@ export function Sidebar() {
         </div>
         <div>
           <p className="text-sm font-semibold text-slate-900 leading-tight">Casa Roxa</p>
-          <p className="text-[11px] text-slate-500 leading-tight">Gestão de Custos</p>
+          <p className="text-[11px] text-slate-500 leading-tight">Gestão</p>
         </div>
       </div>
 
       <nav className="flex-1 overflow-y-auto p-3">
-        <ul className="space-y-1">
-          {NAV.map((item) => {
-            const Icon = item.icon;
-            const active =
-              pathname === item.href || pathname.startsWith(`${item.href}/`);
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                    active
-                      ? "bg-roxa-50 text-roxa-800"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-                  )}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="space-y-4">
+          {NAV.map((group) => (
+            <div key={group.section}>
+              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                {group.section}
+              </p>
+              <ul className="space-y-0.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const active =
+                    pathname === item.href ||
+                    pathname.startsWith(`${item.href}/`);
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                          active
+                            ? "bg-roxa-50 text-roxa-800"
+                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                        )}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        {item.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
       </nav>
 
       <div className="border-t border-slate-200 p-3 text-[11px] text-slate-400">
-        v0.5 — Assistente IA
+        Casa Roxa Gestão
       </div>
     </aside>
   );
