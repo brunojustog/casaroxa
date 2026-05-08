@@ -59,6 +59,7 @@ const ADMIN_PREFIXES = [
   "/configuracoes",
   "/importar",
   "/api/auth",
+  "/api/admin",
 ];
 
 function isPublicPath(pathname: string): boolean {

@@ -23,6 +23,8 @@ import {
   updateProductAction,
 } from "@/server/actions/products";
 import { AiDescriptionButton } from "@/components/ai/AiDescriptionButton";
+import { ImageUploadField } from "@/components/admin/upload/ImageUploadField";
+import { GalleryUploadField } from "@/components/admin/upload/GalleryUploadField";
 import type {
   ProductCategory,
   ProductStatus,
@@ -261,14 +263,14 @@ export function ProductForm({
         <h3 className="text-sm font-semibold text-slate-700 mb-3">Cardápio online</h3>
         <div className="space-y-4">
           <Field
-            label="URL da foto principal"
-            htmlFor="imageUrl"
-            hint="Ex.: /menu/frango.jpg (arquivo em /public/menu/) ou URL completa."
+            label="Foto principal"
+            hint="Faça upload do computador ou cole uma URL externa. Aparece nos cards do cardápio."
           >
-            <Input
-              id="imageUrl"
-              type="text"
-              {...form.register("imageUrl")}
+            <ImageUploadField
+              value={form.watch("imageUrl") ?? ""}
+              onChange={(url) =>
+                form.setValue("imageUrl", url, { shouldDirty: true })
+              }
               placeholder="/menu/frango.jpg"
             />
           </Field>
@@ -297,14 +299,17 @@ export function ProductForm({
             </Field>
             <Field
               label="Galeria de fotos adicionais (opcional)"
-              htmlFor="gallery"
-              hint="Uma URL por linha. Aparecem na página de detalhe do produto."
+              hint="Faça upload de várias fotos ou cole URLs externas (1 por linha). Aparecem na página de detalhe."
             >
-              <Textarea
-                id="gallery"
-                rows={3}
-                {...form.register("gallery")}
-                placeholder={"/menu/frango-2.jpg\n/menu/frango-3.jpg"}
+              <GalleryUploadField
+                value={(form.watch("gallery") as unknown as string) ?? ""}
+                onChange={(multiline) =>
+                  form.setValue(
+                    "gallery",
+                    multiline as unknown as string[],
+                    { shouldDirty: true },
+                  )
+                }
               />
             </Field>
             <Field

@@ -12,6 +12,7 @@ import { Field } from "@/components/ui/field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatBRL } from "@/lib/format";
 import { updateSettingsAction } from "@/server/actions/settings";
+import { ImageUploadField } from "@/components/admin/upload/ImageUploadField";
 
 type Defaults = {
   businessName: string;
@@ -382,10 +383,10 @@ export function SettingsForm({ initial }: { initial: Defaults }) {
                   placeholder="Combo Família neste sábado"
                 />
               </Field>
-              <Field label="URL da foto / banner">
-                <Input
+              <Field label="Foto / banner da promoção">
+                <ImageUploadField
                   value={state.heroPromoImageUrl}
-                  onChange={(e) => set("heroPromoImageUrl", e.currentTarget.value)}
+                  onChange={(url) => set("heroPromoImageUrl", url)}
                   placeholder="/menu/promo.jpg"
                 />
               </Field>

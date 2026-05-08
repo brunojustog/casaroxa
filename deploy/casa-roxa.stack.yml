@@ -34,6 +34,10 @@ services:
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Administrador}
       NODE_ENV: production
+    volumes:
+      # Uploads de imagens (foto de produto, galeria, hero promo).
+      # Persiste entre re-deploys. Servido pelo Next como /menu/uploads/*.
+      - casa_roxa_uploads:/app/public/menu/uploads
     deploy:
       replicas: 1
       placement:
@@ -98,4 +102,6 @@ networks:
 
 volumes:
   casa_roxa_postgres_data:
+    driver: local
+  casa_roxa_uploads:
     driver: local

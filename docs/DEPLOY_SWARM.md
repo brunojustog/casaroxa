@@ -214,7 +214,29 @@ Migrations novas? Já vão rodar automaticamente no entrypoint do novo container
 
 ---
 
-## 9. Backup do banco
+## 9. Volume de uploads
+
+A partir de v0.6, a stack inclui o volume `casa_roxa_casa_roxa_uploads`
+(montado em `/app/public/menu/uploads`) onde ficam as fotos enviadas pelo
+admin (foto principal, galeria, hero promo).
+
+- **Persiste entre re-deploys** — atualizar a imagem da app não apaga as fotos.
+- Backup recomendado junto com o Postgres:
+  ```bash
+  # Backup do diretório de uploads
+  docker run --rm -v casa-roxa_casa_roxa_uploads:/data -v /var/backups/casa_roxa:/backup alpine tar czf /backup/uploads_$(date +%F).tar.gz -C /data .
+  ```
+- Restaurar:
+  ```bash
+  docker run --rm -v casa-roxa_casa_roxa_uploads:/data -v /var/backups/casa_roxa:/backup alpine tar xzf /backup/uploads_2026-05-08.tar.gz -C /data
+  ```
+
+> **Atenção:** ao remover o stack (`docker stack rm casa-roxa`), o volume
+> permanece. Para apagar tudo: `docker volume rm casa-roxa_casa_roxa_uploads`.
+
+---
+
+## 10. Backup do banco
 
 Cron diário no host Swarm (como root ou usuário com Docker):
 
@@ -230,7 +252,7 @@ gunzip < backup.sql.gz | docker exec -i $(docker ps -qf name=casa-roxa_postgres)
 
 ---
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 ### "no such image: ghcr.io/brunojustog/casa-roxa-gestao:latest"
 - Imagem não foi pushada ainda. Build + push novamente.

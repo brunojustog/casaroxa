@@ -20,6 +20,8 @@ import { formatBRL, formatPercent } from "@/lib/format";
 import { calculateCmv, calculateGrossProfit } from "@/domain/calculations";
 import { saveComboAction } from "@/server/actions/combos";
 import { AiDescriptionButton } from "@/components/ai/AiDescriptionButton";
+import { ImageUploadField } from "@/components/admin/upload/ImageUploadField";
+import { GalleryUploadField } from "@/components/admin/upload/GalleryUploadField";
 import type { ProductCategory } from "@prisma/client";
 
 const CATEGORIES = enumOptions(PRODUCT_CATEGORY_LABEL);
@@ -313,12 +315,13 @@ export function ComboEditor({
 
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-4">
             <h3 className="text-sm font-semibold text-slate-700">Cardápio online</h3>
-            <Field label="URL da foto principal" htmlFor="imageUrl" hint="Ex.: /menu/combo.jpg ou URL completa.">
-              <Input
-                id="imageUrl"
-                type="text"
+            <Field
+              label="Foto principal"
+              hint="Faça upload do computador ou cole uma URL externa. Aparece nos cards do cardápio."
+            >
+              <ImageUploadField
                 value={imageUrl}
-                onChange={(e) => setImageUrl(e.currentTarget.value)}
+                onChange={(url) => setImageUrl(url)}
                 placeholder="/menu/combo.jpg"
               />
             </Field>
@@ -352,15 +355,11 @@ export function ComboEditor({
               </Field>
               <Field
                 label="Galeria de fotos adicionais (opcional)"
-                htmlFor="gallery"
-                hint="Uma URL por linha."
+                hint="Faça upload de várias fotos ou cole URLs externas. Aparecem na página de detalhe."
               >
-                <Textarea
-                  id="gallery"
-                  rows={3}
+                <GalleryUploadField
                   value={gallery}
-                  onChange={(e) => setGallery(e.currentTarget.value)}
-                  placeholder={"/menu/combo-2.jpg\n/menu/combo-3.jpg"}
+                  onChange={(multiline) => setGallery(multiline)}
                 />
               </Field>
               <Field
