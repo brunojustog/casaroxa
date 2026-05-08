@@ -29,7 +29,7 @@ const fmt = (v: number) =>
 
 export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout }) {
   const router = useRouter();
-  const { cart, count, total, hydrated, setQty, remove } = useCart();
+  const { cart, count, total, hydrated, setQty, remove, clear } = useCart();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -175,7 +175,10 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
       } catch {
         /* ignora */
       }
-      // Limpa o carrinho persistido
+      // Limpa o carrinho via contexto — atualiza o estado E o localStorage.
+      // (Apenas remover do localStorage não bastava: o useEffect persist do
+      // CartProvider re-escreveria o cart antigo em renders subsequentes.)
+      clear();
       try {
         localStorage.removeItem("casaroxa.cart.v1");
       } catch {

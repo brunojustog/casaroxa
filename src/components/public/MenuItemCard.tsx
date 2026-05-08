@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { ImageOff } from "lucide-react";
 import { formatBRL } from "@/lib/format";
-import { AddToCartButton } from "./cart/AddToCartButton";
+import { MenuItemActions } from "./cart/MenuItemActions";
 import type { PublicMenuItem } from "@/server/services/public-menu.service";
 
 export function MenuItemCard({ item }: { item: PublicMenuItem }) {
@@ -38,11 +38,11 @@ export function MenuItemCard({ item }: { item: PublicMenuItem }) {
         {item.description && (
           <p className="text-sm text-slate-600 line-clamp-3">{item.description}</p>
         )}
-        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-2">
           <span className="text-2xl font-bold tabular-nums text-roxa-700">
             {formatBRL(item.price)}
           </span>
-          <AddToCartButton
+          <MenuItemActions
             item={{
               id: item.id,
               kind: item.kind,
