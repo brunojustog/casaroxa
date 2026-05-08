@@ -7,12 +7,46 @@
  */
 import { prisma } from "@/lib/prisma";
 import { PRODUCT_CATEGORY_LABEL } from "@/lib/enums";
-import type { ProductCategory } from "@prisma/client";
+import { IngredientCategory, type ProductCategory } from "@prisma/client";
 
 /** Converte o campo Json gallery (array de URLs) com fallback para []. */
 function parseGallery(value: unknown): string[] {
   if (!value || !Array.isArray(value)) return [];
   return value.filter((v): v is string => typeof v === "string" && v.length > 0);
+}
+
+/**
+ * Categorias de ingrediente que aparecem para o cliente final.
+ * Embalagem, gás e limpeza ficam de fora — fazem parte da operação,
+ * não da experiência do prato.
+ */
+const PUBLIC_INGREDIENT_CATEGORIES = new Set<IngredientCategory>([
+  IngredientCategory.CARNE,
+  IngredientCategory.TEMPERO,
+  IngredientCategory.ACOMPANHAMENTO,
+  IngredientCategory.BEBIDA,
+  IngredientCategory.OUTRO,
+]);
+
+function dedup<T>(arr: T[]): T[] {
+  return arr.filter((v, i, a) => a.indexOf(v) === i);
+}
+
+function deriveIngredientsFromRecipe(
+  items: Array<{ ingredient: { name: string; category: IngredientCategory } }>,
+): string {
+  const names = dedup(
+    items
+      .filter((it) => PUBLIC_INGREDIENT_CATEGORIES.has(it.ingredient.category))
+      .map((it) => it.ingredient.name),
+  );
+  return names.join(", ");
+}
+
+function deriveIngredientsFromCombo(
+  items: Array<{ product: { name: string } }>,
+): string {
+  return dedup(items.map((it) => it.product.name)).join(", ");
 }
 
 export async function getPublicMenuItem(
@@ -33,9 +67,26 @@ export async function getPublicMenuItem(
         ingredientsPublic: true,
         gallery: true,
         youtubeUrl: true,
+        recipe: {
+          select: {
+            items: {
+              orderBy: { totalCost: "desc" },
+              select: {
+                ingredient: { select: { name: true, category: true } },
+              },
+            },
+          },
+        },
       },
     });
     if (!p) return null;
+    // Se Bruno preencheu manual, usa. Senão, deriva da ficha técnica filtrada.
+    const derived =
+      p.ingredientsPublic && p.ingredientsPublic.trim().length > 0
+        ? p.ingredientsPublic
+        : p.recipe
+          ? deriveIngredientsFromRecipe(p.recipe.items) || null
+          : null;
     return {
       id: p.id,
       kind: "PRODUTO",
@@ -45,7 +96,7 @@ export async function getPublicMenuItem(
       imageUrl: p.imageUrl,
       portionLabel: p.portionLabel,
       category: p.category,
-      ingredientsPublic: p.ingredientsPublic,
+      ingredientsPublic: derived,
       gallery: parseGallery(p.gallery),
       youtubeUrl: p.youtubeUrl,
     };
@@ -62,9 +113,21 @@ export async function getPublicMenuItem(
       ingredientsPublic: true,
       gallery: true,
       youtubeUrl: true,
+      items: {
+        orderBy: { totalCost: "desc" },
+        select: {
+          product: { select: { name: true } },
+        },
+      },
     },
   });
   if (!c) return null;
+  // Combo: se manual vazio, lista os produtos componentes (mais legível
+  // que expandir todas as fichas). Bruno pode editar pra deixar mais bonito.
+  const derived =
+    c.ingredientsPublic && c.ingredientsPublic.trim().length > 0
+      ? c.ingredientsPublic
+      : deriveIngredientsFromCombo(c.items) || null;
   return {
     id: c.id,
     kind: "COMBO",
@@ -74,7 +137,7 @@ export async function getPublicMenuItem(
     imageUrl: c.imageUrl,
     portionLabel: null,
     category: c.category,
-    ingredientsPublic: c.ingredientsPublic,
+    ingredientsPublic: derived,
     gallery: parseGallery(c.gallery),
     youtubeUrl: c.youtubeUrl,
   };

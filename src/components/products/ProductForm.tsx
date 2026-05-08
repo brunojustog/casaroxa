@@ -286,7 +286,7 @@ export function ProductForm({
             <Field
               label="Ingredientes (visível ao cliente, opcional)"
               htmlFor="ingredientsPublic"
-              hint="Texto livre. Não tem relação com a ficha técnica interna."
+              hint="Se vazio, o sistema mostra automaticamente os ingredientes da ficha técnica (exceto embalagem, gás e limpeza). Preencha aqui só se quiser uma versão diferente da automática."
             >
               <Textarea
                 id="ingredientsPublic"

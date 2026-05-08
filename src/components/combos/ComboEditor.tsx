@@ -340,6 +340,7 @@ export function ComboEditor({
               <Field
                 label="Ingredientes (visível ao cliente, opcional)"
                 htmlFor="ingredientsPublic"
+                hint="Se vazio, o sistema lista automaticamente os produtos do combo. Preencha aqui se quiser uma versão diferente."
               >
                 <Textarea
                   id="ingredientsPublic"
