@@ -77,6 +77,13 @@ enum ImportStatus {
   FALHA
 }
 
+enum StockMovementType {
+  ENTRADA // compra (quantity adiciona ao saldo)
+  SAIDA // venda manual / consumo (quantity subtrai)
+  PERDA // descarte / vencimento (quantity subtrai; também usar para ajuste negativo)
+  AJUSTE // correção positiva do inventário (quantity adiciona; usar PERDA para correção negativa)
+}
+
 // ============================================================
 // AUTENTICAÇÃO
 // ============================================================
@@ -93,6 +100,7 @@ model User {
   ingredientPriceChanges IngredientPriceHistory[]
   recipesReviewed        Recipe[]                 @relation("RecipeReviewer")
   settingsChanges        SettingsHistory[]
+  stockMovements         StockMovement[]
 }
 
 // ============================================================
@@ -115,8 +123,9 @@ model Ingredient {
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
-  recipeItems  RecipeItem[]
-  priceHistory IngredientPriceHistory[]
+  recipeItems    RecipeItem[]
+  priceHistory   IngredientPriceHistory[]
+  stockMovements StockMovement[]
 
   @@index([category, active])
 }
@@ -359,4 +368,30 @@ model ImportLog {
   summary    Json
   errors     Json?
   importedAt DateTime     @default(now())
+}
+
+// ============================================================
+// ESTOQUE
+// ============================================================
+
+model StockMovement {
+  id            String            @id @default(cuid())
+  ingredientId  String
+  type          StockMovementType
+  quantity      Decimal           @db.Decimal(12, 4) // sempre positivo; o type indica direção
+  unitCost      Decimal?          @db.Decimal(12, 4) // custo no momento (preenchido em ENTRADA)
+  lotNumber     String?
+  expiryDate    DateTime?
+  notes         String?
+  referenceType String? // "PURCHASE", "MANUAL", "SALE" etc. (futuro)
+  referenceId   String?
+  userId        String?
+  createdAt     DateTime          @default(now())
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  user       User?      @relation(fields: [userId], references: [id])
+
+  @@index([ingredientId, createdAt])
+  @@index([type, createdAt])
+  @@index([expiryDate])
 }
