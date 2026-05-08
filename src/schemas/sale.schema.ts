@@ -64,6 +64,17 @@ export const saleItemFormSchema = z
 export type SaleItemFormInput = z.input<typeof saleItemFormSchema>;
 export type SaleItemFormData = z.output<typeof saleItemFormSchema>;
 
+/** Update inline de um item já existente: muda qty e/ou preço unitário. */
+export const saleItemUpdateSchema = z.object({
+  quantity: positiveQty,
+  unitPrice: z
+    .union([z.string(), z.number()])
+    .transform((v) => (typeof v === "string" ? Number(v.replace(",", ".")) : v))
+    .pipe(z.number().min(0, "Preço não pode ser negativo")),
+});
+export type SaleItemUpdateInput = z.input<typeof saleItemUpdateSchema>;
+export type SaleItemUpdateData = z.output<typeof saleItemUpdateSchema>;
+
 // ---------- Pagamento ----------
 
 export const salePaymentFormSchema = z.object({

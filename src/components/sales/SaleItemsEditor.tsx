@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
+import { Check, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -19,6 +19,7 @@ import { formatBRL } from "@/lib/format";
 import {
   addSaleItemAction,
   removeSaleItemAction,
+  updateSaleItemAction,
 } from "@/server/actions/sales";
 
 type CatalogEntry = {
@@ -192,41 +193,23 @@ export function SaleItemsEditor({
               <TH className="text-right">Preço unit.</TH>
               <TH className="text-right">Total</TH>
               <TH className="text-right">Custo</TH>
-              {!readOnly && <TH className="w-12"></TH>}
+              {!readOnly && <TH className="w-32"></TH>}
             </TR>
           </THead>
           <TBody>
-            {items.map((it) => (
-              <TR key={it.id}>
-                <TD className="font-medium text-slate-900">
-                  {it.productName ?? it.comboName}
-                  <span className="ml-2 text-xs text-slate-400">
-                    {it.productId ? "Produto" : "Combo"}
-                  </span>
-                </TD>
-                <TD className="text-right tabular-nums">{it.quantity}</TD>
-                <TD className="text-right tabular-nums">{formatBRL(it.unitPrice)}</TD>
-                <TD className="text-right tabular-nums font-medium">
-                  {formatBRL(it.totalPrice)}
-                </TD>
-                <TD className="text-right tabular-nums text-slate-500 text-xs">
-                  {formatBRL(it.totalCost)}
-                </TD>
-                {!readOnly && (
-                  <TD className="text-right pr-2">
-                    <button
-                      type="button"
-                      onClick={() => onRemove(it.id)}
-                      disabled={isPending}
-                      className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                      title="Remover"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </TD>
-                )}
-              </TR>
-            ))}
+            {items.map((it) =>
+              readOnly ? (
+                <ReadOnlyRow key={it.id} item={it} />
+              ) : (
+                <EditableRow
+                  key={it.id}
+                  item={it}
+                  saleId={saleId}
+                  onRemove={() => onRemove(it.id)}
+                  disabled={isPending}
+                />
+              ),
+            )}
           </TBody>
         </Table>
       )}
@@ -247,5 +230,166 @@ export function SaleItemsEditor({
         </div>
       )}
     </div>
+  );
+}
+
+function ReadOnlyRow({ item: it }: { item: SaleItemRow }) {
+  return (
+    <TR>
+      <TD className="font-medium text-slate-900">
+        {it.productName ?? it.comboName}
+        <span className="ml-2 text-xs text-slate-400">
+          {it.productId ? "Produto" : "Combo"}
+        </span>
+      </TD>
+      <TD className="text-right tabular-nums">{it.quantity}</TD>
+      <TD className="text-right tabular-nums">{formatBRL(it.unitPrice)}</TD>
+      <TD className="text-right tabular-nums font-medium">{formatBRL(it.totalPrice)}</TD>
+      <TD className="text-right tabular-nums text-slate-500 text-xs">{formatBRL(it.totalCost)}</TD>
+    </TR>
+  );
+}
+
+function EditableRow({
+  item,
+  saleId,
+  onRemove,
+  disabled,
+}: {
+  item: SaleItemRow;
+  saleId: string;
+  onRemove: () => void;
+  disabled: boolean;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [qty, setQty] = useState(String(item.quantity));
+  const [price, setPrice] = useState(String(item.unitPrice));
+  const [rowError, setRowError] = useState<string | null>(null);
+
+  const numQty = Number(qty.replace(",", ".")) || 0;
+  const numPrice = Number(price.replace(",", ".")) || 0;
+  const livePreview = numQty * numPrice;
+
+  // Considera "modificado" se diferente dos valores originais (com tolerância de centavo).
+  const dirty =
+    Math.abs(numQty - item.quantity) > 0.0001 ||
+    Math.abs(numPrice - item.unitPrice) > 0.005;
+
+  function reset() {
+    setQty(String(item.quantity));
+    setPrice(String(item.unitPrice));
+    setRowError(null);
+  }
+
+  function save() {
+    setRowError(null);
+    if (!(numQty > 0)) {
+      setRowError("Quantidade > 0");
+      return;
+    }
+    if (numPrice < 0) {
+      setRowError("Preço >= 0");
+      return;
+    }
+    startTransition(async () => {
+      const res = await updateSaleItemAction(item.id, saleId, {
+        quantity: numQty,
+        unitPrice: numPrice,
+      });
+      if (!res.ok) {
+        setRowError(res.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  const isPending = pending || disabled;
+
+  return (
+    <TR>
+      <TD className="font-medium text-slate-900">
+        {item.productName ?? item.comboName}
+        <span className="ml-2 text-xs text-slate-400">
+          {item.productId ? "Produto" : "Combo"}
+        </span>
+        {rowError && (
+          <p className="mt-0.5 text-[11px] text-red-600">{rowError}</p>
+        )}
+      </TD>
+      <TD className="text-right">
+        <Input
+          type="number"
+          step="0.01"
+          min="0.01"
+          value={qty}
+          onChange={(e) => setQty(e.currentTarget.value)}
+          disabled={isPending}
+          className="ml-auto h-8 w-20 text-right tabular-nums"
+        />
+      </TD>
+      <TD className="text-right">
+        <Input
+          type="number"
+          step="0.01"
+          min="0"
+          value={price}
+          onChange={(e) => setPrice(e.currentTarget.value)}
+          disabled={isPending}
+          className="ml-auto h-8 w-24 text-right tabular-nums"
+        />
+      </TD>
+      <TD className="text-right tabular-nums font-medium">
+        {dirty ? (
+          <span className="text-slate-500">
+            <span className="line-through text-slate-300 text-xs">
+              {formatBRL(item.totalPrice)}
+            </span>{" "}
+            <span className="text-roxa-700">{formatBRL(livePreview)}</span>
+          </span>
+        ) : (
+          formatBRL(item.totalPrice)
+        )}
+      </TD>
+      <TD className="text-right tabular-nums text-slate-500 text-xs">
+        {formatBRL(item.totalCost)}
+      </TD>
+      <TD className="text-right pr-2">
+        <div className="flex items-center justify-end gap-0.5">
+          {dirty && (
+            <>
+              <button
+                type="button"
+                onClick={save}
+                disabled={isPending}
+                className="rounded-md p-1.5 text-green-700 hover:bg-green-50 disabled:opacity-50"
+                title="Salvar alterações"
+              >
+                <Check className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={reset}
+                disabled={isPending}
+                className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
+                title="Desfazer"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={isPending}
+            className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+            title="Remover"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </TD>
+    </TR>
   );
 }

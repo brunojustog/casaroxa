@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   saleHeaderFormSchema,
   saleItemFormSchema,
+  saleItemUpdateSchema,
   salePaymentFormSchema,
 } from "@/schemas/sale.schema";
 import {
@@ -15,6 +16,7 @@ import {
   removeSaleItem,
   removeSalePayment,
   updateSaleHeader,
+  updateSaleItem,
 } from "@/server/services/sales.service";
 import {
   BusinessError,
@@ -93,6 +95,23 @@ export async function removeSaleItemAction(
   const result = await runAction(async () => {
     await requireAuth();
     await removeSaleItem(itemId);
+  });
+  if (result.ok) revalidateSales(saleId);
+  return result;
+}
+
+export async function updateSaleItemAction(
+  itemId: string,
+  saleId: string,
+  raw: unknown,
+): Promise<ActionResult> {
+  const result = await runAction(async () => {
+    await requireAuth();
+    const parsed = saleItemUpdateSchema.safeParse(raw);
+    if (!parsed.success) {
+      throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");
+    }
+    await updateSaleItem(itemId, parsed.data);
   });
   if (result.ok) revalidateSales(saleId);
   return result;
