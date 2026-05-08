@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: casa-roxa-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: casaroxa
+      POSTGRES_PASSWORD: casaroxa
+      POSTGRES_DB: casa_roxa
+    ports:
+      - "5432:5432"
+    volumes:
+      - casa_roxa_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U casaroxa -d casa_roxa"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # App opcional — descomente para rodar tudo containerizado
+  # app:
+  #   build: .
+  #   container_name: casa-roxa-app
+  #   restart: unless-stopped
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   environment:
+  #     DATABASE_URL: postgresql://casaroxa:casaroxa@postgres:5432/casa_roxa?schema=public
+  #     AUTH_SECRET: ${AUTH_SECRET}
+  #     AUTH_TRUST_HOST: "true"
+  #   ports:
+  #     - "3000:3000"
+
+volumes:
+  casa_roxa_pgdata:
