@@ -77,7 +77,7 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-slate-200 p-3 text-[11px] text-slate-400">
-        v0.3 — Compras + Fornecedores
+        v0.4 — NFe XML
       </div>
     </aside>
   );
