@@ -60,6 +60,11 @@ export default async function ConfiguracoesPage() {
               minimumOrderValue: settings.minimumOrderValue
                 ? Number(settings.minimumOrderValue)
                 : null,
+              heroPromoTitle: settings.heroPromoTitle,
+              heroPromoText: settings.heroPromoText,
+              heroPromoImageUrl: settings.heroPromoImageUrl,
+              heroPromoLinkLabel: settings.heroPromoLinkLabel,
+              heroPromoLinkHref: settings.heroPromoLinkHref,
             }}
           />
         </div>

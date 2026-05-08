@@ -212,24 +212,31 @@ model IngredientPriceHistory {
 // ============================================================
 
 model Product {
-  id           String          @id @default(cuid())
-  name         String          @unique
-  category     ProductCategory
-  type         ProductType     @default(SIMPLES)
-  portionLabel String?
-  salePrice    Decimal?        @db.Decimal(12, 2)
-  targetCmv    Decimal?        @db.Decimal(5, 4)
-  description  String?
-  notes        String?
-  status       ProductStatus   @default(ATIVO)
-  active       Boolean         @default(true)
-  totalCost    Decimal         @default(0) @db.Decimal(12, 4)
+  id                String          @id @default(cuid())
+  name              String          @unique
+  category          ProductCategory
+  type              ProductType     @default(SIMPLES)
+  portionLabel      String?
+  salePrice         Decimal?        @db.Decimal(12, 2)
+  targetCmv         Decimal?        @db.Decimal(5, 4)
+  description       String?
+  notes             String?
+  status            ProductStatus   @default(ATIVO)
+  active            Boolean         @default(true)
+  totalCost         Decimal         @default(0) @db.Decimal(12, 4)
   /// URL pública da foto (relativa, ex: /menu/frango.jpg, ou absoluta).
-  imageUrl     String?
+  imageUrl          String?
   /// Se true, aparece no cardápio online público.
-  showInMenu   Boolean         @default(false)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  showInMenu        Boolean         @default(false)
+  /// Texto livre com ingredientes visível ao cliente (ex: "Frango caipira, alho, cebola, sal grosso").
+  /// Distinto da Recipe interna que controla custos.
+  ingredientsPublic String?
+  /// Galeria de fotos adicionais (array de URLs em JSON). Aparece na página de detalhe.
+  gallery           Json?
+  /// URL do YouTube (qualquer formato). É convertida para embed na página de detalhe.
+  youtubeUrl        String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   recipe       Recipe?
   comboItems   ComboItem[]
@@ -311,21 +318,27 @@ model RecipeVersion {
 // ============================================================
 
 model Combo {
-  id          String          @id @default(cuid())
-  name        String          @unique
-  category    ProductCategory
-  description String?
-  salePrice   Decimal?        @db.Decimal(12, 2)
-  targetCmv   Decimal?        @db.Decimal(5, 4)
-  notes       String?
-  active      Boolean         @default(true)
-  totalCost   Decimal         @default(0) @db.Decimal(12, 4)
+  id                String          @id @default(cuid())
+  name              String          @unique
+  category          ProductCategory
+  description       String?
+  salePrice         Decimal?        @db.Decimal(12, 2)
+  targetCmv         Decimal?        @db.Decimal(5, 4)
+  notes             String?
+  active            Boolean         @default(true)
+  totalCost         Decimal         @default(0) @db.Decimal(12, 4)
   /// URL pública da foto (relativa, ex: /menu/combo.jpg, ou absoluta).
-  imageUrl    String?
+  imageUrl          String?
   /// Se true, aparece no cardápio online público.
-  showInMenu  Boolean         @default(false)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  showInMenu        Boolean         @default(false)
+  /// Texto livre com ingredientes visível ao cliente.
+  ingredientsPublic String?
+  /// Galeria de fotos adicionais (array de URLs em JSON).
+  gallery           Json?
+  /// URL do YouTube convertida para embed na página de detalhe.
+  youtubeUrl        String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   saleItems SaleItem[]
 
@@ -401,6 +414,18 @@ model Settings {
   deliveryFeeNote     String?
   /// Pedido mínimo opcional (em R$). Se null/0, sem mínimo.
   minimumOrderValue   Decimal? @db.Decimal(10, 2)
+
+  // ----- Promoção em destaque (hero da landing) -----
+  /// Título da promoção exibido em destaque no hero. Se vazio, mostra logo.
+  heroPromoTitle     String?
+  /// Texto descritivo da promoção.
+  heroPromoText      String?
+  /// URL da imagem da promoção.
+  heroPromoImageUrl  String?
+  /// Texto do botão CTA (ex: "Ver combos"). Se vazio, sem botão.
+  heroPromoLinkLabel String?
+  /// Para onde o botão leva (ex: /cardapio?cat=COMBOS). Se vazio, sem botão.
+  heroPromoLinkHref  String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

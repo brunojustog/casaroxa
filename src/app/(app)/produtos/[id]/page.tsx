@@ -126,6 +126,11 @@ export default async function EditarProdutoPage({
                   active: product.active,
                   imageUrl: product.imageUrl,
                   showInMenu: product.showInMenu,
+                  ingredientsPublic: product.ingredientsPublic,
+                  gallery: Array.isArray(product.gallery)
+                    ? (product.gallery as string[])
+                    : null,
+                  youtubeUrl: product.youtubeUrl,
                 }}
               />
             </CardContent>

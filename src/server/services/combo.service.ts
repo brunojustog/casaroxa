@@ -100,6 +100,9 @@ export async function saveCombo(input: SaveComboData, options: { id?: string }) 
           active: input.active,
           imageUrl: input.imageUrl,
           showInMenu: input.showInMenu,
+          ingredientsPublic: input.ingredientsPublic,
+          gallery: input.gallery ?? Prisma.DbNull,
+          youtubeUrl: input.youtubeUrl,
         },
       });
       comboId = created.id;
@@ -116,6 +119,9 @@ export async function saveCombo(input: SaveComboData, options: { id?: string }) 
           active: input.active,
           imageUrl: input.imageUrl,
           showInMenu: input.showInMenu,
+          ingredientsPublic: input.ingredientsPublic,
+          gallery: input.gallery ?? Prisma.DbNull,
+          youtubeUrl: input.youtubeUrl,
         },
       });
       // Limpa itens anteriores

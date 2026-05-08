@@ -76,5 +76,10 @@ function serializeSettings(s: Awaited<ReturnType<typeof getSettings>>) {
     deliveryFeeNote: s.deliveryFeeNote,
     minimumOrderValue:
       s.minimumOrderValue !== null ? Number(s.minimumOrderValue) : null,
+    heroPromoTitle: s.heroPromoTitle,
+    heroPromoText: s.heroPromoText,
+    heroPromoImageUrl: s.heroPromoImageUrl,
+    heroPromoLinkLabel: s.heroPromoLinkLabel,
+    heroPromoLinkHref: s.heroPromoLinkHref,
   };
 }

@@ -76,6 +76,12 @@ export const settingsFormSchema = z.object({
   deliveryEnabled: z.coerce.boolean().default(true),
   deliveryFeeNote: optionalString(300),
   minimumOrderValue: optionalPositive,
+  // Promoção em destaque (hero da landing)
+  heroPromoTitle: optionalString(120),
+  heroPromoText: optionalString(500),
+  heroPromoImageUrl: optionalString(500),
+  heroPromoLinkLabel: optionalString(60),
+  heroPromoLinkHref: optionalString(300),
 });
 
 export type SettingsFormInput = z.input<typeof settingsFormSchema>;
