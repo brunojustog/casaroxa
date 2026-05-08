@@ -10,6 +10,10 @@ import {
   countExpiringSoon,
   countMovementsLast30Days,
 } from "./stock.service";
+import {
+  countOpenSalesOlderThan24h,
+  getRevenueLast30Days,
+} from "./sales.service";
 import type { ProductCategory } from "@prisma/client";
 
 export type AlertSeverity = "danger" | "warning" | "info";
@@ -48,6 +52,8 @@ export async function getDashboardData() {
     expiringSoonCount,
     emptyButUsedCount,
     stockMovementsLast30Days,
+    salesLast30Days,
+    openSalesStale,
   ] = await Promise.all([
     prisma.ingredient.findMany({
       where: { active: true },
@@ -72,6 +78,8 @@ export async function getDashboardData() {
     countExpiringSoon(7),
     countEmptyButUsed(),
     countMovementsLast30Days(),
+    getRevenueLast30Days(),
+    countOpenSalesOlderThan24h(),
   ]);
 
   // ---------------- KPIs básicos ----------------
@@ -314,6 +322,15 @@ export async function getDashboardData() {
       href: "/relatorios/combos-cmv?aboveTarget=1",
     });
   }
+  if (openSalesStale > 0) {
+    alerts.push({
+      id: "sales-open-stale",
+      severity: "warning",
+      title: "Vendas em aberto há mais de 24h",
+      count: openSalesStale,
+      href: "/vendas?status=ABERTA",
+    });
+  }
 
   // ---------------- Faturamento alvo ----------------
   const monthlyRevenueTarget = settings
@@ -328,11 +345,13 @@ export async function getDashboardData() {
       products: productCount,
       combos: comboCount,
       stockMovementsLast30Days,
+      salesLast30Days: salesLast30Days.count,
     },
     avg: {
       productCmv: avgProductCmv,
       comboCmv: avgComboCmv,
     },
+    sales: salesLast30Days,
     issues: {
       productsWithoutCost,
       productsWithoutPrice,

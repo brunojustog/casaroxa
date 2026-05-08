@@ -18,6 +18,7 @@ import {
   ShoppingCart,
   Sparkles,
   Receipt,
+  DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,7 @@ const NAV = [
   { href: "/estoque",         label: "Estoque",          icon: Warehouse },
   { href: "/fornecedores",    label: "Fornecedores",     icon: Truck },
   { href: "/compras",         label: "Compras",          icon: ShoppingCart },
+  { href: "/vendas",          label: "Vendas",           icon: DollarSign },
   { href: "/assistente",      label: "Assistente IA",    icon: Sparkles },
   { href: "/simulador",       label: "Simulador",        icon: Calculator },
   { href: "/cenarios",        label: "Cenários",         icon: TrendingUp },
