@@ -5,6 +5,11 @@
 import { prisma } from "@/lib/prisma";
 import { calculateCmv, calculateGrossProfit } from "@/domain/calculations";
 import { PRODUCT_CATEGORY_LABEL } from "@/lib/enums";
+import {
+  countEmptyButUsed,
+  countExpiringSoon,
+  countMovementsLast30Days,
+} from "./stock.service";
 import type { ProductCategory } from "@prisma/client";
 
 export type AlertSeverity = "danger" | "warning" | "info";
@@ -35,7 +40,15 @@ export type CategoryDistPoint = {
 };
 
 export async function getDashboardData() {
-  const [ingredients, products, combos, settings] = await Promise.all([
+  const [
+    ingredients,
+    products,
+    combos,
+    settings,
+    expiringSoonCount,
+    emptyButUsedCount,
+    stockMovementsLast30Days,
+  ] = await Promise.all([
     prisma.ingredient.findMany({
       where: { active: true },
       select: {
@@ -56,6 +69,9 @@ export async function getDashboardData() {
       include: { _count: { select: { items: true } } },
     }),
     prisma.settings.findUnique({ where: { id: 1 } }),
+    countExpiringSoon(7),
+    countEmptyButUsed(),
+    countMovementsLast30Days(),
   ]);
 
   // ---------------- KPIs básicos ----------------
@@ -271,6 +287,24 @@ export async function getDashboardData() {
       href: "/combos",
     });
   }
+  if (expiringSoonCount > 0) {
+    alerts.push({
+      id: "stock-expiring-soon",
+      severity: "warning",
+      title: "Itens vencendo em ≤ 7 dias",
+      count: expiringSoonCount,
+      href: "/estoque?filter=expiring",
+    });
+  }
+  if (emptyButUsedCount > 0) {
+    alerts.push({
+      id: "stock-empty-but-used",
+      severity: "danger",
+      title: "Ingredientes sem saldo, mas usados em fichas",
+      count: emptyButUsedCount,
+      href: "/estoque?filter=empty",
+    });
+  }
   if (combosAboveCmv > 0) {
     alerts.push({
       id: "combos-above-cmv",
@@ -293,6 +327,7 @@ export async function getDashboardData() {
       ingredients: ingredientCount,
       products: productCount,
       combos: comboCount,
+      stockMovementsLast30Days,
     },
     avg: {
       productCmv: avgProductCmv,
@@ -306,6 +341,8 @@ export async function getDashboardData() {
       combosWithoutItems,
       combosAboveCmv,
       ingredientsWithoutPrice,
+      expiringSoonCount,
+      emptyButUsedCount,
     },
     settings,
     monthlyRevenueTarget,
