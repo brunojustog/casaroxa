@@ -17,6 +17,7 @@ import {
   Truck,
   ShoppingCart,
   Sparkles,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +33,7 @@ const NAV = [
   { href: "/assistente",      label: "Assistente IA",    icon: Sparkles },
   { href: "/simulador",       label: "Simulador",        icon: Calculator },
   { href: "/cenarios",        label: "Cenários",         icon: TrendingUp },
+  { href: "/custos-fixos",    label: "Custos Fixos",     icon: Receipt },
   { href: "/relatorios",      label: "Relatórios",       icon: FileBarChart2 },
   { href: "/configuracoes",   label: "Configurações",    icon: SettingsIcon },
   { href: "/importar",        label: "Importar Planilha", icon: Upload },

@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Save } from "lucide-react";
+import Link from "next/link";
+import { Save, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatBRL } from "@/lib/format";
 import { updateSettingsAction } from "@/server/actions/settings";
 
 type Defaults = {
@@ -58,7 +60,6 @@ const FACTORY_DEFAULTS: Defaults = {
 function toState(d: Defaults) {
   return {
     businessName: d.businessName,
-    fixedMonthlyCost: String(d.fixedMonthlyCost),
     investedAmount: String(d.investedAmount),
     plannedInvestment: String(d.plannedInvestment),
     targetAverageTicket: String(d.targetAverageTicket),
@@ -126,8 +127,21 @@ export function SettingsForm({ initial }: { initial: Defaults }) {
           <CardTitle>Operação e investimento</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Field label="Custo fixo mensal (R$)">
-            <Input type="number" step="0.01" min="0" value={state.fixedMonthlyCost} onChange={(e) => set("fixedMonthlyCost", e.currentTarget.value)} />
+          <Field
+            label="Custo fixo mensal (R$)"
+            hint="Soma dos itens ativos em /custos-fixos. Não editável aqui."
+          >
+            <div className="flex h-10 items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700">
+              <span className="font-medium tabular-nums">
+                {formatBRL(initial.fixedMonthlyCost)}
+              </span>
+              <Link
+                href="/custos-fixos"
+                className="inline-flex items-center gap-1 text-xs text-roxa-700 hover:underline"
+              >
+                Editar <ExternalLink className="h-3 w-3" />
+              </Link>
+            </div>
           </Field>
           <Field label="Investimento já realizado (R$)">
             <Input type="number" step="0.01" min="0" value={state.investedAmount} onChange={(e) => set("investedAmount", e.currentTarget.value)} />

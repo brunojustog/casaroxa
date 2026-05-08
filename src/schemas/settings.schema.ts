@@ -28,7 +28,6 @@ const percentField = z
 
 export const settingsFormSchema = z.object({
   businessName: z.string().trim().min(1, "Nome do negócio obrigatório").max(120),
-  fixedMonthlyCost: positive,
   investedAmount: positive,
   plannedInvestment: positive,
   targetAverageTicket: positive,

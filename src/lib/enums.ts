@@ -3,6 +3,8 @@
  * Centralizado para que mudanças sejam pontuais.
  */
 import {
+  FixedCostCategory,
+  FixedCostFrequency,
   IngredientCategory,
   IngredientUnit,
   ImportStatus,
@@ -69,6 +71,24 @@ export const IMPORT_STATUS_LABEL: Record<ImportStatus, string> = {
   SUCESSO: "Sucesso",
   PARCIAL: "Parcial",
   FALHA: "Falha",
+};
+
+export const FIXED_COST_CATEGORY_LABEL: Record<FixedCostCategory, string> = {
+  ALUGUEL: "Aluguel",
+  ENERGIA: "Energia",
+  AGUA: "Água",
+  INTERNET: "Internet / Telefone",
+  FOLHA: "Folha de pagamento",
+  IMPOSTOS: "Impostos / Taxas",
+  CONTADOR: "Contador",
+  MARKETING: "Marketing",
+  EQUIPAMENTOS: "Equipamentos / Manutenção",
+  OUTROS: "Outros",
+};
+
+export const FIXED_COST_FREQUENCY_LABEL: Record<FixedCostFrequency, string> = {
+  MENSAL: "Mensal",
+  ANUAL: "Anual (rateio /12)",
 };
 
 export const USER_ROLE_LABEL: Record<UserRole, string> = {
