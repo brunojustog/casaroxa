@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { MessageCircle } from "lucide-react";
 import { whatsappLink } from "@/lib/whatsapp";
+import { CartIndicator } from "./cart/CartIndicator";
 import type { PublicSiteSettings } from "@/server/services/public-menu.service";
 
 export function PublicHeader({ settings }: { settings: PublicSiteSettings }) {
@@ -37,6 +38,7 @@ export function PublicHeader({ settings }: { settings: PublicSiteSettings }) {
           >
             Cardápio
           </Link>
+          <CartIndicator />
           {wa && (
             <a
               href={wa}
