@@ -5,6 +5,7 @@ import { useTransition } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Field } from "@/components/ui/field";
 import {
   enumOptions,
   INGREDIENT_CATEGORY_LABEL,
@@ -99,6 +100,43 @@ export function ReportFilters({
                 />
                 {f.label}
               </label>
+            );
+          case "daterange":
+            return (
+              <div key={`${f.fromKey}:${f.toKey}`} className="flex items-end gap-2">
+                <Field label="De" className="m-0">
+                  <Input
+                    type="date"
+                    defaultValue={params.get(f.fromKey) ?? ""}
+                    onChange={(e) => update(f.fromKey, e.currentTarget.value)}
+                    className="w-40"
+                  />
+                </Field>
+                <Field label="Até" className="m-0">
+                  <Input
+                    type="date"
+                    defaultValue={params.get(f.toKey) ?? ""}
+                    onChange={(e) => update(f.toKey, e.currentTarget.value)}
+                    className="w-40"
+                  />
+                </Field>
+              </div>
+            );
+          case "select":
+            return (
+              <Select
+                key={f.key}
+                defaultValue={params.get(f.key) ?? ""}
+                onChange={(e) => update(f.key, e.currentTarget.value)}
+                className="w-44"
+              >
+                <option value="">{f.label}</option>
+                {f.options.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
             );
         }
       })}
