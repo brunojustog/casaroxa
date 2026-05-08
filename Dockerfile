@@ -1,15 +1,19 @@
 # --- deps ---
-FROM node:20-alpine AS deps
-# vips: lib nativa usada pelo sharp (resize/conversão de imagens no upload)
-RUN apk add --no-cache libc6-compat openssl vips-dev
+# node:20-slim (Debian) — sharp tem prebuilds nativos pra glibc, instala sem compilar.
+FROM node:20-slim AS deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
 RUN npm ci
 
 # --- builder ---
-FROM node:20-alpine AS builder
-RUN apk add --no-cache libc6-compat openssl vips-dev
+FROM node:20-slim AS builder
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -21,16 +25,19 @@ RUN npx prisma generate
 RUN npm run build
 
 # --- runner ---
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 # - netcat-openbsd: probe Postgres no entrypoint (Swarm).
-# - vips: runtime do sharp (uploads de imagem).
-RUN apk add --no-cache libc6-compat openssl netcat-openbsd vips
+# - openssl/ca-certificates: TLS pra Prisma + Anthropic.
+# (sharp/libvips vem nos prebuilds binários — sem pacote de sistema.)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl ca-certificates netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 --gid 1001 nextjs
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
@@ -40,7 +47,6 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/scripts ./scripts
 
 # Diretório de uploads (montado como volume em produção via stack Swarm).
-# Cria com permissões corretas pro usuário nextjs.
 RUN mkdir -p /app/public/menu/uploads && \
     chown -R nextjs:nodejs /app/public/menu/uploads && \
     chmod +x ./scripts/docker-entrypoint.sh && \
