@@ -22,6 +22,7 @@ import {
   createProductAction,
   updateProductAction,
 } from "@/server/actions/products";
+import { AiDescriptionButton } from "@/components/ai/AiDescriptionButton";
 import type {
   ProductCategory,
   ProductStatus,
@@ -48,6 +49,10 @@ type FormShape = {
   active: boolean;
   imageUrl: string;
   showInMenu: boolean;
+  ingredientsPublic: string;
+  /** Multi-linha: 1 URL por linha. Schema converte em array. */
+  gallery: string;
+  youtubeUrl: string;
 };
 
 export type ProductFormDefaults = Partial<{
@@ -64,6 +69,9 @@ export type ProductFormDefaults = Partial<{
   active: boolean;
   imageUrl: string | null;
   showInMenu: boolean;
+  ingredientsPublic: string | null;
+  gallery: string[] | null;
+  youtubeUrl: string | null;
 }>;
 
 const EMPTY: FormShape = {
@@ -79,6 +87,9 @@ const EMPTY: FormShape = {
   active: true,
   imageUrl: "",
   showInMenu: false,
+  ingredientsPublic: "",
+  gallery: "",
+  youtubeUrl: "",
 };
 
 function toFormShape(d: ProductFormDefaults | undefined): FormShape {
@@ -95,6 +106,9 @@ function toFormShape(d: ProductFormDefaults | undefined): FormShape {
     active: d?.active ?? true,
     imageUrl: d?.imageUrl ?? "",
     showInMenu: d?.showInMenu ?? false,
+    ingredientsPublic: d?.ingredientsPublic ?? "",
+    gallery: Array.isArray(d?.gallery) ? d.gallery.join("\n") : "",
+    youtubeUrl: d?.youtubeUrl ?? "",
   };
 }
 
@@ -223,7 +237,16 @@ export function ProductForm({
         htmlFor="description"
         hint="Aparece no cardápio online e em PDFs."
       >
-        <Textarea id="description" rows={2} {...form.register("description")} />
+        <div className="space-y-2">
+          <Textarea id="description" rows={2} {...form.register("description")} />
+          <AiDescriptionButton
+            kind="PRODUTO"
+            id={mode.type === "edit" ? mode.id : null}
+            onResult={(text) =>
+              form.setValue("description", text, { shouldDirty: true })
+            }
+          />
+        </div>
       </Field>
 
       <Field
@@ -238,7 +261,7 @@ export function ProductForm({
         <h3 className="text-sm font-semibold text-slate-700 mb-3">Cardápio online</h3>
         <div className="space-y-4">
           <Field
-            label="URL da foto"
+            label="URL da foto principal"
             htmlFor="imageUrl"
             hint="Ex.: /menu/frango.jpg (arquivo em /public/menu/) ou URL completa."
           >
@@ -254,6 +277,48 @@ export function ProductForm({
             <label htmlFor="showInMenu" className="text-sm text-slate-700">
               Mostrar no cardápio online (apenas se ativo e com preço)
             </label>
+          </div>
+
+          <div className="border-t border-slate-200 pt-4 space-y-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+              Página de detalhe (clique no card)
+            </p>
+            <Field
+              label="Ingredientes (visível ao cliente, opcional)"
+              htmlFor="ingredientsPublic"
+              hint="Texto livre. Não tem relação com a ficha técnica interna."
+            >
+              <Textarea
+                id="ingredientsPublic"
+                rows={2}
+                {...form.register("ingredientsPublic")}
+                placeholder="Frango caipira, alho, cebola, sal grosso, ervas frescas"
+              />
+            </Field>
+            <Field
+              label="Galeria de fotos adicionais (opcional)"
+              htmlFor="gallery"
+              hint="Uma URL por linha. Aparecem na página de detalhe do produto."
+            >
+              <Textarea
+                id="gallery"
+                rows={3}
+                {...form.register("gallery")}
+                placeholder={"/menu/frango-2.jpg\n/menu/frango-3.jpg"}
+              />
+            </Field>
+            <Field
+              label="Vídeo do YouTube (opcional)"
+              htmlFor="youtubeUrl"
+              hint="Cole a URL completa. Será incorporado na página de detalhe."
+            >
+              <Input
+                id="youtubeUrl"
+                type="text"
+                {...form.register("youtubeUrl")}
+                placeholder="https://youtube.com/watch?v=..."
+              />
+            </Field>
           </div>
         </div>
       </section>

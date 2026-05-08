@@ -46,6 +46,12 @@ type Defaults = {
   deliveryEnabled: boolean;
   deliveryFeeNote: string | null;
   minimumOrderValue: number | null;
+  // Promoção em destaque (hero da landing)
+  heroPromoTitle: string | null;
+  heroPromoText: string | null;
+  heroPromoImageUrl: string | null;
+  heroPromoLinkLabel: string | null;
+  heroPromoLinkHref: string | null;
 };
 
 const FACTORY_DEFAULTS: Defaults = {
@@ -80,6 +86,11 @@ const FACTORY_DEFAULTS: Defaults = {
   deliveryEnabled: true,
   deliveryFeeNote: null,
   minimumOrderValue: null,
+  heroPromoTitle: null,
+  heroPromoText: null,
+  heroPromoImageUrl: null,
+  heroPromoLinkLabel: null,
+  heroPromoLinkHref: null,
 };
 
 function toState(d: Defaults) {
@@ -117,6 +128,11 @@ function toState(d: Defaults) {
       d.minimumOrderValue !== null && d.minimumOrderValue !== undefined
         ? String(d.minimumOrderValue)
         : "",
+    heroPromoTitle: d.heroPromoTitle ?? "",
+    heroPromoText: d.heroPromoText ?? "",
+    heroPromoImageUrl: d.heroPromoImageUrl ?? "",
+    heroPromoLinkLabel: d.heroPromoLinkLabel ?? "",
+    heroPromoLinkHref: d.heroPromoLinkHref ?? "",
   };
 }
 
@@ -349,6 +365,61 @@ export function SettingsForm({ initial }: { initial: Defaults }) {
                 onChange={(e) => set("minimumOrderValue", e.currentTarget.value)}
               />
             </Field>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
+            <h4 className="text-sm font-semibold text-slate-700">
+              Promoção em destaque (hero da landing)
+            </h4>
+            <p className="text-xs text-slate-500">
+              Aparece em destaque na primeira dobra da página inicial. Se vazio, mostra o logo grande no lugar.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="Título da promoção">
+                <Input
+                  value={state.heroPromoTitle}
+                  onChange={(e) => set("heroPromoTitle", e.currentTarget.value)}
+                  placeholder="Combo Família neste sábado"
+                />
+              </Field>
+              <Field label="URL da foto / banner">
+                <Input
+                  value={state.heroPromoImageUrl}
+                  onChange={(e) => set("heroPromoImageUrl", e.currentTarget.value)}
+                  placeholder="/menu/promo.jpg"
+                />
+              </Field>
+            </div>
+            <Field label="Texto descritivo">
+              <Textarea
+                rows={2}
+                value={state.heroPromoText}
+                onChange={(e) => set("heroPromoText", e.currentTarget.value)}
+                placeholder="Frango caipira inteiro + 2 acompanhamentos por R$ 89,00. Só hoje."
+              />
+            </Field>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field
+                label="Texto do botão (CTA)"
+                hint="Vazio = sem botão na promoção."
+              >
+                <Input
+                  value={state.heroPromoLinkLabel}
+                  onChange={(e) => set("heroPromoLinkLabel", e.currentTarget.value)}
+                  placeholder="Ver combos"
+                />
+              </Field>
+              <Field
+                label="Para onde o botão leva"
+                hint="Caminho relativo (/cardapio?cat=COMBOS) ou URL completa."
+              >
+                <Input
+                  value={state.heroPromoLinkHref}
+                  onChange={(e) => set("heroPromoLinkHref", e.currentTarget.value)}
+                  placeholder="/cardapio?cat=COMBOS"
+                />
+              </Field>
+            </div>
           </div>
         </CardContent>
       </Card>

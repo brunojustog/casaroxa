@@ -19,6 +19,7 @@ import {
 import { formatBRL, formatPercent } from "@/lib/format";
 import { calculateCmv, calculateGrossProfit } from "@/domain/calculations";
 import { saveComboAction } from "@/server/actions/combos";
+import { AiDescriptionButton } from "@/components/ai/AiDescriptionButton";
 import type { ProductCategory } from "@prisma/client";
 
 const CATEGORIES = enumOptions(PRODUCT_CATEGORY_LABEL);
@@ -54,6 +55,9 @@ export function ComboEditor({
   initialActive,
   initialImageUrl,
   initialShowInMenu,
+  initialIngredientsPublic,
+  initialGallery,
+  initialYoutubeUrl,
   initialItems,
   products,
 }: {
@@ -68,6 +72,10 @@ export function ComboEditor({
   initialActive: boolean;
   initialImageUrl: string;
   initialShowInMenu: boolean;
+  initialIngredientsPublic: string;
+  /** Multi-linha: 1 URL por linha. */
+  initialGallery: string;
+  initialYoutubeUrl: string;
   initialItems: EditorComboItem[];
   products: EditorProduct[];
 }) {
@@ -85,6 +93,9 @@ export function ComboEditor({
   const [active, setActive] = useState(initialActive);
   const [imageUrl, setImageUrl] = useState(initialImageUrl);
   const [showInMenu, setShowInMenu] = useState(initialShowInMenu);
+  const [ingredientsPublic, setIngredientsPublic] = useState(initialIngredientsPublic);
+  const [gallery, setGallery] = useState(initialGallery);
+  const [youtubeUrl, setYoutubeUrl] = useState(initialYoutubeUrl);
 
   // items
   const [items, setItems] = useState<EditorComboItem[]>(initialItems);
@@ -154,6 +165,9 @@ export function ComboEditor({
       active,
       imageUrl,
       showInMenu,
+      ingredientsPublic,
+      gallery,
+      youtubeUrl,
       items: items
         .filter((i) => i.productId && Number(String(i.quantity).replace(",", ".")) > 0)
         .map((i) => ({
@@ -258,12 +272,19 @@ export function ComboEditor({
             htmlFor="description"
             hint="Aparece no cardápio online."
           >
-            <Textarea
-              id="description"
-              rows={2}
-              value={description}
-              onChange={(e) => setDescription(e.currentTarget.value)}
-            />
+            <div className="space-y-2">
+              <Textarea
+                id="description"
+                rows={2}
+                value={description}
+                onChange={(e) => setDescription(e.currentTarget.value)}
+              />
+              <AiDescriptionButton
+                kind="COMBO"
+                id={mode.type === "edit" ? mode.id : null}
+                onResult={(text) => setDescription(text)}
+              />
+            </div>
           </Field>
 
           <Field
@@ -290,9 +311,9 @@ export function ComboEditor({
             </label>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-4">
             <h3 className="text-sm font-semibold text-slate-700">Cardápio online</h3>
-            <Field label="URL da foto" htmlFor="imageUrl" hint="Ex.: /menu/combo.jpg ou URL completa.">
+            <Field label="URL da foto principal" htmlFor="imageUrl" hint="Ex.: /menu/combo.jpg ou URL completa.">
               <Input
                 id="imageUrl"
                 type="text"
@@ -310,6 +331,50 @@ export function ComboEditor({
               <label htmlFor="showInMenu" className="text-sm text-slate-700">
                 Mostrar no cardápio online (apenas se ativo e com preço)
               </label>
+            </div>
+
+            <div className="border-t border-slate-200 pt-4 space-y-4">
+              <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                Página de detalhe (clique no card)
+              </p>
+              <Field
+                label="Ingredientes (visível ao cliente, opcional)"
+                htmlFor="ingredientsPublic"
+              >
+                <Textarea
+                  id="ingredientsPublic"
+                  rows={2}
+                  value={ingredientsPublic}
+                  onChange={(e) => setIngredientsPublic(e.currentTarget.value)}
+                  placeholder="Frango caipira, costela bovina, farofa, vinagrete"
+                />
+              </Field>
+              <Field
+                label="Galeria de fotos adicionais (opcional)"
+                htmlFor="gallery"
+                hint="Uma URL por linha."
+              >
+                <Textarea
+                  id="gallery"
+                  rows={3}
+                  value={gallery}
+                  onChange={(e) => setGallery(e.currentTarget.value)}
+                  placeholder={"/menu/combo-2.jpg\n/menu/combo-3.jpg"}
+                />
+              </Field>
+              <Field
+                label="Vídeo do YouTube (opcional)"
+                htmlFor="youtubeUrl"
+                hint="Cole a URL completa."
+              >
+                <Input
+                  id="youtubeUrl"
+                  type="text"
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.currentTarget.value)}
+                  placeholder="https://youtube.com/watch?v=..."
+                />
+              </Field>
             </div>
           </div>
         </CardContent>

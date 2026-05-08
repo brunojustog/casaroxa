@@ -9,6 +9,77 @@ import { prisma } from "@/lib/prisma";
 import { PRODUCT_CATEGORY_LABEL } from "@/lib/enums";
 import type { ProductCategory } from "@prisma/client";
 
+/** Converte o campo Json gallery (array de URLs) com fallback para []. */
+function parseGallery(value: unknown): string[] {
+  if (!value || !Array.isArray(value)) return [];
+  return value.filter((v): v is string => typeof v === "string" && v.length > 0);
+}
+
+export async function getPublicMenuItem(
+  kind: "PRODUTO" | "COMBO",
+  id: string,
+): Promise<PublicMenuItem | null> {
+  if (kind === "PRODUTO") {
+    const p = await prisma.product.findFirst({
+      where: { id, showInMenu: true, active: true, salePrice: { gt: 0 } },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        salePrice: true,
+        imageUrl: true,
+        portionLabel: true,
+        category: true,
+        ingredientsPublic: true,
+        gallery: true,
+        youtubeUrl: true,
+      },
+    });
+    if (!p) return null;
+    return {
+      id: p.id,
+      kind: "PRODUTO",
+      name: p.name,
+      description: p.description,
+      price: Number(p.salePrice ?? 0),
+      imageUrl: p.imageUrl,
+      portionLabel: p.portionLabel,
+      category: p.category,
+      ingredientsPublic: p.ingredientsPublic,
+      gallery: parseGallery(p.gallery),
+      youtubeUrl: p.youtubeUrl,
+    };
+  }
+  const c = await prisma.combo.findFirst({
+    where: { id, showInMenu: true, active: true, salePrice: { gt: 0 } },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      salePrice: true,
+      imageUrl: true,
+      category: true,
+      ingredientsPublic: true,
+      gallery: true,
+      youtubeUrl: true,
+    },
+  });
+  if (!c) return null;
+  return {
+    id: c.id,
+    kind: "COMBO",
+    name: c.name,
+    description: c.description,
+    price: Number(c.salePrice ?? 0),
+    imageUrl: c.imageUrl,
+    portionLabel: null,
+    category: c.category,
+    ingredientsPublic: c.ingredientsPublic,
+    gallery: parseGallery(c.gallery),
+    youtubeUrl: c.youtubeUrl,
+  };
+}
+
 export type PublicMenuItem = {
   id: string;
   kind: "PRODUTO" | "COMBO";
@@ -18,6 +89,9 @@ export type PublicMenuItem = {
   imageUrl: string | null;
   portionLabel: string | null;
   category: ProductCategory;
+  ingredientsPublic: string | null;
+  gallery: string[];
+  youtubeUrl: string | null;
 };
 
 export type PublicMenuCategory = {
@@ -55,6 +129,9 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
         imageUrl: true,
         portionLabel: true,
         category: true,
+        ingredientsPublic: true,
+        gallery: true,
+        youtubeUrl: true,
       },
     }),
     prisma.combo.findMany({
@@ -71,6 +148,9 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
         salePrice: true,
         imageUrl: true,
         category: true,
+        ingredientsPublic: true,
+        gallery: true,
+        youtubeUrl: true,
       },
     }),
   ]);
@@ -84,6 +164,9 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
     imageUrl: p.imageUrl,
     portionLabel: p.portionLabel,
     category: p.category,
+    ingredientsPublic: p.ingredientsPublic,
+    gallery: parseGallery(p.gallery),
+    youtubeUrl: p.youtubeUrl,
   }));
 
   const comboItems: PublicMenuItem[] = combos.map((c) => ({
@@ -95,6 +178,9 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
     imageUrl: c.imageUrl,
     portionLabel: null,
     category: c.category,
+    ingredientsPublic: c.ingredientsPublic,
+    gallery: parseGallery(c.gallery),
+    youtubeUrl: c.youtubeUrl,
   }));
 
   // Agrupa: produtos por sua categoria, combos numa categoria virtual "COMBOS"
@@ -133,6 +219,11 @@ export type PublicSiteSettings = {
   deliveryEnabled: boolean;
   deliveryFeeNote: string | null;
   minimumOrderValue: number | null;
+  heroPromoTitle: string | null;
+  heroPromoText: string | null;
+  heroPromoImageUrl: string | null;
+  heroPromoLinkLabel: string | null;
+  heroPromoLinkHref: string | null;
 };
 
 export async function getSiteSettings(): Promise<PublicSiteSettings> {
@@ -151,6 +242,11 @@ export async function getSiteSettings(): Promise<PublicSiteSettings> {
       deliveryEnabled: true,
       deliveryFeeNote: true,
       minimumOrderValue: true,
+      heroPromoTitle: true,
+      heroPromoText: true,
+      heroPromoImageUrl: true,
+      heroPromoLinkLabel: true,
+      heroPromoLinkHref: true,
     },
   });
 
@@ -170,5 +266,10 @@ export async function getSiteSettings(): Promise<PublicSiteSettings> {
       s?.minimumOrderValue !== null && s?.minimumOrderValue !== undefined
         ? Number(s.minimumOrderValue)
         : null,
+    heroPromoTitle: s?.heroPromoTitle ?? null,
+    heroPromoText: s?.heroPromoText ?? null,
+    heroPromoImageUrl: s?.heroPromoImageUrl ?? null,
+    heroPromoLinkLabel: s?.heroPromoLinkLabel ?? null,
+    heroPromoLinkHref: s?.heroPromoLinkHref ?? null,
   };
 }

@@ -62,15 +62,7 @@ export default async function HomePage() {
           </div>
 
           <div className="hidden md:flex items-center justify-center">
-            <div className="relative h-72 w-72">
-              <Image
-                src="/logo.png"
-                alt={settings.businessName}
-                fill
-                className="object-contain"
-                priority
-              />
-            </div>
+            <HeroSidePanel settings={settings} />
           </div>
         </div>
       </section>
@@ -195,6 +187,83 @@ export default async function HomePage() {
           </p>
         </section>
       )}
+    </div>
+  );
+}
+
+function HeroSidePanel({
+  settings,
+}: {
+  settings: {
+    businessName: string;
+    heroPromoTitle: string | null;
+    heroPromoText: string | null;
+    heroPromoImageUrl: string | null;
+    heroPromoLinkLabel: string | null;
+    heroPromoLinkHref: string | null;
+  };
+}) {
+  const hasPromo =
+    !!settings.heroPromoTitle ||
+    !!settings.heroPromoText ||
+    !!settings.heroPromoImageUrl;
+
+  if (!hasPromo) {
+    // Fallback: logo grande
+    return (
+      <div className="relative h-72 w-72">
+        <Image
+          src="/logo.png"
+          alt={settings.businessName}
+          fill
+          className="object-contain"
+          priority
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-roxa-200 bg-white shadow-lg">
+      {settings.heroPromoImageUrl && (
+        <div className="relative aspect-[4/3] w-full overflow-hidden bg-roxa-100">
+          <Image
+            src={settings.heroPromoImageUrl}
+            alt={settings.heroPromoTitle ?? "Promoção"}
+            fill
+            sizes="(max-width: 768px) 100vw, 400px"
+            className="object-cover"
+            unoptimized
+          />
+          <span className="absolute left-3 top-3 rounded-full bg-roxa-700 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-white shadow">
+            Promoção
+          </span>
+        </div>
+      )}
+      <div className="space-y-2 p-5">
+        {!settings.heroPromoImageUrl && (
+          <span className="inline-block rounded-full bg-roxa-100 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-roxa-800">
+            Promoção
+          </span>
+        )}
+        {settings.heroPromoTitle && (
+          <h3 className="font-serif text-2xl font-bold text-roxa-900">
+            {settings.heroPromoTitle}
+          </h3>
+        )}
+        {settings.heroPromoText && (
+          <p className="text-sm text-slate-700">{settings.heroPromoText}</p>
+        )}
+        {settings.heroPromoLinkLabel && settings.heroPromoLinkHref && (
+          <Link
+            href={settings.heroPromoLinkHref}
+            className="mt-2 inline-flex items-center gap-2 rounded-md bg-roxa-700 px-4 py-2 text-sm font-semibold text-white hover:bg-roxa-800"
+          >
+            {settings.heroPromoLinkLabel}
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        )}
+      </div>
     </div>
   );
 }

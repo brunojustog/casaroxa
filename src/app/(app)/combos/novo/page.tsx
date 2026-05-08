@@ -52,6 +52,9 @@ export default async function NovoComboPage() {
         initialActive={true}
         initialImageUrl=""
         initialShowInMenu={false}
+        initialIngredientsPublic=""
+        initialGallery=""
+        initialYoutubeUrl=""
         initialItems={[]}
         products={editorProducts}
       />

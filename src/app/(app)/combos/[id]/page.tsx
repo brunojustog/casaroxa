@@ -101,6 +101,13 @@ export default async function EditarComboPage({
         initialActive={combo.active}
         initialImageUrl={combo.imageUrl ?? ""}
         initialShowInMenu={combo.showInMenu}
+        initialIngredientsPublic={combo.ingredientsPublic ?? ""}
+        initialGallery={
+          Array.isArray(combo.gallery)
+            ? (combo.gallery as string[]).join("\n")
+            : ""
+        }
+        initialYoutubeUrl={combo.youtubeUrl ?? ""}
         initialItems={initialItems}
         products={Array.from(productMap.values())}
       />

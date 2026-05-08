@@ -81,6 +81,9 @@ export async function createProduct(input: ProductFormData) {
       active: input.active,
       imageUrl: input.imageUrl,
       showInMenu: input.showInMenu,
+      ingredientsPublic: input.ingredientsPublic,
+      gallery: input.gallery ?? Prisma.DbNull,
+      youtubeUrl: input.youtubeUrl,
       priceHistory: input.salePrice
         ? { create: { oldPrice: null, newPrice: input.salePrice } }
         : undefined,
@@ -127,6 +130,9 @@ export async function updateProduct(id: string, input: ProductFormData) {
         active: input.active,
         imageUrl: input.imageUrl,
         showInMenu: input.showInMenu,
+        ingredientsPublic: input.ingredientsPublic,
+        gallery: input.gallery ?? Prisma.DbNull,
+        youtubeUrl: input.youtubeUrl,
       },
     });
 

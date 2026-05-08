@@ -41,6 +41,22 @@ export const comboItemInputSchema = z.object({
   quantity: positiveNumber,
 });
 
+/** Aceita string multilinha (1 URL por linha) ou array. Retorna string[] (vazio = null). */
+const galleryField = z
+  .union([z.string(), z.array(z.string())])
+  .optional()
+  .transform((v) => {
+    if (!v) return null;
+    const arr =
+      typeof v === "string"
+        ? v
+            .split(/\r?\n/)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0)
+        : v.map((s) => s.trim()).filter((s) => s.length > 0);
+    return arr.length > 0 ? arr : null;
+  });
+
 export const saveComboSchema = z.object({
   name: z.string().trim().min(1, "Nome é obrigatório").max(120),
   category: z.nativeEnum(ProductCategory, {
@@ -53,6 +69,9 @@ export const saveComboSchema = z.object({
   active: z.coerce.boolean().default(true),
   imageUrl: optionalString(500),
   showInMenu: z.coerce.boolean().default(false),
+  ingredientsPublic: optionalString(1000),
+  gallery: galleryField,
+  youtubeUrl: optionalString(500),
   items: z.array(comboItemInputSchema),
 });
 
