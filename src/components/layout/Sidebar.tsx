@@ -16,6 +16,7 @@ import {
   Warehouse,
   Truck,
   ShoppingCart,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ const NAV = [
   { href: "/estoque",         label: "Estoque",          icon: Warehouse },
   { href: "/fornecedores",    label: "Fornecedores",     icon: Truck },
   { href: "/compras",         label: "Compras",          icon: ShoppingCart },
+  { href: "/assistente",      label: "Assistente IA",    icon: Sparkles },
   { href: "/simulador",       label: "Simulador",        icon: Calculator },
   { href: "/cenarios",        label: "Cenários",         icon: TrendingUp },
   { href: "/relatorios",      label: "Relatórios",       icon: FileBarChart2 },
@@ -77,7 +79,7 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-slate-200 p-3 text-[11px] text-slate-400">
-        v0.4 — NFe XML
+        v0.5 — Assistente IA
       </div>
     </aside>
   );
