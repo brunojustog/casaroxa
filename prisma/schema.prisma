@@ -84,6 +84,12 @@ enum StockMovementType {
   AJUSTE // correção positiva do inventário (quantity adiciona; usar PERDA para correção negativa)
 }
 
+enum PurchaseStatus {
+  RASCUNHO // editável, ainda não impactou estoque/custos
+  CONFIRMADA // gerou movimentos de estoque + atualizou custos (se opt-in)
+  CANCELADA // descartada (movimentos revertidos se já confirmada)
+}
+
 // ============================================================
 // AUTENTICAÇÃO
 // ============================================================
@@ -101,6 +107,7 @@ model User {
   recipesReviewed        Recipe[]                 @relation("RecipeReviewer")
   settingsChanges        SettingsHistory[]
   stockMovements         StockMovement[]
+  purchases              Purchase[]
 }
 
 // ============================================================
@@ -126,6 +133,7 @@ model Ingredient {
   recipeItems    RecipeItem[]
   priceHistory   IngredientPriceHistory[]
   stockMovements StockMovement[]
+  purchaseItems  PurchaseItem[]
 
   @@index([category, active])
 }
@@ -394,4 +402,66 @@ model StockMovement {
   @@index([ingredientId, createdAt])
   @@index([type, createdAt])
   @@index([expiryDate])
+}
+
+// ============================================================
+// COMPRAS / FORNECEDORES
+// ============================================================
+
+model Supplier {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  cnpj          String?  @unique
+  contactPerson String?
+  phone         String?
+  email         String?
+  notes         String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  purchases Purchase[]
+}
+
+model Purchase {
+  id            String         @id @default(cuid())
+  supplierId    String?
+  invoiceNumber String?
+  invoiceDate   DateTime
+  totalAmount   Decimal        @default(0) @db.Decimal(14, 2)
+  status        PurchaseStatus @default(RASCUNHO)
+  notes         String?
+  userId        String?
+  confirmedAt   DateTime?
+  cancelledAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  supplier Supplier?      @relation(fields: [supplierId], references: [id])
+  user     User?          @relation(fields: [userId], references: [id])
+  items    PurchaseItem[]
+
+  @@index([invoiceDate])
+  @@index([supplierId])
+  @@index([status])
+}
+
+model PurchaseItem {
+  id                   String    @id @default(cuid())
+  purchaseId           String
+  ingredientId         String
+  quantity             Decimal   @db.Decimal(12, 4)
+  unitCost             Decimal   @db.Decimal(12, 4)
+  totalCost            Decimal   @db.Decimal(14, 2)
+  lotNumber            String?
+  expiryDate           DateTime?
+  /// Se true, ao confirmar a compra atualiza Ingredient.unitCost e dispara cascata.
+  updateIngredientCost Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+
+  purchase   Purchase   @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseId])
+  @@index([ingredientId])
 }
