@@ -1,11 +1,11 @@
 import Link from "next/link";
 import {
   Carrot,
-  Package,
   ClipboardList,
-  Boxes,
-  Calculator,
-  Upload,
+  DollarSign,
+  Warehouse,
+  ShoppingCart,
+  Activity,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { KpiCard } from "@/components/dashboard/KpiCard";
@@ -107,6 +107,19 @@ export default async function DashboardPage() {
         />
       </section>
 
+      {/* Ações rápidas — logo após KPIs pra acesso direto à operação */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-3">Ações rápidas</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <ShortcutLink href="/vendas/nova" icon={DollarSign} label="Nova venda" tone="primary" />
+          <ShortcutLink href="/estoque/lancar" icon={Warehouse} label="Lançar movimento" />
+          <ShortcutLink href="/compras/nova" icon={ShoppingCart} label="Nova compra" />
+          <ShortcutLink href="/ingredientes/novo" icon={Carrot} label="Novo ingrediente" />
+          <ShortcutLink href="/fichas-tecnicas" icon={ClipboardList} label="Editar ficha" />
+          <ShortcutLink href="/resultado" icon={Activity} label="Ver resultado" />
+        </div>
+      </section>
+
       {/* Alertas + distribuição lado a lado */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
@@ -169,18 +182,6 @@ export default async function DashboardPage() {
         </Card>
       </section>
 
-      {/* Atalhos */}
-      <section>
-        <h2 className="text-sm font-semibold text-slate-700 mb-3">Ações rápidas</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <ShortcutLink href="/ingredientes/novo" icon={Carrot} label="Cadastrar ingrediente" />
-          <ShortcutLink href="/produtos/novo" icon={Package} label="Cadastrar produto" />
-          <ShortcutLink href="/fichas-tecnicas" icon={ClipboardList} label="Editar ficha" />
-          <ShortcutLink href="/combos/novo" icon={Boxes} label="Criar combo" />
-          <ShortcutLink href="/simulador" icon={Calculator} label="Simular preço" />
-          <ShortcutLink href="/importar" icon={Upload} label="Importar planilha" />
-        </div>
-      </section>
     </div>
   );
 }
@@ -189,20 +190,37 @@ function ShortcutLink({
   href,
   icon: Icon,
   label,
+  tone = "default",
 }: {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   label: string;
+  tone?: "default" | "primary";
 }) {
+  const isPrimary = tone === "primary";
   return (
     <Link
       href={href}
-      className="group flex flex-col items-start gap-2 rounded-lg border border-slate-200 bg-white p-4 hover:border-roxa-300 hover:shadow-sm transition"
+      className={
+        isPrimary
+          ? "group flex flex-col items-start gap-2 rounded-lg border border-roxa-300 bg-roxa-50 p-4 hover:bg-roxa-100 hover:shadow-sm transition"
+          : "group flex flex-col items-start gap-2 rounded-lg border border-slate-200 bg-white p-4 hover:border-roxa-300 hover:shadow-sm transition"
+      }
     >
-      <div className="grid h-9 w-9 place-items-center rounded-md bg-roxa-50 text-roxa-700 group-hover:bg-roxa-100">
+      <div
+        className={
+          isPrimary
+            ? "grid h-9 w-9 place-items-center rounded-md bg-roxa-700 text-white"
+            : "grid h-9 w-9 place-items-center rounded-md bg-roxa-50 text-roxa-700 group-hover:bg-roxa-100"
+        }
+      >
         <Icon className="h-4 w-4" />
       </div>
-      <span className="text-sm font-medium text-slate-800">{label}</span>
+      <span
+        className={isPrimary ? "text-sm font-semibold text-roxa-800" : "text-sm font-medium text-slate-800"}
+      >
+        {label}
+      </span>
     </Link>
   );
 }

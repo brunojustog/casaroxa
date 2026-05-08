@@ -1,10 +1,10 @@
-# Casa Roxa — Gestão de Custos
+# Casa Roxa — Gestão
 
-App web para substituir a planilha de fichas técnicas, precificação e simulação
-de combos da **Casa Roxa Assados**. Permite cadastrar ingredientes e produtos,
-montar fichas técnicas com recálculo automático em cascata, criar combos,
-simular preços, comparar cenários de faturamento, gerar relatórios em CSV/PDF e
-importar a planilha existente.
+Sistema de gestão da **Casa Roxa Assados**. Cobre o ciclo completo de operação:
+ingredientes, produtos, fichas técnicas com recálculo em cascata, combos,
+estoque, compras e fornecedores (com importação NFe XML), vendas (PDV-light com
+pagamentos e taxas), custos fixos detalhados, simulador de preços, cenários de
+faturamento, DRE/resultado consolidado, assistente IA e relatórios em CSV/PDF.
 
 ## Stack
 

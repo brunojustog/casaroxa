@@ -2,7 +2,7 @@
   "name": "casa-roxa-gestao",
   "version": "0.1.0",
   "private": true,
-  "description": "Gestão de fichas técnicas, custos, precificação e combos da Casa Roxa Assados",
+  "description": "Sistema de gestão da Casa Roxa Assados — produtos, fichas técnicas, estoque, compras, vendas, custos e resultado",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
