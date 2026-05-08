@@ -1,0 +1,119 @@
+# Docker Compose para produção em VPS Debian 12.
+#
+# Stack: Traefik (proxy reverso + SSL automático) + Next.js (app) + Postgres 16.
+# Veja docs/DEPLOY.md para instruções completas de provisionamento.
+#
+# Uso no servidor:
+#   docker compose -f docker-compose.production.yml --env-file .env.production up -d
+#
+# Variáveis obrigatórias no .env.production: APP_DOMAIN, LETSENCRYPT_EMAIL,
+# POSTGRES_*, AUTH_SECRET, ANTHROPIC_API_KEY, SEED_ADMIN_*.
+
+services:
+  traefik:
+    image: traefik:v3.1
+    container_name: casa-roxa-traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+    command:
+      # Habilita auto-discovery de containers via labels
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=casa-roxa-web"
+      # Entrypoints HTTP e HTTPS
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Redireciona HTTP → HTTPS
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      # Let's Encrypt automático via TLS-ALPN-01
+      - "--certificatesresolvers.le.acme.email=${LETSENCRYPT_EMAIL}"
+      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.le.acme.tlschallenge=true"
+      # Logs
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    networks:
+      - web
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: casa-roxa-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+    # Sem ports: Postgres só acessível pela rede interna do compose.
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: casa-roxa-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public"
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_TRUST_HOST: "true"
+      NEXT_PUBLIC_APP_NAME: "${NEXT_PUBLIC_APP_NAME:-Casa Roxa — Gestão}"
+      # Domínios para o middleware fazer host-based routing.
+      # Cardápio público: PUBLIC_DOMAIN. Admin: ADMIN_DOMAIN.
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      AI_MONTHLY_BUDGET_USD: ${AI_MONTHLY_BUDGET_USD:-30}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Administrador}
+      NODE_ENV: production
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=casa-roxa-web"
+      # Router público (cardápio): PUBLIC_DOMAIN + opcional www.
+      - "traefik.http.routers.public.rule=Host(`${PUBLIC_DOMAIN}`) || Host(`www.${PUBLIC_DOMAIN}`)"
+      - "traefik.http.routers.public.entrypoints=websecure"
+      - "traefik.http.routers.public.tls=true"
+      - "traefik.http.routers.public.tls.certresolver=le"
+      - "traefik.http.routers.public.service=app"
+      # Router admin (gestao.*): ADMIN_DOMAIN.
+      - "traefik.http.routers.admin.rule=Host(`${ADMIN_DOMAIN}`)"
+      - "traefik.http.routers.admin.entrypoints=websecure"
+      - "traefik.http.routers.admin.tls=true"
+      - "traefik.http.routers.admin.tls.certresolver=le"
+      - "traefik.http.routers.admin.service=app"
+      # Backend único (mesma app responde aos dois hosts; middleware do Next decide o conteúdo).
+      - "traefik.http.services.app.loadbalancer.server.port=3000"
+    networks:
+      - web
+      - internal
+
+networks:
+  web:
+    name: casa-roxa-web
+  internal:
+    name: casa-roxa-internal
+
+volumes:
+  postgres_data:
+    name: casa-roxa-postgres-data
+  traefik_letsencrypt:
+    name: casa-roxa-traefik-letsencrypt
