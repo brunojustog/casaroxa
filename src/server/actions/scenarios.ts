@@ -11,7 +11,7 @@ import {
 } from "@/server/services/scenario.service";
 import {
   BusinessError,
-  requireAuth,
+  requireRole,
   runAction,
   type ActionResult,
 } from "@/server/auth-helpers";
@@ -26,7 +26,7 @@ export async function createScenarioAction(
   raw: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     const parsed = scenarioFormSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");
@@ -43,7 +43,7 @@ export async function updateScenarioAction(
   raw: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     const parsed = scenarioFormSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");
@@ -57,7 +57,7 @@ export async function updateScenarioAction(
 
 export async function deleteScenarioAction(id: string): Promise<ActionResult> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     await deleteScenario(id);
   });
   if (result.ok) revalidateScenarios();
@@ -68,7 +68,7 @@ export async function duplicateScenarioAction(
   id: string,
 ): Promise<ActionResult<{ id: string }>> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     const copy = await duplicateScenario(id);
     return { id: copy.id };
   });

@@ -10,7 +10,7 @@ import {
 } from "@/server/services/purchase.service";
 import {
   BusinessError,
-  requireAuth,
+  requireRole,
   runAction,
   type ActionResult,
 } from "@/server/auth-helpers";
@@ -32,7 +32,7 @@ export async function savePurchaseAction(
   options: { id?: string } = {},
 ): Promise<ActionResult<{ id: string; totalAmount: number }>> {
   const result = await runAction(async () => {
-    const user = await requireAuth();
+    const user = await requireRole("ADMIN");
     const parsed = savePurchaseSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");
@@ -45,7 +45,7 @@ export async function savePurchaseAction(
 
 export async function confirmPurchaseAction(id: string): Promise<ActionResult> {
   const result = await runAction(async () => {
-    const user = await requireAuth();
+    const user = await requireRole("ADMIN");
     await confirmPurchase(id, user.id);
   });
   if (result.ok) revalidatePurchases(id, true);
@@ -54,7 +54,7 @@ export async function confirmPurchaseAction(id: string): Promise<ActionResult> {
 
 export async function cancelPurchaseAction(id: string): Promise<ActionResult> {
   const result = await runAction(async () => {
-    const user = await requireAuth();
+    const user = await requireRole("ADMIN");
     await cancelPurchase(id, user.id);
   });
   if (result.ok) revalidatePurchases(id, true);
@@ -63,7 +63,7 @@ export async function cancelPurchaseAction(id: string): Promise<ActionResult> {
 
 export async function deletePurchaseAction(id: string): Promise<ActionResult> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     await deletePurchase(id);
   });
   if (result.ok) revalidatePurchases();

@@ -9,13 +9,13 @@ import {
   setIngredientActive,
   updateIngredient,
 } from "@/server/services/ingredient.service";
-import { BusinessError, requireAuth, runAction, type ActionResult } from "@/server/auth-helpers";
+import { BusinessError, requireRole, runAction, type ActionResult } from "@/server/auth-helpers";
 
 export async function createIngredientAction(
   raw: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const result = await runAction(async () => {
-    const user = await requireAuth();
+    const user = await requireRole("ADMIN");
     const parsed = ingredientFormSchema.safeParse(raw);
     if (!parsed.success) {
       const first = parsed.error.errors[0];
@@ -33,7 +33,7 @@ export async function updateIngredientAction(
   raw: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const result = await runAction(async () => {
-    const user = await requireAuth();
+    const user = await requireRole("ADMIN");
     const parsed = ingredientFormSchema.safeParse(raw);
     if (!parsed.success) {
       const first = parsed.error.errors[0];
@@ -57,7 +57,7 @@ export async function setIngredientActiveAction(
   active: boolean,
 ): Promise<ActionResult> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     await setIngredientActive(id, active);
   });
   if (result.ok) {
@@ -69,7 +69,7 @@ export async function setIngredientActiveAction(
 
 export async function deleteIngredientAction(id: string): Promise<ActionResult> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     await deleteIngredient(id);
   });
   if (result.ok) {

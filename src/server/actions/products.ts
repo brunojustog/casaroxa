@@ -13,7 +13,7 @@ import {
 } from "@/server/services/product.service";
 import {
   BusinessError,
-  requireAuth,
+  requireRole,
   runAction,
   type ActionResult,
 } from "@/server/auth-helpers";
@@ -22,7 +22,7 @@ export async function createProductAction(
   raw: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     const parsed = productFormSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");
@@ -39,7 +39,7 @@ export async function updateProductAction(
   raw: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     const parsed = productFormSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");
@@ -60,7 +60,7 @@ export async function setProductActiveAction(
   active: boolean,
 ): Promise<ActionResult> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     await setProductActive(id, active);
   });
   if (result.ok) {
@@ -75,7 +75,7 @@ export async function setProductShowInMenuAction(
   show: boolean,
 ): Promise<ActionResult> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     await setProductShowInMenu(id, show);
   });
   if (result.ok) {
@@ -89,7 +89,7 @@ export async function setProductShowInMenuAction(
 
 export async function deleteProductAction(id: string): Promise<ActionResult> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     await deleteProduct(id);
   });
   if (result.ok) revalidatePath("/produtos");
@@ -100,7 +100,7 @@ export async function duplicateProductAction(
   id: string,
 ): Promise<ActionResult<{ id: string }>> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     const copy = await duplicateProduct(id);
     return { id: copy.id };
   });

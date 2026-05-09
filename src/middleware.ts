@@ -61,8 +61,24 @@ const ADMIN_PREFIXES = [
   "/relatorios",
   "/configuracoes",
   "/importar",
+  "/usuarios",
   "/api/auth",
   "/api/admin",
+];
+
+/**
+ * Rotas permitidas pro perfil OPERADOR. Tudo o que não bater com esses
+ * prefixos é restrito a ADMIN. /api/admin é liberado aqui porque cada
+ * action faz seu próprio requireRole (defesa em profundidade).
+ */
+const OPERATOR_ALLOWED_PREFIXES = [
+  "/dashboard",
+  "/vendas",
+  "/estoque",
+  "/assistente",
+  "/api/admin",
+  "/api/auth",
+  "/login",
 ];
 
 function isPublicPath(pathname: string): boolean {
@@ -77,6 +93,10 @@ function isSitePath(pathname: string): boolean {
 
 function isAdminPath(pathname: string): boolean {
   return ADMIN_PREFIXES.some((p) => pathname.startsWith(p));
+}
+
+function isOperatorAllowed(pathname: string): boolean {
+  return OPERATOR_ALLOWED_PREFIXES.some((p) => pathname.startsWith(p));
 }
 
 function getHost(req: Request): string {
@@ -126,6 +146,13 @@ export default auth((req) => {
     const url = new URL("/login", req.nextUrl.origin);
     url.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(url);
+  }
+
+  // Bloqueio por role: OPERADOR só pode acessar áreas operacionais.
+  // Tudo fora da whitelist redireciona pra /vendas (landing dele).
+  const role = (req.auth?.user as { role?: string } | undefined)?.role;
+  if (role === "OPERADOR" && !isOperatorAllowed(pathname)) {
+    return NextResponse.redirect(new URL("/vendas", req.nextUrl.origin));
   }
 
   // Defesa em profundidade: garante noindex em qualquer resposta admin,

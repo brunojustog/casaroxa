@@ -2,7 +2,7 @@
 
 import { generateDescription } from "@/server/ai/description.service";
 import {
-  requireAuth,
+  requireRole,
   runAction,
   type ActionResult,
 } from "@/server/auth-helpers";
@@ -12,7 +12,7 @@ export async function generateDescriptionAction(input: {
   id: string;
 }): Promise<ActionResult<{ description: string }>> {
   return runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     const description = await generateDescription(input);
     return { description };
   });

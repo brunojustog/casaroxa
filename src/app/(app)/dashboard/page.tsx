@@ -14,12 +14,21 @@ import { AlertsList } from "@/components/dashboard/AlertsList";
 import { CmvByCategoryChart } from "@/components/dashboard/charts/CmvByCategoryChart";
 import { CategoryDistributionChart } from "@/components/dashboard/charts/CategoryDistributionChart";
 import { TopItemsChart } from "@/components/dashboard/charts/TopItemsChart";
-import { getDashboardData } from "@/server/services/dashboard.service";
+import {
+  getDashboardData,
+  getOperatorDashboardData,
+} from "@/server/services/dashboard.service";
 import { formatBRL, formatPercent } from "@/lib/format";
+import { auth } from "@/server/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  const session = await auth();
+  if (session?.user?.role === "OPERADOR") {
+    return <OperatorDashboard />;
+  }
+
   const d = await getDashboardData();
 
   const targetProductCmv = d.settings ? Number(d.settings.defaultCmvChicken) : 0.5;
@@ -182,6 +191,63 @@ export default async function DashboardPage() {
         </Card>
       </section>
 
+    </div>
+  );
+}
+
+async function OperatorDashboard() {
+  const d = await getOperatorDashboardData();
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Dashboard"
+        description={`${d.settings?.businessName ?? "Casa Roxa"} — operação do dia.`}
+      />
+
+      <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <KpiCard
+          label="Vendas em aberto"
+          value={String(d.counts.openSales)}
+          tone={d.counts.openSales > 0 ? "warning" : "default"}
+        />
+        <KpiCard
+          label="Vendas concluídas hoje"
+          value={String(d.counts.salesToday)}
+          tone="success"
+        />
+        <KpiCard
+          label="Vendas (30 dias)"
+          value={String(d.counts.salesLast30Days)}
+          hint="concluídas"
+        />
+        <KpiCard
+          label="Movimentos hoje"
+          value={String(d.counts.movementsToday)}
+          hint="estoque"
+        />
+        <KpiCard
+          label="Movimentos (30 dias)"
+          value={String(d.counts.movementsLast30Days)}
+          hint="estoque"
+        />
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-slate-700 mb-3">Ações rápidas</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <ShortcutLink href="/vendas/nova" icon={DollarSign} label="Nova venda" tone="primary" />
+          <ShortcutLink href="/vendas" icon={DollarSign} label="Vendas em aberto" />
+          <ShortcutLink href="/estoque/lancar" icon={Warehouse} label="Lançar movimento" />
+          <ShortcutLink href="/estoque" icon={Warehouse} label="Ver estoque" />
+        </div>
+      </section>
+
+      {d.alerts.length > 0 && (
+        <section>
+          <AlertsList alerts={d.alerts} />
+        </section>
+      )}
     </div>
   );
 }

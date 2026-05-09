@@ -6,7 +6,7 @@ import { importNfePayloadSchema } from "@/schemas/nfe.schema";
 import { analyzeNfe, importNfe } from "@/server/services/nfe-import.service";
 import {
   BusinessError,
-  requireAuth,
+  requireRole,
   runAction,
   type ActionResult,
 } from "@/server/auth-helpers";
@@ -20,7 +20,7 @@ export async function analyzeNfeAction(
   formData: FormData,
 ): Promise<ActionResult<NfePreview>> {
   return runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
 
     const file = formData.get("file");
     if (!(file instanceof File)) {
@@ -50,7 +50,7 @@ export async function importNfeAction(
   raw: unknown,
 ): Promise<ActionResult<{ purchaseId: string }>> {
   const result = await runAction(async () => {
-    const user = await requireAuth();
+    const user = await requireRole("ADMIN");
     const parsed = importNfePayloadSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");

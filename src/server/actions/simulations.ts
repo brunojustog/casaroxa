@@ -11,7 +11,7 @@ import {
 } from "@/server/services/simulation.service";
 import {
   BusinessError,
-  requireAuth,
+  requireRole,
   runAction,
   type ActionResult,
 } from "@/server/auth-helpers";
@@ -20,7 +20,7 @@ export async function saveSimulationAction(
   raw: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     const parsed = saveSimulationSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");
@@ -34,7 +34,7 @@ export async function saveSimulationAction(
 
 export async function applyPriceAction(raw: unknown): Promise<ActionResult> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     const parsed = applyPriceSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");

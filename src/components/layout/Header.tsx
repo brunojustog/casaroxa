@@ -25,7 +25,18 @@ export async function Header() {
         <SaleNotificationBell />
         {session?.user && (
           <div className="text-right hidden sm:block">
-            <p className="text-sm font-medium text-slate-900">{session.user.name}</p>
+            <p className="text-sm font-medium text-slate-900">
+              {session.user.name}
+              <span
+                className={
+                  session.user.role === "ADMIN"
+                    ? "ml-2 inline-flex items-center rounded-full bg-yellow-100 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-800 ring-1 ring-inset ring-yellow-200"
+                    : "ml-2 inline-flex items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-800 ring-1 ring-inset ring-blue-200"
+                }
+              >
+                {session.user.role === "ADMIN" ? "ADMIN" : "OPERADOR"}
+              </span>
+            </p>
             <p className="text-[11px] text-slate-500">{session.user.email}</p>
           </div>
         )}

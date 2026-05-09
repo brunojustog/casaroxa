@@ -12,7 +12,7 @@ import {
 } from "@/server/services/combo.service";
 import {
   BusinessError,
-  requireAuth,
+  requireRole,
   runAction,
   type ActionResult,
 } from "@/server/auth-helpers";
@@ -34,7 +34,7 @@ export async function saveComboAction(
   options: { id?: string } = {},
 ): Promise<ActionResult<{ id: string }>> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     const parsed = saveComboSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");
@@ -51,7 +51,7 @@ export async function setComboActiveAction(
   active: boolean,
 ): Promise<ActionResult> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     await setComboActive(id, active);
   });
   if (result.ok) revalidateCombos(id);
@@ -63,7 +63,7 @@ export async function setComboShowInMenuAction(
   show: boolean,
 ): Promise<ActionResult> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     await setComboShowInMenu(id, show);
   });
   if (result.ok) revalidateCombosAndMenu(id);
@@ -72,7 +72,7 @@ export async function setComboShowInMenuAction(
 
 export async function deleteComboAction(id: string): Promise<ActionResult> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     await deleteCombo(id);
   });
   if (result.ok) revalidateCombos();
@@ -83,7 +83,7 @@ export async function duplicateComboAction(
   id: string,
 ): Promise<ActionResult<{ id: string }>> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     const copy = await duplicateCombo(id);
     return { id: copy.id };
   });

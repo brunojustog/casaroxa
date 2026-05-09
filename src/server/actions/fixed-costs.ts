@@ -10,7 +10,7 @@ import {
 } from "@/server/services/fixed-costs.service";
 import {
   BusinessError,
-  requireAuth,
+  requireRole,
   runAction,
   type ActionResult,
 } from "@/server/auth-helpers";
@@ -29,7 +29,7 @@ export async function createFixedCostItemAction(
   raw: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const result = await runAction(async () => {
-    const user = await requireAuth();
+    const user = await requireRole("ADMIN");
     const parsed = fixedCostItemFormSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");
@@ -46,7 +46,7 @@ export async function updateFixedCostItemAction(
   raw: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const result = await runAction(async () => {
-    const user = await requireAuth();
+    const user = await requireRole("ADMIN");
     const parsed = fixedCostItemFormSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");
@@ -63,7 +63,7 @@ export async function setFixedCostItemActiveAction(
   active: boolean,
 ): Promise<ActionResult> {
   const result = await runAction(async () => {
-    const user = await requireAuth();
+    const user = await requireRole("ADMIN");
     await setFixedCostItemActive(id, active, user.id);
   });
   if (result.ok) revalidateFixedCosts(id);
@@ -72,7 +72,7 @@ export async function setFixedCostItemActiveAction(
 
 export async function deleteFixedCostItemAction(id: string): Promise<ActionResult> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     await deleteFixedCostItem(id);
   });
   if (result.ok) revalidateFixedCosts();

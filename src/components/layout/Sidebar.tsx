@@ -20,15 +20,29 @@ import {
   Receipt,
   DollarSign,
   Activity,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { UserRole } from "@prisma/client";
 
-type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
-type NavSection = { section: string; items: NavItem[] };
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  /** Se omitido, item visível pra todos. */
+  roles?: UserRole[];
+};
+type NavSection = {
+  section: string;
+  items: NavItem[];
+  /** Se omitido, seção visível pra todos. */
+  roles?: UserRole[];
+};
 
 const NAV: NavSection[] = [
   {
     section: "Cadastros",
+    roles: ["ADMIN"],
     items: [
       { href: "/ingredientes",    label: "Ingredientes",    icon: Carrot },
       { href: "/produtos",        label: "Produtos",        icon: Package },
@@ -41,12 +55,13 @@ const NAV: NavSection[] = [
     section: "Operação",
     items: [
       { href: "/estoque",  label: "Estoque",  icon: Warehouse },
-      { href: "/compras",  label: "Compras",  icon: ShoppingCart },
+      { href: "/compras",  label: "Compras",  icon: ShoppingCart, roles: ["ADMIN"] },
       { href: "/vendas",   label: "Vendas",   icon: DollarSign },
     ],
   },
   {
     section: "Financeiro",
+    roles: ["ADMIN"],
     items: [
       { href: "/custos-fixos", label: "Custos Fixos",    icon: Receipt },
       { href: "/resultado",    label: "Resultado / DRE", icon: Activity },
@@ -58,21 +73,32 @@ const NAV: NavSection[] = [
     section: "Análise",
     items: [
       { href: "/dashboard",  label: "Dashboard",  icon: LayoutDashboard },
-      { href: "/relatorios", label: "Relatórios", icon: FileBarChart2 },
+      { href: "/relatorios", label: "Relatórios", icon: FileBarChart2, roles: ["ADMIN"] },
     ],
   },
   {
     section: "Ferramentas",
     items: [
       { href: "/assistente",    label: "Assistente IA", icon: Sparkles },
-      { href: "/importar",      label: "Importar",      icon: Upload },
-      { href: "/configuracoes", label: "Configurações", icon: SettingsIcon },
+      { href: "/importar",      label: "Importar",      icon: Upload, roles: ["ADMIN"] },
+      { href: "/usuarios",      label: "Usuários",      icon: Users, roles: ["ADMIN"] },
+      { href: "/configuracoes", label: "Configurações", icon: SettingsIcon, roles: ["ADMIN"] },
     ],
   },
 ];
 
-export function Sidebar() {
+function canSee(role: UserRole, allowed?: UserRole[]) {
+  if (!allowed) return true;
+  return allowed.includes(role);
+}
+
+export function Sidebar({ role }: { role: UserRole }) {
   const pathname = usePathname();
+
+  const visible = NAV.map((g) => ({
+    ...g,
+    items: g.items.filter((it) => canSee(role, it.roles)),
+  })).filter((g) => canSee(role, g.roles) && g.items.length > 0);
 
   return (
     <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white">
@@ -88,7 +114,7 @@ export function Sidebar() {
 
       <nav className="flex-1 overflow-y-auto p-3">
         <div className="space-y-4">
-          {NAV.map((group) => (
+          {visible.map((group) => (
             <div key={group.section}>
               <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 {group.section}

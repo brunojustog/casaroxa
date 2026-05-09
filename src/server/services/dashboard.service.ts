@@ -15,7 +15,87 @@ import {
   getRevenueLast30Days,
 } from "./sales.service";
 import { getCurrentMonthResult } from "./financial.service";
-import type { ProductCategory } from "@prisma/client";
+import { ProductCategory, SaleStatus } from "@prisma/client";
+
+/**
+ * Dashboard simplificado pro perfil OPERADOR — sem nada financeiro/CMV.
+ * Foco: o que ele precisa pra operar (vendas em aberto, alertas de estoque,
+ * volume do dia/30d) e atalhos pra ação imediata.
+ */
+export async function getOperatorDashboardData() {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const [
+    settings,
+    expiringSoonCount,
+    emptyButUsedCount,
+    openSalesCount,
+    openSalesStale,
+    salesTodayCount,
+    salesLast30dCount,
+    movementsTodayCount,
+    movements30dCount,
+  ] = await Promise.all([
+    prisma.settings.findUnique({ where: { id: 1 } }),
+    countExpiringSoon(7),
+    countEmptyButUsed(),
+    prisma.sale.count({ where: { status: SaleStatus.ABERTA } }),
+    countOpenSalesOlderThan24h(),
+    prisma.sale.count({
+      where: { status: SaleStatus.CONCLUIDA, closedAt: { gte: startOfDay } },
+    }),
+    prisma.sale.count({
+      where: {
+        status: SaleStatus.CONCLUIDA,
+        closedAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+      },
+    }),
+    prisma.stockMovement.count({ where: { createdAt: { gte: startOfDay } } }),
+    countMovementsLast30Days(),
+  ]);
+
+  const alerts: DashboardAlert[] = [];
+  if (openSalesStale > 0) {
+    alerts.push({
+      id: "open-sales-stale",
+      severity: "warning",
+      title: `${openSalesStale} venda(s) em aberto há mais de 24h`,
+      count: openSalesStale,
+      href: "/vendas?status=ABERTA",
+    });
+  }
+  if (emptyButUsedCount > 0) {
+    alerts.push({
+      id: "empty-stock",
+      severity: "danger",
+      title: `${emptyButUsedCount} ingrediente(s) usados zerados no estoque`,
+      count: emptyButUsedCount,
+      href: "/estoque",
+    });
+  }
+  if (expiringSoonCount > 0) {
+    alerts.push({
+      id: "expiring-soon",
+      severity: "warning",
+      title: `${expiringSoonCount} lote(s) vencendo nos próximos 7 dias`,
+      count: expiringSoonCount,
+      href: "/estoque",
+    });
+  }
+
+  return {
+    settings,
+    counts: {
+      openSales: openSalesCount,
+      salesToday: salesTodayCount,
+      salesLast30Days: salesLast30dCount,
+      movementsToday: movementsTodayCount,
+      movementsLast30Days: movements30dCount,
+    },
+    alerts,
+  };
+}
 
 export type AlertSeverity = "danger" | "warning" | "info";
 

@@ -10,7 +10,7 @@ import {
 } from "@/server/services/supplier.service";
 import {
   BusinessError,
-  requireAuth,
+  requireRole,
   runAction,
   type ActionResult,
 } from "@/server/auth-helpers";
@@ -25,7 +25,7 @@ export async function createSupplierAction(
   raw: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     const parsed = supplierFormSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");
@@ -42,7 +42,7 @@ export async function updateSupplierAction(
   raw: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     const parsed = supplierFormSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");
@@ -59,7 +59,7 @@ export async function setSupplierActiveAction(
   active: boolean,
 ): Promise<ActionResult> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     await setSupplierActive(id, active);
   });
   if (result.ok) revalidateSuppliers(id);
@@ -68,7 +68,7 @@ export async function setSupplierActiveAction(
 
 export async function deleteSupplierAction(id: string): Promise<ActionResult> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     await deleteSupplier(id);
   });
   if (result.ok) revalidateSuppliers();

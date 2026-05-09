@@ -7,7 +7,7 @@ import {
 import { importOptionsSchema } from "@/schemas/import.schema";
 import {
   BusinessError,
-  requireAuth,
+  requireRole,
   runAction,
   type ActionResult,
 } from "@/server/auth-helpers";
@@ -17,7 +17,7 @@ export async function importXlsxAction(
   formData: FormData,
 ): Promise<ActionResult<ImportResult>> {
   return runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
 
     const file = formData.get("file");
     if (!(file instanceof File)) {

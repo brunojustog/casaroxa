@@ -9,7 +9,7 @@ import {
 } from "@/server/services/recipe.service";
 import {
   BusinessError,
-  requireAuth,
+  requireRole,
   runAction,
   type ActionResult,
 } from "@/server/auth-helpers";
@@ -25,7 +25,7 @@ function revalidateAfterRecipeChange(productId: string) {
 
 export async function saveRecipeAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     const parsed = saveRecipeSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");
@@ -45,7 +45,7 @@ export async function setRecipeReviewedAction(
   reviewed: boolean,
 ): Promise<ActionResult> {
   const result = await runAction(async () => {
-    const user = await requireAuth();
+    const user = await requireRole("ADMIN");
     await setRecipeReviewed(productId, reviewed, user.id);
   });
   if (result.ok) revalidateAfterRecipeChange(productId);
@@ -57,7 +57,7 @@ export async function saveRecipeVersionAction(
   raw: unknown,
 ): Promise<ActionResult<{ version: number }>> {
   const result = await runAction(async () => {
-    await requireAuth();
+    await requireRole("ADMIN");
     const parsed = saveRecipeVersionSchema.safeParse(raw);
     if (!parsed.success) {
       throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");
