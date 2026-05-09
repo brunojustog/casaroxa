@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   CircleDashed,
   Clock,
+  MessageCircle,
   Package,
   ShoppingBag,
   XCircle,
@@ -112,10 +113,10 @@ export function OrderTrackingClient({
   }
 
   const isCancelled = sale.status === "CANCELADA";
-  const wa = whatsappLink(
-    whatsappNumber,
-    `Olá! Sobre o pedido #${sale.number}.`,
-  );
+  const waMessage = sale.customerName
+    ? `Olá, sou ${sale.customerName}. Gostaria de falar sobre o pedido #${sale.number}.`
+    : `Olá! Gostaria de falar sobre o pedido #${sale.number}.`;
+  const wa = whatsappLink(whatsappNumber, waMessage);
 
   if (isCancelled) {
     return (
@@ -271,7 +272,20 @@ export function OrderTrackingClient({
         <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
         <p>
           O status atualiza automaticamente a cada minuto. Pra ficar mais
-          tranquilo, fale com a Casa Roxa pelo WhatsApp se precisar.
+          tranquilo,{" "}
+          {wa ? (
+            <a
+              href={wa}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-950"
+            >
+              fale com a Casa Roxa pelo WhatsApp
+            </a>
+          ) : (
+            <span>fale com a Casa Roxa pelo WhatsApp</span>
+          )}{" "}
+          se precisar.
         </p>
       </div>
 
@@ -283,17 +297,21 @@ export function OrderTrackingClient({
           <ShoppingBag className="h-4 w-4" />
           Ver cardápio
         </Link>
-        {wa && (
-          <a
-            href={wa}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
-          >
-            Falar pelo WhatsApp
-          </a>
-        )}
       </div>
+
+      {/* Botão flutuante de WhatsApp — sticky no rodapé, sempre visível */}
+      {wa && (
+        <a
+          href={wa}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Falar com a Casa Roxa pelo WhatsApp"
+          className="fixed bottom-4 right-4 z-30 inline-flex items-center gap-2 rounded-full bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow-xl ring-4 ring-green-600/20 hover:bg-green-700 sm:bottom-6 sm:right-6"
+        >
+          <MessageCircle className="h-5 w-5" />
+          <span>Falar sobre o pedido</span>
+        </a>
+      )}
     </div>
   );
 }
