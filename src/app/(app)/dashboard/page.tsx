@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertsList } from "@/components/dashboard/AlertsList";
+import { BirthdayCard } from "@/components/dashboard/BirthdayCard";
 import { CmvByCategoryChart } from "@/components/dashboard/charts/CmvByCategoryChart";
 import { CategoryDistributionChart } from "@/components/dashboard/charts/CategoryDistributionChart";
 import { TopItemsChart } from "@/components/dashboard/charts/TopItemsChart";
@@ -142,6 +143,11 @@ export default async function DashboardPage() {
             <CategoryDistributionChart data={d.charts.categoryDistribution} />
           </CardContent>
         </Card>
+      </section>
+
+      {/* Aniversariantes do mês — atalho pra gerar cupom personalizado */}
+      <section>
+        <BirthdayCard customers={d.birthdayCustomers} />
       </section>
 
       {/* CMV por categoria */}

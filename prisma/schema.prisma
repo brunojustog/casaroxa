@@ -188,6 +188,28 @@ model User {
   inventoriesCreated     Inventory[]              @relation("InventoryCreatedBy")
   inventoriesClosed      Inventory[]              @relation("InventoryClosedBy")
   inventoryItemsCounted  InventoryItem[]
+  pushSubscriptions      PushSubscription[]
+}
+
+// ============================================================
+// PUSH NOTIFICATIONS (Web Push API)
+// ============================================================
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  /// Endpoint único do navegador (vem da Web Push API).
+  endpoint  String   @unique
+  /// Chave pública do cliente (p256dh) — necessária pra criptografar payload.
+  p256dh    String
+  /// Chave de autenticação do cliente.
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // ============================================================
@@ -620,13 +642,48 @@ model Customer {
   reference         String?
   notes             String?
   active            Boolean  @default(true)
+  /// Pontos atuais do cartão fidelidade. Acumula 1 ponto por R$ 1 gasto
+  /// em vendas concluídas, e zera/decrementa quando vira cupom de resgate.
+  loyaltyPoints     Int     @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  sales Sale[]
+  sales                Sale[]
+  loyaltyTransactions  LoyaltyTransaction[]
 
   @@index([active, name])
   @@index([birthday])
+}
+
+// ============================================================
+// CARTÃO FIDELIDADE
+// ============================================================
+
+enum LoyaltyTransactionType {
+  EARN   // ganho ao concluir venda
+  REDEEM // resgate (vira cupom)
+  ADJUST // ajuste manual (admin)
+}
+
+model LoyaltyTransaction {
+  id         String                 @id @default(cuid())
+  customerId String
+  type       LoyaltyTransactionType
+  /// Sempre positivo. EARN soma; REDEEM e ADJUST negativo subtraem (regra no service).
+  points     Int
+  /// Saldo do cliente APÓS aplicar essa transação (snapshot pra histórico).
+  balanceAfter Int
+  /// Venda que originou o EARN (opcional — null em ADJUST/REDEEM).
+  saleId     String?
+  /// Cupom que originou o REDEEM (opcional).
+  couponId   String?
+  notes      String?
+  createdAt  DateTime               @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, createdAt])
+  @@index([saleId])
 }
 
 model Coupon {

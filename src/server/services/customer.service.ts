@@ -64,6 +64,10 @@ export async function getCustomerWithSales(id: string) {
           source: true,
         },
       },
+      loyaltyTransactions: {
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      },
     },
   });
 }
@@ -121,6 +125,69 @@ export async function deleteCustomer(id: string) {
     );
   }
   await prisma.customer.delete({ where: { id } });
+}
+
+/**
+ * Lista clientes que fazem aniversário no mês indicado (1-12).
+ * Default: mês atual.
+ */
+export async function listBirthdayCustomersOfMonth(month?: number) {
+  const m = month ?? new Date().getMonth() + 1;
+  const ids = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT id FROM "Customer"
+    WHERE birthday IS NOT NULL
+    AND active = true
+    AND EXTRACT(MONTH FROM birthday) = ${m}
+  `;
+  if (ids.length === 0) return [];
+
+  return prisma.customer.findMany({
+    where: { id: { in: ids.map((r) => r.id) } },
+    orderBy: { birthday: "asc" },
+    include: { _count: { select: { sales: true } } },
+  });
+}
+
+/**
+ * Cria um cupom personalizado de aniversário pra um cliente.
+ *  - Código: ANIVER_<NOMEPRIMEIRO>_<MMYY>
+ *  - Tipo PERCENT (15% off por padrão), 1 uso, válido até fim do mês.
+ *  - Se já existir cupom com mesmo código, retorna o existente.
+ */
+export async function generateBirthdayCoupon(
+  customerId: string,
+  options: { percentOff?: number } = {},
+) {
+  const c = await prisma.customer.findUnique({
+    where: { id: customerId },
+    select: { id: true, name: true, birthday: true },
+  });
+  if (!c) throw new BusinessError("Cliente não encontrado.");
+  if (!c.birthday) throw new BusinessError("Cliente sem data de aniversário cadastrada.");
+
+  const firstName = c.name.split(/\s+/)[0]?.toUpperCase().replace(/[^A-Z]/g, "") ?? "ANIV";
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const year = String(now.getFullYear() % 100).padStart(2, "0");
+  const code = `ANIVER_${firstName}_${month}${year}`;
+
+  const existing = await prisma.coupon.findUnique({ where: { code } });
+  if (existing) return existing;
+
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  const percent = options.percentOff ?? 15;
+
+  return prisma.coupon.create({
+    data: {
+      code,
+      description: `Aniversário ${c.name} — ${month}/${year}`,
+      type: "PERCENT",
+      value: percent,
+      maxUses: 1,
+      validUntil: lastDay,
+      active: true,
+    },
+  });
 }
 
 /**

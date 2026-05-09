@@ -12,6 +12,7 @@ import { toDecimal, sumDecimal } from "@/lib/decimal";
 import { whatsappLink } from "@/lib/whatsapp";
 import { applyCouponInTransaction } from "./coupon.service";
 import { upsertCustomerFromCheckout } from "./customer.service";
+import { sendPushToAllUsers } from "./push.service";
 import type { PublicOrderData } from "@/schemas/public-order.schema";
 
 export type PublicOrderResult = {
@@ -203,6 +204,15 @@ export async function createPublicOrder(
   const trackingUrl = publicDomain
     ? `https://${publicDomain}/pedido/${sale.id}`
     : null;
+
+  // Dispara push notifications pra todos os admins/operadores inscritos.
+  // Não bloqueia a resposta — fire and forget; erros são engolidos no service.
+  sendPushToAllUsers({
+    title: `Novo pedido #${sale.number}`,
+    body: `${input.customerName} · ${(grandTotal.toNumber() - Number(sale.couponDiscount)).toFixed(2).replace(".", ",")} — ${input.deliveryMode === "DELIVERY" ? "Delivery" : "Retirada"}`,
+    url: `/vendas/${sale.id}`,
+    tag: `sale-${sale.id}`,
+  }).catch((e) => console.error("[public-order] push falhou:", e));
 
   const couponDiscount = Number(sale.couponDiscount);
   const subtotal = subtotalNum;

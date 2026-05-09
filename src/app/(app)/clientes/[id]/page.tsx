@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Cake, ChevronLeft, MessageCircle, Phone } from "lucide-react";
+import { Award, Cake, ChevronLeft, MessageCircle, Phone, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { CustomerForm } from "@/components/customers/CustomerForm";
 import { getCustomerWithSales } from "@/server/services/customer.service";
+import { LOYALTY_RULE } from "@/server/services/loyalty.service";
 import { whatsappLink } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
@@ -152,6 +153,89 @@ export default async function EditarClientePage({
               </p>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardContent className="p-5">
+              <p className="text-xs uppercase tracking-wider text-slate-500 inline-flex items-center gap-1">
+                <Award className="h-3 w-3 text-amber-500" />
+                Cartão fidelidade
+              </p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-amber-700">
+                {c.loyaltyPoints} <span className="text-sm font-normal text-slate-500">pts</span>
+              </p>
+              {c.loyaltyPoints >= LOYALTY_RULE.redeemThreshold ? (
+                <p className="mt-1 text-xs text-green-700 inline-flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" />
+                  Pronto pra resgatar!
+                </p>
+              ) : (
+                <>
+                  <div className="mt-2 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                      className="h-full bg-amber-500 transition-all"
+                      style={{
+                        width: `${Math.min(100, (c.loyaltyPoints / LOYALTY_RULE.redeemThreshold) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="mt-1.5 text-xs text-slate-500">
+                    Faltam <strong>{LOYALTY_RULE.redeemThreshold - c.loyaltyPoints}</strong>{" "}
+                    pts pra próximo resgate de {fmtBRL(LOYALTY_RULE.redeemValueReais)}
+                  </p>
+                </>
+              )}
+              <p className="mt-2 text-[11px] text-slate-400">
+                Regra: 1 pt por R$ 1 gasto. {LOYALTY_RULE.redeemThreshold} pts ={" "}
+                {fmtBRL(LOYALTY_RULE.redeemValueReais)} de desconto.
+              </p>
+            </CardContent>
+          </Card>
+
+          {c.loyaltyTransactions.length > 0 && (
+            <Card>
+              <CardContent className="p-5">
+                <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">
+                  Histórico de pontos
+                </p>
+                <ul className="space-y-1 text-xs">
+                  {c.loyaltyTransactions.slice(0, 8).map((t) => (
+                    <li
+                      key={t.id}
+                      className="flex items-center justify-between gap-2"
+                    >
+                      <span className="text-slate-600">
+                        {fmtDateTime(t.createdAt)}
+                        {" · "}
+                        <span
+                          className={
+                            t.type === "EARN"
+                              ? "text-green-700"
+                              : t.type === "REDEEM"
+                                ? "text-amber-700"
+                                : "text-slate-700"
+                          }
+                        >
+                          {t.type === "EARN" && "+ ganho"}
+                          {t.type === "REDEEM" && "- resgate"}
+                          {t.type === "ADJUST" && "ajuste"}
+                        </span>
+                      </span>
+                      <span
+                        className={`font-mono font-semibold tabular-nums ${
+                          t.type === "EARN"
+                            ? "text-green-700"
+                            : "text-amber-700"
+                        }`}
+                      >
+                        {t.type === "EARN" ? "+" : "−"}
+                        {t.points}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 

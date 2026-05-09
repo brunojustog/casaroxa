@@ -2,6 +2,7 @@ import { LogOut } from "lucide-react";
 import { auth, signOut } from "@/server/auth";
 import { prisma } from "@/lib/prisma";
 import { SaleNotificationBell } from "./SaleNotificationBell";
+import { PushOptIn } from "./PushOptIn";
 
 export async function Header() {
   const session = await auth();
@@ -22,6 +23,7 @@ export async function Header() {
       </div>
 
       <div className="flex items-center gap-3">
+        <PushOptIn />
         <SaleNotificationBell />
         {session?.user && (
           <div className="text-right hidden sm:block">

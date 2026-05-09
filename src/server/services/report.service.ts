@@ -901,6 +901,85 @@ const vendasPorPagamento: ReportDefinition = {
 };
 
 // ============================================================
+// 17. Cupons aplicados
+// ============================================================
+const cuponsAplicados: ReportDefinition = {
+  type: "cupons-aplicados",
+  title: "Cupons aplicados em pedidos",
+  description:
+    "Quanto desconto cada cupom já gerou em pedidos concluídos. Mostra usos, total descontado, ticket médio com cupom e ROI vs ticket médio geral. Útil pra avaliar campanhas.",
+  filters: [DATE_RANGE_FILTER],
+  columns: [
+    { key: "code", label: "Cupom" },
+    { key: "type", label: "Tipo" },
+    { key: "value", label: "Valor", align: "right", format: "number" },
+    { key: "uses", label: "Usos", align: "right", format: "integer" },
+    { key: "totalDiscount", label: "Desconto total", align: "right", format: "money" },
+    { key: "totalRevenueWithCoupon", label: "Faturamento (líquido)", align: "right", format: "money" },
+    { key: "avgTicket", label: "Ticket médio c/ cupom", align: "right", format: "money" },
+  ],
+  async fetch(p) {
+    const { from, to } = dateRangeFromParams(p);
+    const sales = await prisma.sale.findMany({
+      where: {
+        status: SaleStatus.CONCLUIDA,
+        occurredAt: { gte: from, lte: to },
+        couponId: { not: null },
+      },
+      select: {
+        couponId: true,
+        couponCode: true,
+        totalRevenue: true,
+        couponDiscount: true,
+        coupon: {
+          select: { code: true, type: true, value: true },
+        },
+      },
+    });
+
+    type Bucket = {
+      code: string;
+      type: string;
+      value: number;
+      uses: number;
+      totalDiscount: number;
+      totalRevenueGross: number;
+    };
+    const buckets = new Map<string, Bucket>();
+    for (const s of sales) {
+      const code = s.coupon?.code ?? s.couponCode ?? "—";
+      const cur = buckets.get(code) ?? {
+        code,
+        type: s.coupon ? (s.coupon.type === "PERCENT" ? "% off" : "R$ off") : "—",
+        value: s.coupon ? Number(s.coupon.value) : 0,
+        uses: 0,
+        totalDiscount: 0,
+        totalRevenueGross: 0,
+      };
+      cur.uses += 1;
+      cur.totalDiscount += Number(s.couponDiscount);
+      cur.totalRevenueGross += Number(s.totalRevenue);
+      buckets.set(code, cur);
+    }
+
+    return Array.from(buckets.values())
+      .map((b) => {
+        const liquid = b.totalRevenueGross - b.totalDiscount;
+        return {
+          code: b.code,
+          type: b.type,
+          value: b.value,
+          uses: b.uses,
+          totalDiscount: b.totalDiscount,
+          totalRevenueWithCoupon: liquid,
+          avgTicket: b.uses > 0 ? liquid / b.uses : 0,
+        };
+      })
+      .sort((a, b) => b.totalDiscount - a.totalDiscount);
+  },
+};
+
+// ============================================================
 // REGISTRY
 // ============================================================
 export const REPORTS: Record<string, ReportDefinition> = {
@@ -920,6 +999,7 @@ export const REPORTS: Record<string, ReportDefinition> = {
   [faturamentoDiario.type]: faturamentoDiario,
   [vendasPorCanal.type]: vendasPorCanal,
   [vendasPorPagamento.type]: vendasPorPagamento,
+  [cuponsAplicados.type]: cuponsAplicados,
 };
 
 export const REPORT_LIST: ReportDefinition[] = Object.values(REPORTS);

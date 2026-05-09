@@ -5,6 +5,7 @@ import { customerFormSchema } from "@/schemas/customer.schema";
 import {
   createCustomer,
   deleteCustomer,
+  generateBirthdayCoupon,
   setCustomerActive,
   updateCustomer,
 } from "@/server/services/customer.service";
@@ -71,5 +72,22 @@ export async function deleteCustomerAction(id: string): Promise<ActionResult> {
     await deleteCustomer(id);
   });
   if (result.ok) revalidateCustomers();
+  return result;
+}
+
+export async function generateBirthdayCouponAction(
+  customerId: string,
+  percentOff?: number,
+): Promise<ActionResult<{ code: string }>> {
+  const result = await runAction(async () => {
+    await requireAuth();
+    const c = await generateBirthdayCoupon(customerId, { percentOff });
+    return { code: c.code };
+  });
+  if (result.ok) {
+    revalidateCustomers(customerId);
+    revalidatePath("/cupons");
+    revalidatePath("/dashboard");
+  }
   return result;
 }

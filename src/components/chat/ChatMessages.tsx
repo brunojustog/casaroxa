@@ -23,6 +23,7 @@ const WRITE_TOOL_NAMES = new Set([
   "create_ingredient",
   "create_coupon",
   "set_coupon_active",
+  "generate_birthday_coupon",
 ]);
 
 /**

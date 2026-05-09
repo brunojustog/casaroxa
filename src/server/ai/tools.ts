@@ -654,6 +654,48 @@ const getCustomerTool: ToolDefinition = {
 };
 
 // ============================================================
+// Read-only — fidelidade
+// ============================================================
+
+const getLoyaltyStatusTool: ToolDefinition = {
+  name: "get_loyalty_status",
+  description:
+    "Status do cartão fidelidade de um cliente: pontos atuais, quanto falta pra próximo resgate, total acumulado/resgatado. Use pra 'quanto de fidelidade tem o cliente X?' ou 'quem tá perto de bater resgate?'.",
+  readOnly: true,
+  input_schema: {
+    type: "object",
+    properties: {
+      customerId: { type: "string" },
+      phone: { type: "string", description: "Telefone (será normalizado). Use este OU customerId/name." },
+      name: { type: "string" },
+    },
+  },
+  async run(input) {
+    const { customerId, phone, name } = input as {
+      customerId?: string;
+      phone?: string;
+      name?: string;
+    };
+    let id = customerId;
+    if (!id && phone) {
+      const digits = phone.replace(/\D+/g, "");
+      const c = await prisma.customer.findUnique({ where: { phone: digits } });
+      id = c?.id;
+    }
+    if (!id && name) {
+      const c = await prisma.customer.findFirst({
+        where: { name: { equals: name, mode: "insensitive" } },
+      });
+      id = c?.id;
+    }
+    if (!id) return { erro: "Cliente não encontrado." };
+
+    const { getLoyaltyStatus } = await import("@/server/services/loyalty.service");
+    return getLoyaltyStatus(id);
+  },
+};
+
+// ============================================================
 // Registry
 // ============================================================
 
@@ -672,6 +714,7 @@ const READ_TOOLS: ToolDefinition[] = [
   listInventoriesTool,
   listCustomersTool,
   getCustomerTool,
+  getLoyaltyStatusTool,
 ];
 
 export const TOOLS: ToolDefinition[] = [...READ_TOOLS, ...WRITE_TOOLS];

@@ -26,6 +26,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { BusinessError } from "@/server/auth-helpers";
 import { toDecimal, sumDecimal } from "@/lib/decimal";
+import { applyEarnForSale } from "./loyalty.service";
 import type {
   SaleHeaderFormData,
   SaleItemFormData,
@@ -433,7 +434,7 @@ export async function concludeSale(saleId: string, userId: string) {
     }
 
     await recomputeSaleTotals(tx, saleId);
-    return tx.sale.update({
+    const closed = await tx.sale.update({
       where: { id: saleId },
       data: {
         status: SaleStatus.CONCLUIDA,
@@ -441,6 +442,11 @@ export async function concludeSale(saleId: string, userId: string) {
         closedById: userId,
       },
     });
+    // Cartão fidelidade: dispara EARN (e resgate automático se atingir
+    // o limiar). Idempotente — se a venda já foi creditada antes,
+    // a função detecta e ignora.
+    await applyEarnForSale(tx, saleId);
+    return closed;
   });
 }
 

@@ -83,6 +83,7 @@ const OPERATOR_ALLOWED_PREFIXES = [
   "/assistente",
   "/api/admin",
   "/api/auth",
+  "/api/push",
   "/login",
 ];
 

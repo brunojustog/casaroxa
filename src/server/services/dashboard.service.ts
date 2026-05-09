@@ -15,6 +15,7 @@ import {
   getRevenueLast30Days,
 } from "./sales.service";
 import { getCurrentMonthResult } from "./financial.service";
+import { listBirthdayCustomersOfMonth } from "./customer.service";
 import { ProductCategory, SaleStatus } from "@prisma/client";
 
 /**
@@ -136,6 +137,7 @@ export async function getDashboardData() {
     salesLast30Days,
     openSalesStale,
     currentMonth,
+    birthdayCustomers,
   ] = await Promise.all([
     prisma.ingredient.findMany({
       where: { active: true },
@@ -163,6 +165,7 @@ export async function getDashboardData() {
     getRevenueLast30Days(),
     countOpenSalesOlderThan24h(),
     getCurrentMonthResult(),
+    listBirthdayCustomersOfMonth(),
   ]);
 
   // ---------------- KPIs básicos ----------------
@@ -457,5 +460,12 @@ export async function getDashboardData() {
       categoryDistribution,
     },
     alerts,
+    birthdayCustomers: birthdayCustomers.map((c) => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      birthday: c.birthday!.toISOString(),
+      totalSales: c._count.sales,
+    })),
   };
 }

@@ -45,6 +45,9 @@ import {
   createCoupon as createCouponService,
   setCouponActive as setCouponActiveService,
 } from "@/server/services/coupon.service";
+import {
+  generateBirthdayCoupon as generateBirthdayCouponService,
+} from "@/server/services/customer.service";
 import type { ToolDefinition } from "./tools";
 
 // ---------- Helpers de resolução id|nome ----------
@@ -865,6 +868,55 @@ const setCouponActiveTool: ToolDefinition = {
   },
 };
 
+const generateBirthdayCouponTool: ToolDefinition = {
+  name: "generate_birthday_coupon",
+  description:
+    "Gera um cupom personalizado de aniversário pra um cliente (15% off por padrão, válido até fim do mês). Idempotente — chama de novo retorna o mesmo código.",
+  readOnly: false,
+  requiresRole: "ADMIN",
+  async run(input) {
+    const { customerId, name, percentOff } = input as {
+      customerId?: string;
+      name?: string;
+      percentOff?: number;
+    };
+    let id = customerId;
+    if (!id && name) {
+      const c = await prisma.customer.findFirst({
+        where: { name: { equals: name, mode: "insensitive" } },
+        select: { id: true },
+      });
+      id = c?.id;
+    }
+    if (!id) return { ok: false, erro: "Cliente não encontrado." };
+
+    try {
+      const c = await generateBirthdayCouponService(id, {
+        percentOff: typeof percentOff === "number" ? percentOff : undefined,
+      });
+      return {
+        ok: true,
+        cupom: { codigo: c.code, desconto: `${Number(c.value)}%`, validoAte: c.validUntil },
+      };
+    } catch (e) {
+      return { ok: false, erro: e instanceof BusinessError ? e.message : "Erro ao gerar cupom." };
+    }
+  },
+  input_schema: {
+    type: "object",
+    properties: {
+      customerId: { type: "string" },
+      name: { type: "string", description: "Nome do cliente (busca exata case-insensitive)." },
+      percentOff: {
+        type: "number",
+        description: "Desconto em %. Default 15.",
+        minimum: 1,
+        maximum: 100,
+      },
+    },
+  },
+};
+
 // ============================================================
 // Registry
 // ============================================================
@@ -884,5 +936,6 @@ export const WRITE_TOOLS: ToolDefinition[] = [
   createIngredientTool,
   createCouponTool,
   setCouponActiveTool,
+  generateBirthdayCouponTool,
 ];
 
