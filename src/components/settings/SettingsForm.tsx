@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ConnectWhatsAppDialog } from "./ConnectWhatsAppDialog";
 import { Field } from "@/components/ui/field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatBRL } from "@/lib/format";
@@ -508,7 +509,21 @@ function WhatsAppApiBlock({
   const [status, setStatus] = useState<{
     ok: boolean;
     msg: string;
+    connected?: boolean;
   } | null>(null);
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [disconnectBusy, setDisconnectBusy] = useState(false);
+
+  function detectConnected(d: Record<string, unknown> | undefined): boolean {
+    if (!d) return false;
+    return (
+      d.loggedIn === true ||
+      d.connected === true ||
+      d.Connected === true ||
+      d.LoggedIn === true ||
+      (typeof d.status === "string" && /connected|paired|logged/i.test(d.status))
+    );
+  }
 
   async function check() {
     setStatusBusy(true);
@@ -519,12 +534,13 @@ function WhatsAppApiBlock({
       if (!res.ok || !data.ok) {
         setStatus({ ok: false, msg: data.error ?? "Falha ao consultar status." });
       } else {
+        const connected = detectConnected(data.data);
         setStatus({
           ok: true,
-          msg:
-            typeof data.data?.message === "string"
-              ? data.data.message
-              : "Conectado ✓",
+          connected,
+          msg: connected
+            ? "Número conectado ✓"
+            : "Servidor responde, mas o número não está pareado.",
         });
       }
     } catch (e) {
@@ -534,6 +550,22 @@ function WhatsAppApiBlock({
       });
     } finally {
       setStatusBusy(false);
+    }
+  }
+
+  async function disconnect() {
+    if (!window.confirm("Desconectar o WhatsApp? Vai precisar parear de novo via QR.")) return;
+    setDisconnectBusy(true);
+    try {
+      const res = await fetch("/api/admin/whatsapp/disconnect", { method: "POST" });
+      const data = await res.json();
+      if (!data.ok) {
+        window.alert(data.error ?? "Falha ao desconectar.");
+        return;
+      }
+      setStatus({ ok: true, connected: false, msg: "Desconectado." });
+    } finally {
+      setDisconnectBusy(false);
     }
   }
 
@@ -550,27 +582,58 @@ function WhatsAppApiBlock({
             disparam mensagem automática pro cliente.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={check}
-          disabled={statusBusy}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-        >
-          {statusBusy ? "Verificando…" : "Testar conexão"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={check}
+            disabled={statusBusy}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {statusBusy ? "Verificando…" : "Testar conexão"}
+          </button>
+          {status?.ok && status.connected ? (
+            <button
+              type="button"
+              onClick={disconnect}
+              disabled={disconnectBusy}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-red-300 bg-white px-3 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+            >
+              {disconnectBusy ? "Desconectando…" : "Desconectar"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConnectOpen(true)}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-green-600 px-3 text-xs font-medium text-white hover:bg-green-700"
+            >
+              Conectar WhatsApp
+            </button>
+          )}
+        </div>
       </div>
 
       {status && (
         <div
           className={
-            status.ok
+            status.ok && status.connected
               ? "rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-800"
-              : "rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+              : status.ok
+                ? "rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+                : "rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
           }
         >
           {status.msg}
         </div>
       )}
+
+      <ConnectWhatsAppDialog
+        open={connectOpen}
+        onClose={() => setConnectOpen(false)}
+        onConnected={() => {
+          setConnectOpen(false);
+          check();
+        }}
+      />
 
       <div className="flex items-center gap-2">
         <Checkbox

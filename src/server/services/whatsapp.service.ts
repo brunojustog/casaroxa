@@ -259,34 +259,116 @@ export async function sendText(input: SendTextInput): Promise<SendTextResult> {
 }
 
 /**
- * Status da conexão com WhatsApp (se o número está conectado, etc).
+ * Wrapper genérico pra chamadas autenticadas na wuzapi.
+ * Centraliza header `token`, timeout e parsing de erro.
  */
-export async function checkConnectionStatus(): Promise<WhatsAppStatusResult> {
+async function wuzapiCall(
+  method: "GET" | "POST",
+  path: string,
+  body?: unknown,
+): Promise<{ ok: boolean; status: number; data: Record<string, unknown> | null; error?: string }> {
   const config = getConfig();
   if (!config) {
-    return { ok: false, error: "WhatsApp não configurado (env vars faltando)." };
+    return {
+      ok: false,
+      status: 0,
+      data: null,
+      error: "WhatsApp não configurado (env vars faltando).",
+    };
   }
   try {
-    const res = await fetch(`${config.url}/session/status`, {
-      method: "GET",
-      headers: { token: config.token },
-      signal: AbortSignal.timeout(10_000),
+    const res = await fetch(`${config.url}${path}`, {
+      method,
+      headers: {
+        token: config.token,
+        ...(body ? { "Content-Type": "application/json" } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(15_000),
     });
-    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    const data = (await res.json().catch(() => null)) as
+      | Record<string, unknown>
+      | null;
     if (!res.ok) {
       const err =
-        (data as { error?: string; message?: string }).error ??
-        (data as { message?: string }).message ??
-        `HTTP ${res.status}`;
-      return { ok: false, error: err };
+        ((data as { error?: string; message?: string } | null)?.error ??
+          (data as { message?: string } | null)?.message ??
+          `HTTP ${res.status}`);
+      return { ok: false, status: res.status, data, error: err };
     }
-    return { ok: true, data };
+    return { ok: true, status: res.status, data };
   } catch (e) {
     return {
       ok: false,
+      status: 0,
+      data: null,
       error: e instanceof Error ? e.message : "Erro de rede.",
     };
   }
+}
+
+/**
+ * Status da conexão com WhatsApp (se o número está conectado, etc).
+ */
+export async function checkConnectionStatus(): Promise<WhatsAppStatusResult> {
+  const r = await wuzapiCall("GET", "/session/status");
+  if (!r.ok) return { ok: false, error: r.error ?? "Falha ao consultar status." };
+  return { ok: true, data: r.data ?? {} };
+}
+
+/**
+ * Inicia o processo de conexão da instância (gera/atualiza QR code).
+ * Comportamento depende da versão do wuzapi:
+ *   - algumas retornam o QR direto na resposta
+ *   - outras só inicializam e o QR vem em GET /session/qr depois
+ */
+export async function connectSession(): Promise<{
+  ok: boolean;
+  data?: Record<string, unknown>;
+  error?: string;
+}> {
+  const r = await wuzapiCall("POST", "/session/connect", {
+    Subscribe: ["Message", "ReadReceipt", "ChatPresence"],
+    Immediate: true,
+  });
+  if (!r.ok) return { ok: false, error: r.error };
+  return { ok: true, data: r.data ?? {} };
+}
+
+/**
+ * Pega QR code atual. Retorna a string base64 ou data URL.
+ * Se o wuzapi voltar com vários formatos diferentes, o caller decide
+ * como renderizar (campos comuns: code, qrcode, base64, data).
+ */
+export async function getQRCode(): Promise<{
+  ok: boolean;
+  qrcode?: string;
+  data?: Record<string, unknown>;
+  error?: string;
+}> {
+  const r = await wuzapiCall("GET", "/session/qr");
+  if (!r.ok) return { ok: false, error: r.error };
+  const data = r.data ?? {};
+  // Tenta extrair o QR de campos conhecidos.
+  const qrcode =
+    (data.code as string | undefined) ??
+    (data.qrcode as string | undefined) ??
+    ((data.data as { qrcode?: string; code?: string } | undefined)?.qrcode ??
+      (data.data as { qrcode?: string; code?: string } | undefined)?.code) ??
+    (data.QRCode as string | undefined);
+  return { ok: true, qrcode, data };
+}
+
+/**
+ * Desconecta a sessão (logout completo — cliente vai precisar parear de novo).
+ */
+export async function logoutSession(): Promise<{
+  ok: boolean;
+  error?: string;
+}> {
+  const r = await wuzapiCall("POST", "/session/logout");
+  if (!r.ok) return { ok: false, error: r.error };
+  return { ok: true };
 }
 
 // ---------- Listagem de logs (UI) ----------
