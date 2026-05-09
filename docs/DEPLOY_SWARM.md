@@ -236,18 +236,86 @@ admin (foto principal, galeria, hero promo).
 
 ---
 
-## 10. Backup do banco
+## 10. Backup automatizado (Postgres + uploads)
 
-Cron diário no host Swarm (como root ou usuário com Docker):
+Os scripts em `scripts/backup.sh` e `scripts/restore.sh` cobrem ambos os
+volumes em uso (Postgres e uploads de imagens). **Roda no host Swarm**, não
+dentro de container.
 
-```cron
-0 3 * * * docker exec $(docker ps -qf name=casa-roxa_postgres) pg_dump -U casaroxa casa_roxa | gzip > /var/backups/casa_roxa/casa_roxa_$(date +\%F).sql.gz
-0 4 * * 0 find /var/backups/casa_roxa -name "*.sql.gz" -mtime +30 -delete
+### Instalação inicial (uma vez)
+
+```bash
+# 1. Como root (ou usuário com permissão Docker), copia os scripts:
+sudo mkdir -p /opt/casaroxa
+sudo cp scripts/backup.sh /opt/casaroxa/backup.sh
+sudo cp scripts/restore.sh /opt/casaroxa/restore.sh
+sudo chmod +x /opt/casaroxa/*.sh
+
+# 2. Cria diretório de logs:
+sudo mkdir -p /var/log
+sudo touch /var/log/casa-roxa-backup.log
+
+# 3. Cria diretório de backups:
+sudo mkdir -p /var/backups/casa-roxa
+
+# 4. Testa rodando manualmente:
+sudo /opt/casaroxa/backup.sh
+# Deve criar arquivos em /var/backups/casa-roxa/postgres/ e /var/backups/casa-roxa/uploads/
 ```
 
-Restauração:
+### Cron diário (3h da manhã)
+
 ```bash
-gunzip < backup.sql.gz | docker exec -i $(docker ps -qf name=casa-roxa_postgres) psql -U casaroxa casa_roxa
+sudo crontab -e
+```
+
+Adicione:
+```cron
+0 3 * * * /opt/casaroxa/backup.sh >> /var/log/casa-roxa-backup.log 2>&1
+```
+
+Confere com:
+```bash
+sudo crontab -l
+tail -f /var/log/casa-roxa-backup.log
+```
+
+### Variáveis configuráveis
+
+Se seu stack tem nome diferente de `casaroxa`, edite o cron passando vars:
+```cron
+0 3 * * * STACK_NAME=meucasaroxa BACKUP_DIR=/mnt/backup /opt/casaroxa/backup.sh >> ...
+```
+
+Defaults: `STACK_NAME=casaroxa`, `BACKUP_DIR=/var/backups/casa-roxa`,
+`RETENTION_DAYS=30`, `POSTGRES_USER=casaroxa`, `POSTGRES_DB=casa_roxa`.
+
+### Restaurar de um backup
+
+```bash
+# Lista backups disponíveis:
+ls -lh /var/backups/casa-roxa/postgres/
+ls -lh /var/backups/casa-roxa/uploads/
+
+# Restaurar (vai pedir confirmação digitando o nome do banco):
+sudo /opt/casaroxa/restore.sh \
+  /var/backups/casa-roxa/postgres/casa_roxa_2026-05-08_0300.sql.gz \
+  /var/backups/casa-roxa/uploads/uploads_2026-05-08_0300.tar.gz
+```
+
+### Backup off-site (recomendado)
+
+Os arquivos ficam no mesmo VPS — se o servidor pifar, perde junto. Pra
+segurança real, copie `/var/backups/casa-roxa/` regularmente para storage
+externo. Opções (mais simples → mais robusto):
+
+- **rsync para outro servidor** (cron extra com SSH key)
+- **rclone** sincronizando com Google Drive/Dropbox/OneDrive (free tier)
+- **Backblaze B2** ou **Cloudflare R2** (~$0.005/GB/mês)
+
+Exemplo com rclone (depois de configurar `rclone config`):
+```cron
+30 3 * * * rclone sync /var/backups/casa-roxa gdrive:casa-roxa-backups --quiet
 ```
 
 ---
