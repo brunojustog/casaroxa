@@ -7,6 +7,7 @@ import { ChevronLeft, ImageOff, UtensilsCrossed } from "lucide-react";
 import { formatBRL } from "@/lib/format";
 import { youtubeEmbedUrl } from "@/lib/youtube";
 import { MenuItemActions } from "./cart/MenuItemActions";
+import { ShareButton } from "./ShareButton";
 import type { PublicMenuItem } from "@/server/services/public-menu.service";
 
 export function MenuItemDetail({ item }: { item: PublicMenuItem }) {
@@ -85,9 +86,16 @@ export function MenuItemDetail({ item }: { item: PublicMenuItem }) {
         {/* Info */}
         <div className="space-y-5">
           <div className="space-y-1">
-            <h1 className="font-serif text-3xl font-bold text-roxa-900 md:text-4xl">
-              {item.name}
-            </h1>
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="font-serif text-3xl font-bold text-roxa-900 md:text-4xl">
+                {item.name}
+              </h1>
+              <ShareButton
+                title={item.name}
+                text={item.description ?? item.ingredientsPublic ?? item.name}
+                className="mt-2 inline-flex shrink-0 items-center gap-1.5 rounded-full border border-roxa-200 bg-white px-3 py-1.5 text-xs font-medium text-roxa-800 hover:bg-roxa-50"
+              />
+            </div>
             {item.portionLabel && (
               <p className="text-sm text-slate-500">{item.portionLabel}</p>
             )}
