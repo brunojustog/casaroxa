@@ -328,6 +328,332 @@ const getDashboardSummaryTool: ToolDefinition = {
 };
 
 // ============================================================
+// Read-only — vendas, cupons e inventários
+// ============================================================
+
+const listSalesTool: ToolDefinition = {
+  name: "list_sales",
+  description:
+    "Lista pedidos com nº, cliente, total, status e progresso. Use pra responder 'quais pedidos estão em aberto?', 'quantas vendas hoje?' ou pra encontrar o número de um pedido específico.",
+  readOnly: true,
+  input_schema: {
+    type: "object",
+    properties: {
+      status: {
+        type: "string",
+        enum: ["ABERTA", "CONCLUIDA", "CANCELADA"],
+        description: "Filtra por status. Opcional.",
+      },
+      progress: {
+        type: "string",
+        enum: ["NOVO", "CONFIRMADO", "PREPARANDO", "PRONTO", "SAIU_ENTREGA", "ENTREGUE"],
+        description: "Filtra por etapa do pedido. Opcional.",
+      },
+      source: {
+        type: "string",
+        enum: ["LOJA", "SITE", "WHATSAPP", "DELIVERY"],
+        description: "Filtra por origem do pedido. Opcional.",
+      },
+      sinceDays: {
+        type: "integer",
+        description: "Apenas pedidos dos últimos N dias. Default 7.",
+        default: 7,
+      },
+      limit: { type: "integer", default: 30 },
+    },
+  },
+  async run(input) {
+    const { status, progress, source, sinceDays = 7, limit = 30 } = input as {
+      status?: "ABERTA" | "CONCLUIDA" | "CANCELADA";
+      progress?: string;
+      source?: string;
+      sinceDays?: number;
+      limit?: number;
+    };
+    const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
+    const sales = await prisma.sale.findMany({
+      where: {
+        occurredAt: { gte: since },
+        ...(status ? { status } : {}),
+        ...(progress ? { progress: progress as never } : {}),
+        ...(source ? { source: source as never } : {}),
+      },
+      orderBy: { occurredAt: "desc" },
+      take: Math.min(limit, 100),
+      select: {
+        id: true,
+        number: true,
+        occurredAt: true,
+        customerName: true,
+        source: true,
+        status: true,
+        progress: true,
+        totalRevenue: true,
+        couponDiscount: true,
+        couponCode: true,
+      },
+    });
+    return sales.map((s) => ({
+      id: s.id,
+      numero: s.number,
+      data: s.occurredAt.toISOString(),
+      cliente: s.customerName,
+      origem: s.source,
+      status: s.status,
+      progresso: s.progress,
+      totalBruto: Number(s.totalRevenue),
+      desconto: Number(s.couponDiscount),
+      cupom: s.couponCode,
+      totalLiquido: Number(s.totalRevenue) - Number(s.couponDiscount),
+    }));
+  },
+};
+
+const listCouponsTool: ToolDefinition = {
+  name: "list_coupons",
+  description:
+    "Lista cupons cadastrados com código, tipo, valor, usos e validade. Use pra perguntas como 'que cupons estão ativos?', 'quanto o cupom MAIO15 já foi usado?'.",
+  readOnly: true,
+  input_schema: {
+    type: "object",
+    properties: {
+      active: {
+        type: "string",
+        enum: ["all", "active", "inactive"],
+        default: "all",
+      },
+      limit: { type: "integer", default: 30 },
+    },
+  },
+  async run(input) {
+    const { active = "all", limit = 30 } = input as {
+      active?: "all" | "active" | "inactive";
+      limit?: number;
+    };
+    const coupons = await prisma.coupon.findMany({
+      where:
+        active === "active"
+          ? { active: true }
+          : active === "inactive"
+            ? { active: false }
+            : {},
+      orderBy: { createdAt: "desc" },
+      take: Math.min(limit, 100),
+    });
+    const now = new Date();
+    return coupons.map((c) => ({
+      id: c.id,
+      codigo: c.code,
+      descricao: c.description,
+      tipo: c.type,
+      valor: Number(c.value),
+      usos: c.usedCount,
+      limiteUsos: c.maxUses,
+      pedidoMinimo: c.minOrderAmount === null ? null : Number(c.minOrderAmount),
+      validoAte: c.validUntil?.toISOString() ?? null,
+      ativo: c.active,
+      expirado: c.validUntil ? c.validUntil < now : false,
+      esgotado: c.maxUses !== null && c.usedCount >= c.maxUses,
+    }));
+  },
+};
+
+const listInventoriesTool: ToolDefinition = {
+  name: "list_inventories",
+  description:
+    "Lista sessões de inventário (contagem física) com status, n° de itens e quem abriu. Use pra 'tem alguma contagem aberta?', 'qual foi o último inventário?'.",
+  readOnly: true,
+  input_schema: {
+    type: "object",
+    properties: {
+      status: {
+        type: "string",
+        enum: ["ABERTA", "FECHADA", "CANCELADA"],
+      },
+      limit: { type: "integer", default: 10 },
+    },
+  },
+  async run(input) {
+    const { status, limit = 10 } = input as {
+      status?: "ABERTA" | "FECHADA" | "CANCELADA";
+      limit?: number;
+    };
+    const items = await prisma.inventory.findMany({
+      where: status ? { status } : {},
+      orderBy: { startedAt: "desc" },
+      take: Math.min(limit, 50),
+      include: {
+        createdBy: { select: { name: true } },
+        _count: { select: { items: true } },
+      },
+    });
+    return items.map((i) => ({
+      id: i.id,
+      nome: i.name,
+      status: i.status,
+      iniciadoEm: i.startedAt.toISOString(),
+      fechadoEm: i.closedAt?.toISOString() ?? null,
+      criadoPor: i.createdBy.name,
+      itens: i._count.items,
+    }));
+  },
+};
+
+// ============================================================
+// Read-only — clientes
+// ============================================================
+
+const listCustomersTool: ToolDefinition = {
+  name: "list_customers",
+  description:
+    "Lista clientes cadastrados. Filtre por nome/telefone (search) ou pelo mês de aniversário pra ações de marketing. Use pra responder 'quem faz aniversário em maio?' ou 'quantos clientes temos?'.",
+  readOnly: true,
+  input_schema: {
+    type: "object",
+    properties: {
+      search: { type: "string", description: "Nome ou telefone parcial." },
+      birthdayMonth: {
+        type: "integer",
+        description: "Mês do aniversário (1-12). Opcional.",
+        minimum: 1,
+        maximum: 12,
+      },
+      active: {
+        type: "string",
+        enum: ["all", "active", "inactive"],
+        default: "active",
+      },
+      limit: { type: "integer", default: 30 },
+    },
+  },
+  async run(input) {
+    const { search, birthdayMonth, active = "active", limit = 30 } = input as {
+      search?: string;
+      birthdayMonth?: number;
+      active?: "all" | "active" | "inactive";
+      limit?: number;
+    };
+    const where: Record<string, unknown> = {};
+    if (active === "active") where.active = true;
+    else if (active === "inactive") where.active = false;
+    if (search) {
+      const digits = search.replace(/\D+/g, "");
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        ...(digits.length >= 4 ? [{ phone: { contains: digits } }] : []),
+      ];
+    }
+    if (birthdayMonth) {
+      const ids = await prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM "Customer"
+        WHERE birthday IS NOT NULL
+        AND EXTRACT(MONTH FROM birthday) = ${birthdayMonth}
+      `;
+      where.id = { in: ids.map((r) => r.id) };
+    }
+    const items = await prisma.customer.findMany({
+      where: where as never,
+      orderBy: { name: "asc" },
+      take: Math.min(limit, 100),
+      include: { _count: { select: { sales: true } } },
+    });
+    return items.map((c) => ({
+      id: c.id,
+      nome: c.name,
+      telefone: c.phone,
+      bairro: c.neighborhood,
+      aniversario: c.birthday?.toISOString().slice(0, 10) ?? null,
+      pedidos: c._count.sales,
+      ativo: c.active,
+    }));
+  },
+};
+
+const getCustomerTool: ToolDefinition = {
+  name: "get_customer",
+  description:
+    "Detalhes de um cliente + últimos pedidos. Use pra responder 'qual o histórico do João?' ou pra encontrar o ID dele.",
+  readOnly: true,
+  input_schema: {
+    type: "object",
+    properties: {
+      customerId: { type: "string", description: "ID do cliente." },
+      phone: {
+        type: "string",
+        description: "Telefone do cliente (será normalizado). Use este OU customerId.",
+      },
+      name: { type: "string", description: "Busca exata por nome (case-insensitive)." },
+      saleLimit: { type: "integer", default: 10 },
+    },
+  },
+  async run(input) {
+    const { customerId, phone, name, saleLimit = 10 } = input as {
+      customerId?: string;
+      phone?: string;
+      name?: string;
+      saleLimit?: number;
+    };
+    let customer = null;
+    if (customerId) {
+      customer = await prisma.customer.findUnique({ where: { id: customerId } });
+    } else if (phone) {
+      const digits = phone.replace(/\D+/g, "");
+      customer = await prisma.customer.findUnique({ where: { phone: digits } });
+    } else if (name) {
+      customer = await prisma.customer.findFirst({
+        where: { name: { equals: name, mode: "insensitive" } },
+      });
+    }
+    if (!customer) return { erro: "Cliente não encontrado." };
+
+    const sales = await prisma.sale.findMany({
+      where: { customerId: customer.id },
+      orderBy: { occurredAt: "desc" },
+      take: Math.min(saleLimit, 30),
+      select: {
+        id: true,
+        number: true,
+        occurredAt: true,
+        status: true,
+        progress: true,
+        totalRevenue: true,
+        couponDiscount: true,
+        couponCode: true,
+        source: true,
+      },
+    });
+
+    const totalSpent = sales
+      .filter((s) => s.status === "CONCLUIDA")
+      .reduce(
+        (acc, s) => acc + Number(s.totalRevenue) - Number(s.couponDiscount),
+        0,
+      );
+
+    return {
+      id: customer.id,
+      nome: customer.name,
+      telefone: customer.phone,
+      email: customer.email,
+      aniversario: customer.birthday?.toISOString().slice(0, 10) ?? null,
+      endereco: customer.address,
+      bairro: customer.neighborhood,
+      ativo: customer.active,
+      totalGasto: totalSpent,
+      pedidos: sales.map((s) => ({
+        numero: s.number,
+        data: s.occurredAt.toISOString(),
+        status: s.status,
+        progresso: s.progress,
+        origem: s.source,
+        total: Number(s.totalRevenue) - Number(s.couponDiscount),
+        cupom: s.couponCode,
+      })),
+    };
+  },
+};
+
+// ============================================================
 // Registry
 // ============================================================
 
@@ -341,6 +667,11 @@ const READ_TOOLS: ToolDefinition[] = [
   calculateSuggestedPriceTool,
   listRecentPurchasesTool,
   getDashboardSummaryTool,
+  listSalesTool,
+  listCouponsTool,
+  listInventoriesTool,
+  listCustomersTool,
+  getCustomerTool,
 ];
 
 export const TOOLS: ToolDefinition[] = [...READ_TOOLS, ...WRITE_TOOLS];

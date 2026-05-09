@@ -78,6 +78,14 @@ export function DreTable({ dre }: { dre: DrePeriod }) {
         signed="-"
         tone="muted"
       />
+      {dre.couponDiscount > 0 && (
+        <Row
+          label="Descontos de cupom"
+          value={-dre.couponDiscount}
+          signed="-"
+          tone="muted"
+        />
+      )}
       {dre.discount > 0 && (
         <Row
           label="Descontos / cortesia"

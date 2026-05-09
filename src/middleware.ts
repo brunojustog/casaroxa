@@ -64,6 +64,7 @@ const ADMIN_PREFIXES = [
   "/usuarios",
   "/inventarios",
   "/cupons",
+  "/clientes",
   "/api/auth",
   "/api/admin",
 ];
@@ -78,6 +79,7 @@ const OPERATOR_ALLOWED_PREFIXES = [
   "/vendas",
   "/estoque",
   "/inventarios",
+  "/clientes",
   "/assistente",
   "/api/admin",
   "/api/auth",

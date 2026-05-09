@@ -19,7 +19,10 @@ export type DrePeriod = {
   revenue: number;
   fees: number;
   netRevenue: number;
+  /** Desconto manual no fechamento (cortesia). */
   discount: number;
+  /** Desconto vindo de cupom aplicado no checkout público. */
+  couponDiscount: number;
   cogs: number;
   grossMargin: number;
   grossMarginPct: number;
@@ -88,6 +91,7 @@ async function aggregateSalesInRange(from: Date, to: Date) {
       totalFees: true,
       totalNet: true,
       totalDiscount: true,
+      couponDiscount: true,
     },
   });
 
@@ -96,6 +100,7 @@ async function aggregateSalesInRange(from: Date, to: Date) {
   const fees = sumDecimal(sales.map((s) => s.totalFees));
   const netRevenue = sumDecimal(sales.map((s) => s.totalNet));
   const discount = sumDecimal(sales.map((s) => s.totalDiscount));
+  const couponDiscount = sumDecimal(sales.map((s) => s.couponDiscount));
 
   return {
     salesCount: sales.length,
@@ -104,6 +109,7 @@ async function aggregateSalesInRange(from: Date, to: Date) {
     fees: Number(fees),
     netRevenue: Number(netRevenue),
     discount: Number(discount),
+    couponDiscount: Number(couponDiscount),
   };
 }
 
@@ -132,6 +138,7 @@ function buildDre(
     fees: agg.fees,
     netRevenue: agg.netRevenue,
     discount: agg.discount,
+    couponDiscount: agg.couponDiscount,
     cogs: agg.cogs,
     grossMargin,
     grossMarginPct,

@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { toDecimal, sumDecimal } from "@/lib/decimal";
 import { whatsappLink } from "@/lib/whatsapp";
 import { applyCouponInTransaction } from "./coupon.service";
+import { upsertCustomerFromCheckout } from "./customer.service";
 import type { PublicOrderData } from "@/schemas/public-order.schema";
 
 export type PublicOrderResult = {
@@ -117,11 +118,30 @@ export async function createPublicOrder(
   //    permitir uso simultâneo acima do limite.
   const subtotalNum = grandTotal.toNumber();
   const sale = await prisma.$transaction(async (tx) => {
+    // Upsert do cliente pelo telefone — falha em telefone inválido
+    // não impede o pedido (catch + customerId fica null).
+    let customerId: string | null = null;
+    try {
+      customerId = await upsertCustomerFromCheckout(tx, {
+        name: input.customerName,
+        phone: input.customerPhone,
+        address: input.deliveryMode === "DELIVERY" ? input.address : null,
+        addressNumber: input.deliveryMode === "DELIVERY" ? input.addressNumber : null,
+        addressComplement:
+          input.deliveryMode === "DELIVERY" ? input.addressComplement : null,
+        neighborhood: input.deliveryMode === "DELIVERY" ? input.neighborhood : null,
+        reference: input.deliveryMode === "DELIVERY" ? input.reference : null,
+      });
+    } catch {
+      customerId = null;
+    }
+
     const created = await tx.sale.create({
       data: {
         source: SaleSource.SITE,
         status: SaleStatus.ABERTA,
         customerName: input.customerName,
+        customerId,
         notes,
         // caches preenchidos abaixo
       },

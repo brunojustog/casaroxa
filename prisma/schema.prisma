@@ -599,6 +599,36 @@ model InventoryItem {
 // CUPONS DE DESCONTO
 // ============================================================
 
+// ============================================================
+// CLIENTES
+// ============================================================
+
+model Customer {
+  id    String  @id @default(cuid())
+  name  String
+  /// Chave natural — usada pra reconhecer o mesmo cliente em pedidos
+  /// repetidos no checkout público (upsert por telefone).
+  phone String  @unique
+  email String?
+  /// Aniversário (opcional). Usado pra promoções automáticas no futuro.
+  birthday DateTime? @db.Date
+  /// Endereço padrão (opcional, alimenta o checkout pré-preenchido).
+  address           String?
+  addressNumber     String?
+  addressComplement String?
+  neighborhood      String?
+  reference         String?
+  notes             String?
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  sales Sale[]
+
+  @@index([active, name])
+  @@index([birthday])
+}
+
 model Coupon {
   id          String     @id @default(cuid())
   /// Código que o cliente digita no checkout (sempre uppercase).
@@ -809,6 +839,11 @@ model Sale {
   /// Valor descontado pelo cupom (já calculado e validado contra o subtotal).
   couponDiscount Decimal @default(0) @db.Decimal(14, 2)
 
+  /// Cliente vinculado (se conhecido). Auto-preenchido no checkout via match
+  /// pelo telefone. Vendas criadas no admin não usam este FK por enquanto —
+  /// só customerName fica preenchido como hoje.
+  customerId String?
+
   closedAt      DateTime?
   closedById    String?
   cancelledAt   DateTime?
@@ -830,6 +865,7 @@ model Sale {
   closedBy    User?         @relation("SaleClosedBy", fields: [closedById], references: [id])
   cancelledBy User?         @relation("SaleCancelledBy", fields: [cancelledById], references: [id])
   coupon      Coupon?       @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  customer    Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
   items       SaleItem[]
   payments    SalePayment[]
 
@@ -837,6 +873,7 @@ model Sale {
   @@index([status, occurredAt])
   @@index([source])
   @@index([progress, source])
+  @@index([customerId, occurredAt])
 }
 
 model SaleItem {

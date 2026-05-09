@@ -23,6 +23,7 @@ import {
   Users,
   ClipboardCheck,
   Tag,
+  UsersRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@prisma/client";
@@ -61,6 +62,7 @@ const NAV: NavSection[] = [
       { href: "/inventarios", label: "Inventário",  icon: ClipboardCheck },
       { href: "/compras",     label: "Compras",     icon: ShoppingCart, roles: ["ADMIN"] },
       { href: "/vendas",      label: "Vendas",      icon: DollarSign },
+      { href: "/clientes",    label: "Clientes",    icon: UsersRound },
     ],
   },
   {

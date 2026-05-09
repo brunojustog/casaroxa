@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Printer } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { InventorySession } from "@/components/inventories/InventorySession";
@@ -76,13 +76,24 @@ export default async function InventarioDetalhePage({
           </span>
         }
         actions={
-          inv.status === "ABERTA" ? (
-            <Badge tone="info">{STATUS_LABEL[inv.status]}</Badge>
-          ) : inv.status === "FECHADA" ? (
-            <Badge tone="success">{STATUS_LABEL[inv.status]}</Badge>
-          ) : (
-            <Badge tone="neutral">{STATUS_LABEL[inv.status]}</Badge>
-          )
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/inventarios/${inv.id}/print`}
+              target="_blank"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              title="Abrir lista pra impressão (offline)"
+            >
+              <Printer className="h-4 w-4" />
+              Imprimir lista
+            </Link>
+            {inv.status === "ABERTA" ? (
+              <Badge tone="info">{STATUS_LABEL[inv.status]}</Badge>
+            ) : inv.status === "FECHADA" ? (
+              <Badge tone="success">{STATUS_LABEL[inv.status]}</Badge>
+            ) : (
+              <Badge tone="neutral">{STATUS_LABEL[inv.status]}</Badge>
+            )}
+          </div>
         }
       />
 
