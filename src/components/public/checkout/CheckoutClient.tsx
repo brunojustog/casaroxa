@@ -5,14 +5,18 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
+  Check,
   ImageOff,
   Minus,
   Plus,
   ShoppingBag,
+  Tag,
   Trash2,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import { useCart, cartKeyOf } from "@/components/public/cart/CartProvider";
+import { validateCouponAction } from "@/server/actions/coupons";
 
 type SiteSettingsForCheckout = {
   pickupEnabled: boolean;
@@ -49,6 +53,15 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
   const [reference, setReference] = useState("");
   const [paymentHint, setPaymentHint] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Cupom
+  const [couponInput, setCouponInput] = useState("");
+  const [couponApplied, setCouponApplied] = useState<{
+    code: string;
+    discount: number;
+  } | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponBusy, setCouponBusy] = useState(false);
 
   // Persist form em sessionStorage pra não perder ao trocar página
   useEffect(() => {
@@ -109,6 +122,71 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
   const minOrder = settings.minimumOrderValue ?? 0;
   const belowMinimum = minOrder > 0 && total < minOrder;
 
+  const couponDiscount = couponApplied?.discount ?? 0;
+  const finalTotal = Math.max(0, total - couponDiscount);
+
+  // Revalida cupom quando o subtotal mudar (carrinho alterado).
+  // Se o pedido cair abaixo do mínimo do cupom, ele é removido com aviso.
+  useEffect(() => {
+    if (!couponApplied) return;
+    if (total <= 0) {
+      setCouponApplied(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const res = await validateCouponAction(couponApplied.code, total);
+      if (cancelled) return;
+      const data = res.ok ? res.data : undefined;
+      if (!data || !data.valid) {
+        setCouponApplied(null);
+        setCouponError(
+          data && !data.valid
+            ? data.error
+            : "Cupom não pôde ser mantido com o novo valor do pedido.",
+        );
+        return;
+      }
+      // Atualiza só se o desconto mudou (evita re-render desnecessário).
+      if (data.discount !== couponApplied.discount) {
+        setCouponApplied({ code: couponApplied.code, discount: data.discount });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [total, couponApplied]);
+
+  async function applyCoupon() {
+    const code = couponInput.trim().toUpperCase();
+    if (!code) return;
+    setCouponBusy(true);
+    setCouponError(null);
+    try {
+      const res = await validateCouponAction(code, total);
+      if (!res.ok) {
+        setCouponError(res.error);
+        return;
+      }
+      if (!res.data?.valid) {
+        setCouponError(res.data?.error ?? "Cupom inválido.");
+        return;
+      }
+      setCouponApplied({
+        code: res.data.coupon.code,
+        discount: res.data.discount,
+      });
+      setCouponInput("");
+    } finally {
+      setCouponBusy(false);
+    }
+  }
+
+  function removeCoupon() {
+    setCouponApplied(null);
+    setCouponError(null);
+  }
+
   const canSubmit = useMemo(() => {
     if (count === 0) return false;
     if (belowMinimum) return false;
@@ -148,6 +226,7 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
           reference: deliveryMode === "DELIVERY" ? reference : undefined,
           paymentHint,
           notes,
+          couponCode: couponApplied?.code ?? undefined,
           items: cart.items.map((i) => ({
             id: i.id,
             kind: i.kind,
@@ -168,6 +247,9 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
           JSON.stringify({
             saleNumber: data.saleNumber,
             saleId: data.saleId,
+            subtotal: data.subtotal,
+            couponCode: data.couponCode,
+            couponDiscount: data.couponDiscount,
             total: data.total,
             whatsappLink: data.whatsappLink,
             trackingUrl: data.trackingUrl,
@@ -452,6 +534,15 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
               <span className="text-slate-600">Subtotal</span>
               <span className="tabular-nums">{fmt(total)}</span>
             </div>
+            {couponApplied && (
+              <div className="flex justify-between text-green-700">
+                <span className="inline-flex items-center gap-1">
+                  <Tag className="h-3.5 w-3.5" />
+                  Cupom {couponApplied.code}
+                </span>
+                <span className="tabular-nums">−{fmt(couponDiscount)}</span>
+              </div>
+            )}
             {deliveryMode === "DELIVERY" && (
               <div className="flex justify-between text-slate-500">
                 <span>Taxa de entrega</span>
@@ -460,8 +551,63 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
             )}
             <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-semibold text-slate-900">
               <span>Total</span>
-              <span className="tabular-nums">{fmt(total)}</span>
+              <span className="tabular-nums">{fmt(finalTotal)}</span>
             </div>
+          </div>
+
+          {/* Cupom */}
+          <div className="mt-4 border-t border-slate-200 pt-4">
+            {couponApplied ? (
+              <div className="flex items-center justify-between rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+                <span className="inline-flex items-center gap-1.5">
+                  <Check className="h-4 w-4" />
+                  Cupom <strong>{couponApplied.code}</strong> aplicado
+                </span>
+                <button
+                  type="button"
+                  onClick={removeCoupon}
+                  className="rounded-md p-1 hover:bg-green-100"
+                  aria-label="Remover cupom"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-700">
+                  Tem um cupom?
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponInput}
+                    onChange={(e) => {
+                      setCouponInput(e.currentTarget.value.toUpperCase());
+                      if (couponError) setCouponError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        applyCoupon();
+                      }
+                    }}
+                    placeholder="DIGITE O CÓDIGO"
+                    className="h-10 flex-1 rounded-md border border-slate-300 bg-white px-3 font-mono text-sm uppercase tracking-wide focus:border-roxa-500 focus:outline-none focus:ring-1 focus:ring-roxa-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={applyCoupon}
+                    disabled={couponBusy || !couponInput.trim() || total <= 0}
+                    className="rounded-md border border-roxa-300 bg-white px-3 text-sm font-medium text-roxa-700 hover:bg-roxa-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {couponBusy ? "…" : "Aplicar"}
+                  </button>
+                </div>
+                {couponError && (
+                  <p className="text-xs text-red-600">{couponError}</p>
+                )}
+              </div>
+            )}
           </div>
 
           {belowMinimum && (

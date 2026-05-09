@@ -10,12 +10,16 @@ import { SaleSource, SaleStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { toDecimal, sumDecimal } from "@/lib/decimal";
 import { whatsappLink } from "@/lib/whatsapp";
+import { applyCouponInTransaction } from "./coupon.service";
 import type { PublicOrderData } from "@/schemas/public-order.schema";
 
 export type PublicOrderResult = {
   saleId: string;
   saleNumber: number;
+  subtotal: number;
+  couponDiscount: number;
   total: number;
+  couponCode: string | null;
   whatsappLink: string | null;
   trackingUrl: string | null;
 };
@@ -108,7 +112,10 @@ export async function createPublicOrder(
   // 4. Monta notes com dados do cliente em texto estruturado
   const notes = formatCustomerNotes(input);
 
-  // 5. Cria a Sale + items numa transação
+  // 5. Cria a Sale + items numa transação. O cupom (se houver) é validado
+  //    e tem o usedCount incrementado dentro da MESMA transação pra não
+  //    permitir uso simultâneo acima do limite.
+  const subtotalNum = grandTotal.toNumber();
   const sale = await prisma.$transaction(async (tx) => {
     const created = await tx.sale.create({
       data: {
@@ -135,6 +142,26 @@ export async function createPublicOrder(
       });
     }
 
+    let couponId: string | null = null;
+    let couponCode: string | null = null;
+    let couponDiscount = 0;
+    if (input.couponCode) {
+      try {
+        const applied = await applyCouponInTransaction(
+          tx,
+          input.couponCode,
+          subtotalNum,
+        );
+        couponId = applied.couponId;
+        couponCode = applied.couponCode;
+        couponDiscount = applied.discount;
+      } catch (e) {
+        // Re-lança como PublicOrderError pra UI mostrar a mensagem do BusinessError.
+        const msg = e instanceof Error ? e.message : "Cupom inválido.";
+        throw new PublicOrderError(msg);
+      }
+    }
+
     // Atualiza caches da Sale
     const totalRevenue = sumDecimal(totals.map((t) => t.totalPrice));
     const totalCost = sumDecimal(totals.map((t) => t.totalCost));
@@ -143,6 +170,9 @@ export async function createPublicOrder(
       data: {
         totalRevenue: totalRevenue.toFixed(2),
         totalCost: totalCost.toFixed(4),
+        couponId,
+        couponCode,
+        couponDiscount: couponDiscount.toFixed(2),
         // pagamentos ainda não — Bruno coleta na confirmação
       },
     });
@@ -153,6 +183,10 @@ export async function createPublicOrder(
   const trackingUrl = publicDomain
     ? `https://${publicDomain}/pedido/${sale.id}`
     : null;
+
+  const couponDiscount = Number(sale.couponDiscount);
+  const subtotal = subtotalNum;
+  const finalTotal = Math.max(0, subtotal - couponDiscount);
 
   // 7. Monta mensagem WhatsApp pré-formatada com o pedido
   const message = buildWhatsappMessage({
@@ -173,14 +207,20 @@ export async function createPublicOrder(
       quantity: t.quantity,
       totalPrice: t.totalPrice.toNumber(),
     })),
-    grandTotal: grandTotal.toNumber(),
+    subtotal,
+    couponCode: sale.couponCode,
+    couponDiscount,
+    grandTotal: finalTotal,
     trackingUrl,
   });
 
   return {
     saleId: sale.id,
     saleNumber: sale.number,
-    total: grandTotal.toNumber(),
+    subtotal,
+    couponDiscount,
+    total: finalTotal,
+    couponCode: sale.couponCode,
     whatsappLink: whatsappLink(settings?.whatsappNumber, message),
     trackingUrl,
   };
@@ -235,6 +275,9 @@ function buildWhatsappMessage(args: {
   paymentHint: string | null;
   extraNotes: string | null;
   items: { name: string; quantity: number; totalPrice: number }[];
+  subtotal: number;
+  couponCode: string | null;
+  couponDiscount: number;
   grandTotal: number;
   trackingUrl: string | null;
 }): string {
@@ -249,6 +292,12 @@ function buildWhatsappMessage(args: {
     lines.push(`• ${item.quantity}× ${item.name} — ${fmt(item.totalPrice)}`);
   }
   lines.push("");
+  if (args.couponDiscount > 0) {
+    lines.push(`Subtotal: ${fmt(args.subtotal)}`);
+    lines.push(
+      `Cupom ${args.couponCode ?? ""}: −${fmt(args.couponDiscount)}`.trim(),
+    );
+  }
   lines.push(`*Total: ${fmt(args.grandTotal)}*`);
   lines.push("");
   lines.push(`👤 ${args.customerName}`);

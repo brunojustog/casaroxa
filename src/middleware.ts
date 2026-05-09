@@ -63,6 +63,7 @@ const ADMIN_PREFIXES = [
   "/importar",
   "/usuarios",
   "/inventarios",
+  "/cupons",
   "/api/auth",
   "/api/admin",
 ];

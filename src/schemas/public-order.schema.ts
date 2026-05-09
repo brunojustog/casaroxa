@@ -29,6 +29,8 @@ export const publicOrderSchema = z
     reference: optionalString(200),
     paymentHint: optionalString(60),
     notes: optionalString(500),
+    /** Código de cupom (opcional). Validado server-side em public-order.service. */
+    couponCode: optionalString(40),
     items: z.array(publicOrderItemSchema).min(1, "Carrinho vazio"),
   })
   .superRefine((data, ctx) => {
