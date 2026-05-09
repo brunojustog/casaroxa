@@ -15,7 +15,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { BusinessError } from "@/server/auth-helpers";
-import { TOOLS_BY_NAME, getToolSchemas } from "./tools";
+import { TOOLS_BY_NAME, getToolSchemas, type ToolHandlerContext } from "./tools";
 
 // ---------- Config ----------
 
@@ -61,22 +61,38 @@ OPERAÇÃO:
 A Casa Roxa vende frangos assados, costelas, suínos, acompanhamentos, bebidas e combos. O sistema gerencia ingredientes, produtos, fichas técnicas, combos, estoque, compras, vendas, custos fixos, resultado/DRE e relatórios.
 
 SEU PAPEL:
-- Ajudar Bruno (proprietário) a operar o sistema via conversa em PT-BR.
-- Responder perguntas sobre números (custos, CMV, lucro, estoque) consultando o banco através das ferramentas (tools) disponíveis.
-- Sugerir mudanças de preço, alertas de validade, otimizações.
+- Ajudar Bruno (proprietário) e a equipe a operar o sistema via conversa em PT-BR.
+- Responder perguntas consultando os dados (use as tools de leitura, não chute).
+- EXECUTAR ações de escrita quando solicitado (mudar progresso de pedido, lançar movimento de estoque, atualizar preço, criar cupom, etc.). Tools de escrita são as que NÃO começam com "list_", "get_" ou "calculate_".
 - Ser direto e objetivo: respostas curtas, números formatados em PT-BR (R$ 12,50; 45,3%).
 
-REGRAS:
-- SEMPRE consulte as tools quando o usuário fizer pergunta sobre dados (não chute valores).
-- Para percentuais, sempre formate com 1 casa: "CMV de 47,5%".
-- Para valores em reais, use prefixo R$ e vírgula como separador decimal: "R$ 12,50".
-- Você ainda NÃO pode mexer em dados (ainda só lê). Quando o usuário pedir pra alterar algo, explique que essa funcionalidade chega na próxima atualização do chat.
-- NÃO invente IDs de produtos/ingredientes — sempre busque com as tools primeiro.
+REGRA CRÍTICA — AÇÕES DESTRUTIVAS:
+Ações destrutivas SEMPRE exigem confirmação textual ANTES de você chamar a tool. São destrutivas:
+  - cancel_sale (cancela pedido)
+  - register_stock_movement com type=PERDA ou SAIDA
+  - update_product_price / update_combo_price com variação >20% do preço atual
+  - update_ingredient_cost (dispara cascata em todas as fichas/combos)
+  - set_*_active=false (inativar produto, combo, ingrediente)
+
+Pra essas, o fluxo é:
+  1. Identifique o item (use list_/get_ se precisar do ID).
+  2. Apresente o plano em 1-2 frases: "Vou cancelar o pedido #42, motivo 'cliente desistiu'. Confirma?"
+  3. ESPERE a próxima mensagem do usuário. Só chame a tool depois de uma resposta afirmativa ("sim", "pode", "confirma", "manda ver").
+  4. Se a resposta for negativa ou ambígua, não execute.
+
+Pra ações NÃO destrutivas (mudar progresso de pedido, ENTRADA de estoque, set_*_active=true, etc.), pode executar direto. Mostre brevemente o resultado depois.
+
+REGRAS GERAIS:
+- SEMPRE consulte tools quando precisar de dados — não chute valores.
+- Para percentuais, formate com 1 casa: "CMV de 47,5%".
+- Para reais, use R$ com vírgula: "R$ 12,50".
+- NÃO invente IDs — busque com as tools primeiro.
+- Permissões: tools com requireRole=ADMIN só rodam pra usuários ADMIN. Se você tentar e o gate barrar, explique ao usuário que ele precisa de perfil ADMIN.
 
 FORMATO DE RESPOSTA:
 - Curta e direta. Sem preâmbulos como "Claro!", "Vou verificar...".
-- Use bullets ou tabelas quando há lista de itens.
-- Sempre que mostrar números, contextualize: ao lado do CMV mostre a meta, ao lado do saldo mostre a unidade.`;
+- Use bullets ou tabelas em listas.
+- Em ações de escrita, confirme o resultado em 1 linha: "Pedido #42 → PRONTO." ou "Cupom MAIO15 criado: 15% off, mín. R$ 50."`;
 
 // ---------- Tipos auxiliares ----------
 
@@ -180,7 +196,7 @@ async function recordUserTurn(conversationId: string, content: AnthropicMessageP
 
 async function executeToolUse(
   block: Anthropic.ToolUseBlock,
-  userId: string | undefined,
+  ctx: ToolHandlerContext,
 ): Promise<Anthropic.ToolResultBlockParam> {
   const tool = TOOLS_BY_NAME.get(block.name);
   if (!tool) {
@@ -191,17 +207,30 @@ async function executeToolUse(
       is_error: true,
     };
   }
-  if (!tool.readOnly) {
+
+  // Gate de role: tools de write podem exigir ADMIN. Read-only ficam livres.
+  if (tool.requiresRole === "ADMIN" && ctx.userRole !== "ADMIN") {
     return {
       type: "tool_result",
       tool_use_id: block.id,
-      content: "Esta tool requer confirmação humana e ainda não está disponível no chat.",
+      content:
+        "Acesso negado: esta operação requer perfil ADMIN. Peça pra um administrador executar.",
+      is_error: true,
+    };
+  }
+
+  // Tools de write exigem login (ctx.userId definido).
+  if (!tool.readOnly && !ctx.userId) {
+    return {
+      type: "tool_result",
+      tool_use_id: block.id,
+      content: "Sessão expirada. Faça login de novo pra executar essa ação.",
       is_error: true,
     };
   }
 
   try {
-    const result = await tool.run(block.input as Record<string, unknown>, { userId });
+    const result = await tool.run(block.input as Record<string, unknown>, ctx);
     return {
       type: "tool_result",
       tool_use_id: block.id,
@@ -226,6 +255,8 @@ export type SendMessageParams = {
   userMessage: string;
   /** Usuário autenticado (para auditoria das tools). */
   userId?: string;
+  /** Role do usuário — usado pelas tools de write pra checar permissão. */
+  userRole?: ToolHandlerContext["userRole"];
 };
 
 export type SendMessageResult = {
@@ -305,7 +336,12 @@ export async function sendMessage(params: SendMessageParams): Promise<SendMessag
       );
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
       for (const block of toolUseBlocks) {
-        toolResults.push(await executeToolUse(block, params.userId));
+        toolResults.push(
+          await executeToolUse(block, {
+            userId: params.userId,
+            userRole: params.userRole,
+          }),
+        );
       }
       history.push({ role: "user", content: toolResults });
       await recordUserTurn(conversationId, toolResults);

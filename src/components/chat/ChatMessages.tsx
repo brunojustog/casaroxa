@@ -1,7 +1,29 @@
-import { Wrench } from "lucide-react";
+import { Wrench, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/format";
 import type { ChatMessage } from "@prisma/client";
+
+/**
+ * Tools que mexem em dados — quando usadas, mostramos um chip diferente
+ * (cor amber + ícone de raio) pra deixar claro que algo foi alterado.
+ * Mantido em sync com WRITE_TOOLS de src/server/ai/tools.write.ts.
+ */
+const WRITE_TOOL_NAMES = new Set([
+  "update_sale_progress",
+  "cancel_sale",
+  "register_stock_movement",
+  "update_product_price",
+  "set_product_show_in_menu",
+  "set_product_active",
+  "update_combo_price",
+  "set_combo_show_in_menu",
+  "set_combo_active",
+  "update_ingredient_cost",
+  "set_ingredient_active",
+  "create_ingredient",
+  "create_coupon",
+  "set_coupon_active",
+]);
 
 /**
  * Renderiza histórico de mensagens. Um row do banco = um turno (user/assistant)
@@ -81,15 +103,29 @@ function MessageRow({ message }: { message: ChatMessage }) {
                 );
               }
               if (block.type === "tool_use") {
+                const isWrite = block.name
+                  ? WRITE_TOOL_NAMES.has(block.name)
+                  : false;
                 return (
                   <div
                     key={i}
-                    className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600 inline-flex items-center gap-1.5"
+                    className={
+                      isWrite
+                        ? "rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs text-amber-900 inline-flex items-center gap-1.5"
+                        : "rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600 inline-flex items-center gap-1.5"
+                    }
                   >
-                    <Wrench className="h-3 w-3 text-slate-500" />
-                    Consultando <strong>{block.name}</strong>…
+                    {isWrite ? (
+                      <Zap className="h-3 w-3 text-amber-600" />
+                    ) : (
+                      <Wrench className="h-3 w-3 text-slate-500" />
+                    )}
+                    {isWrite ? "Executou" : "Consultou"}{" "}
+                    <strong>{block.name}</strong>
                     <details className="ml-1 cursor-pointer">
-                      <summary className="text-roxa-700 hover:underline">params</summary>
+                      <summary className={isWrite ? "text-amber-700 hover:underline" : "text-roxa-700 hover:underline"}>
+                        params
+                      </summary>
                       <pre className="mt-1 text-[10px] text-slate-700 max-h-32 overflow-auto whitespace-pre-wrap">
                         {JSON.stringify(block.input, null, 2)}
                       </pre>

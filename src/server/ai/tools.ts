@@ -19,16 +19,30 @@ import {
   PRODUCT_CATEGORY_LABEL,
 } from "@/lib/enums";
 
+import type { UserRole } from "@prisma/client";
+
 export type ToolHandlerContext = {
   userId?: string;
+  userRole?: UserRole;
 };
 
 export type ToolDefinition = {
   name: string;
   description: string;
   input_schema: Record<string, unknown>;
-  /** true = pode executar sem confirmação humana (read-only). false = exige aprovação. */
+  /** true = read-only. false = mexe em dados (write). */
   readOnly: boolean;
+  /**
+   * Role mínimo pra usar esta tool. null = qualquer usuário logado.
+   * "ADMIN" = só ADMIN. Tools read-only podem deixar null.
+   */
+  requiresRole?: UserRole | null;
+  /**
+   * Se true, o assistente DEVE pedir confirmação textual ao usuário
+   * antes de chamar (system prompt orienta isso).
+   * Não é gate técnico — é orientação ao modelo.
+   */
+  destructive?: boolean;
   run: (input: Record<string, unknown>, ctx: ToolHandlerContext) => Promise<unknown>;
 };
 
@@ -317,7 +331,9 @@ const getDashboardSummaryTool: ToolDefinition = {
 // Registry
 // ============================================================
 
-export const TOOLS: ToolDefinition[] = [
+import { WRITE_TOOLS } from "./tools.write";
+
+const READ_TOOLS: ToolDefinition[] = [
   listIngredientsTool,
   listProductsTool,
   listCombosTool,
@@ -326,6 +342,8 @@ export const TOOLS: ToolDefinition[] = [
   listRecentPurchasesTool,
   getDashboardSummaryTool,
 ];
+
+export const TOOLS: ToolDefinition[] = [...READ_TOOLS, ...WRITE_TOOLS];
 
 export const TOOLS_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));
 

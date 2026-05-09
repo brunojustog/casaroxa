@@ -32,6 +32,7 @@ export async function sendChatMessageAction(
       conversationId: parsed.data.conversationId ?? undefined,
       userMessage: parsed.data.message,
       userId: user.id,
+      userRole: user.role ?? undefined,
     });
   });
   if (result.ok) {
