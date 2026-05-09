@@ -26,6 +26,8 @@ const PUBLIC_EXACT = new Set([
   "/logo.jpg",
   "/logo.webp",
   "/logo.svg",
+  "/robots.txt",
+  "/sitemap.xml",
 ]);
 
 /**
@@ -125,7 +127,13 @@ export default auth((req) => {
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  // Defesa em profundidade: garante noindex em qualquer resposta admin,
+  // independente da página ter metadata.robots configurada.
+  const res = NextResponse.next();
+  if (adminDomain && host === adminDomain) {
+    res.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
+  return res;
 });
 
 export const config = {

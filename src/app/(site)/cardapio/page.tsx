@@ -1,8 +1,25 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { MenuItemCard } from "@/components/public/MenuItemCard";
 import { getPublicMenu, getSiteSettings } from "@/server/services/public-menu.service";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const [settings, menu] = await Promise.all([getSiteSettings(), getPublicMenu()]);
+  const total = menu.reduce((acc, c) => acc + c.items.length, 0);
+  const ogImage = menu.find((c) => c.coverImageUrl)?.coverImageUrl ?? "/logo.png";
+  return {
+    title: "Cardápio",
+    description: `${total} item${total === 1 ? "" : "s"} disponíveis no cardápio da ${settings.businessName}.`,
+    openGraph: {
+      title: `Cardápio · ${settings.businessName}`,
+      description: settings.siteSlogan ?? `${total} itens prontos para pedir.`,
+      images: [{ url: ogImage, alt: `Cardápio ${settings.businessName}` }],
+    },
+    twitter: { images: [ogImage] },
+  };
+}
 
 export default async function CardapioPage({
   searchParams,

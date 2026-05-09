@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Clock, MapPin, MessageCircle, UtensilsCrossed } from "lucide-react";
@@ -8,6 +9,23 @@ import {
 import { whatsappLink } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  const ogImage = settings.heroPromoImageUrl ?? "/logo.png";
+  return {
+    title: { absolute: settings.businessName },
+    description:
+      settings.siteSlogan ??
+      "Frangos assados, costelas e suínos. Sabor de domingo feito em família.",
+    openGraph: {
+      title: settings.businessName,
+      description: settings.siteSlogan ?? "Sabor de domingo feito em família.",
+      images: [{ url: ogImage, alt: settings.businessName }],
+    },
+    twitter: { images: [ogImage] },
+  };
+}
 
 export default async function HomePage() {
   const [menu, settings] = await Promise.all([getPublicMenu(), getSiteSettings()]);

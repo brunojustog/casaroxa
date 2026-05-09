@@ -18,9 +18,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Vars são placeholder só para o build não falhar — substituídas em runtime.
-ENV DATABASE_URL="postgresql://placeholder:placeholder@placeholder:5432/placeholder"
-ENV AUTH_SECRET="placeholder-replaced-at-runtime"
+# ARG (em vez de ENV) para não persistir "secrets" no metadata da imagem.
+# São placeholders só para o `next build` não falhar — substituídos em runtime.
+ARG DATABASE_URL="postgresql://placeholder:placeholder@placeholder:5432/placeholder"
+ARG AUTH_SECRET="placeholder-replaced-at-runtime"
 RUN npx prisma generate
 RUN npm run build
 
@@ -39,18 +40,18 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN groupadd --system --gid 1001 nodejs && \
     useradd --system --uid 1001 --gid 1001 nextjs
 
-COPY --from=builder /app/public ./public
+# COPY com --chown ja seta dono na própria layer — muito mais rápido que `chown -R` depois.
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/scripts ./scripts
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 
-# Diretório de uploads (montado como volume em produção via stack Swarm).
+# Cria diretório de uploads com permissão correta + chmod no entrypoint.
 RUN mkdir -p /app/public/menu/uploads && \
-    chown -R nextjs:nodejs /app/public/menu/uploads && \
-    chmod +x ./scripts/docker-entrypoint.sh && \
-    chown -R nextjs:nodejs /app
+    chown nextjs:nodejs /app/public/menu/uploads && \
+    chmod +x /app/scripts/docker-entrypoint.sh
 
 USER nextjs
 EXPOSE 3000
