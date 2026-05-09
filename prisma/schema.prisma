@@ -139,6 +139,15 @@ enum SaleStatus {
   CANCELADA // descartada (revertida com AJUSTE se já tinha gerado movimento)
 }
 
+enum SaleProgress {
+  NOVO // pedido caiu, admin ainda não revisou
+  CONFIRMADO // admin viu e validou
+  PREPARANDO // em produção
+  PRONTO // pronto para retirada / saída
+  SAIU_ENTREGA // delivery em rota
+  ENTREGUE // finalizado
+}
+
 // ============================================================
 // AUTENTICAÇÃO
 // ============================================================
@@ -708,6 +717,13 @@ model Sale {
   cancelledById String?
   cancelReason  String?
 
+  /// Etapa do pedido visível ao cliente (NOVO → ENTREGUE).
+  /// Usado para tracking público em /pedido/[id] e badge de notificação no admin.
+  progress                SaleProgress @default(NOVO)
+  progressUpdatedAt       DateTime?
+  /// Estimativa em minutos (preenchida pelo admin) — exibida ao cliente. Opcional.
+  progressEstimateMinutes Int?
+
   createdById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -721,6 +737,7 @@ model Sale {
   @@index([occurredAt])
   @@index([status, occurredAt])
   @@index([source])
+  @@index([progress, source])
 }
 
 model SaleItem {

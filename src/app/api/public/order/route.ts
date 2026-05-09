@@ -40,6 +40,7 @@ export async function POST(request: Request) {
       saleNumber: result.saleNumber,
       total: result.total,
       whatsappLink: result.whatsappLink,
+      trackingUrl: result.trackingUrl,
     });
   } catch (e) {
     if (e instanceof PublicOrderError) {

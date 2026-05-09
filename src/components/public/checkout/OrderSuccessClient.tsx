@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, MessageCircle } from "lucide-react";
+import { ArrowRight, CheckCircle2, ListOrdered, MessageCircle } from "lucide-react";
 
 type LastOrder = {
   saleNumber: number;
+  saleId?: string;
   total: number;
   whatsappLink: string | null;
+  trackingUrl?: string | null;
 };
 
 const fmt = (v: number) =>
@@ -57,6 +59,11 @@ export function OrderSuccessClient() {
     );
   }
 
+  // Link de tracking interno (relativo) — funciona mesmo sem PUBLIC_DOMAIN configurado.
+  const trackingHref = order.saleId
+    ? `/pedido/${order.saleId}`
+    : order.trackingUrl;
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
@@ -99,6 +106,29 @@ export function OrderSuccessClient() {
           (dinheiro, PIX, cartão na entrega).
         </p>
       </div>
+
+      {trackingHref && (
+        <div className="rounded-xl border border-roxa-100 bg-roxa-50/40 p-5">
+          <div className="flex items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-roxa-100 text-roxa-700">
+              <ListOrdered className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-roxa-900">Acompanhe seu pedido</h3>
+              <p className="mt-0.5 text-sm text-slate-700">
+                Salve o link abaixo pra ver o andamento do pedido em tempo real
+                (Recebido → Preparando → Saiu pra entrega).
+              </p>
+              <Link
+                href={trackingHref}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-roxa-700 px-4 py-2 text-sm font-semibold text-white hover:bg-roxa-800"
+              >
+                Acompanhar pedido <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="text-center">
         <Link

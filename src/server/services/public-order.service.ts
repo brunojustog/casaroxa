@@ -17,6 +17,7 @@ export type PublicOrderResult = {
   saleNumber: number;
   total: number;
   whatsappLink: string | null;
+  trackingUrl: string | null;
 };
 
 export async function createPublicOrder(
@@ -147,7 +148,13 @@ export async function createPublicOrder(
     });
   });
 
-  // 6. Monta mensagem WhatsApp pré-formatada com o pedido
+  // 6. URL de rastreamento (visível no checkout/sucesso e na mensagem WhatsApp).
+  const publicDomain = process.env.PUBLIC_DOMAIN;
+  const trackingUrl = publicDomain
+    ? `https://${publicDomain}/pedido/${sale.id}`
+    : null;
+
+  // 7. Monta mensagem WhatsApp pré-formatada com o pedido
   const message = buildWhatsappMessage({
     businessName: settings?.businessName ?? "Casa Roxa",
     saleNumber: sale.number,
@@ -167,6 +174,7 @@ export async function createPublicOrder(
       totalPrice: t.totalPrice.toNumber(),
     })),
     grandTotal: grandTotal.toNumber(),
+    trackingUrl,
   });
 
   return {
@@ -174,6 +182,7 @@ export async function createPublicOrder(
     saleNumber: sale.number,
     total: grandTotal.toNumber(),
     whatsappLink: whatsappLink(settings?.whatsappNumber, message),
+    trackingUrl,
   };
 }
 
@@ -227,6 +236,7 @@ function buildWhatsappMessage(args: {
   extraNotes: string | null;
   items: { name: string; quantity: number; totalPrice: number }[];
   grandTotal: number;
+  trackingUrl: string | null;
 }): string {
   const fmt = (v: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -262,6 +272,10 @@ function buildWhatsappMessage(args: {
   if (args.extraNotes) {
     lines.push("");
     lines.push(`📝 ${args.extraNotes}`);
+  }
+  if (args.trackingUrl) {
+    lines.push("");
+    lines.push(`🔗 Acompanhar pedido: ${args.trackingUrl}`);
   }
   return lines.join("\n");
 }

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PaymentMethod, SaleSource, SaleStatus } from "@prisma/client";
+import { PaymentMethod, SaleProgress, SaleSource, SaleStatus } from "@prisma/client";
 
 const optionalString = (max = 2000) =>
   z
@@ -112,3 +112,18 @@ export const saleListFiltersSchema = z.object({
   search: z.string().trim().optional(),
 });
 export type SaleListFilters = z.infer<typeof saleListFiltersSchema>;
+
+/** Update do progress do pedido (admin). */
+export const saleProgressUpdateSchema = z.object({
+  progress: z.nativeEnum(SaleProgress),
+  estimateMinutes: z
+    .union([z.string(), z.number(), z.null()])
+    .optional()
+    .transform((v) => {
+      if (v === null || v === undefined || v === "") return null;
+      const n = typeof v === "string" ? parseInt(v, 10) : Math.floor(v);
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    }),
+});
+export type SaleProgressUpdateInput = z.input<typeof saleProgressUpdateSchema>;
+export type SaleProgressUpdateData = z.output<typeof saleProgressUpdateSchema>;

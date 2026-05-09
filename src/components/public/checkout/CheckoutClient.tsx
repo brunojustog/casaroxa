@@ -167,8 +167,10 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
           "casaroxa.lastOrder.v1",
           JSON.stringify({
             saleNumber: data.saleNumber,
+            saleId: data.saleId,
             total: data.total,
             whatsappLink: data.whatsappLink,
+            trackingUrl: data.trackingUrl,
           }),
         );
         sessionStorage.removeItem("casaroxa.checkout.v1");

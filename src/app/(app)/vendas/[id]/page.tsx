@@ -9,6 +9,7 @@ import { SaleHeaderEditor } from "@/components/sales/SaleHeaderEditor";
 import { SaleItemsEditor } from "@/components/sales/SaleItemsEditor";
 import { SalePaymentsEditor } from "@/components/sales/SalePaymentsEditor";
 import { SaleStatusBar } from "@/components/sales/SaleStatusBar";
+import { SaleProgressBar } from "@/components/sales/SaleProgressBar";
 import {
   getSaleById,
   listActiveCombosForSale,
@@ -126,6 +127,21 @@ export default async function VendaPage({
         status={sale.status}
         itemCount={sale.items.length}
       />
+
+      {sale.status !== "CANCELADA" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Andamento do pedido</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SaleProgressBar
+              saleId={sale.id}
+              current={sale.progress}
+              estimateMinutes={sale.progressEstimateMinutes}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-5">

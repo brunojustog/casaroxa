@@ -18,6 +18,7 @@
 import {
   Prisma,
   PaymentMethod,
+  SaleProgress,
   SaleSource,
   SaleStatus,
   StockMovementType,
@@ -555,4 +556,95 @@ export async function listActiveCombosForSale() {
   });
 }
 
-export { SaleStatus, SaleSource, PaymentMethod };
+export { SaleStatus, SaleSource, PaymentMethod, SaleProgress };
+
+// ---------- Tracking ----------
+
+export type ProgressUpdate = {
+  progress: SaleProgress;
+  /** Estimativa em minutos (opcional). Null/undefined = não muda. */
+  estimateMinutes?: number | null;
+};
+
+/**
+ * Atualiza progress do pedido (admin). Não muda status (ABERTA/CONCLUIDA),
+ * só a etapa visível ao cliente. progressUpdatedAt fica registrado.
+ */
+export async function setSaleProgress(
+  saleId: string,
+  input: ProgressUpdate,
+) {
+  const sale = await prisma.sale.findUnique({
+    where: { id: saleId },
+    select: { id: true },
+  });
+  if (!sale) throw new BusinessError("Venda não encontrada.");
+
+  return prisma.sale.update({
+    where: { id: saleId },
+    data: {
+      progress: input.progress,
+      progressUpdatedAt: new Date(),
+      ...(input.estimateMinutes !== undefined
+        ? { progressEstimateMinutes: input.estimateMinutes }
+        : {}),
+    },
+  });
+}
+
+/**
+ * Notificações pro admin: pedidos do site (source=SITE) ainda em NOVO.
+ * Chamado por polling do bell no header — manter leve.
+ */
+export async function getNewSiteOrders(limit = 10) {
+  return prisma.sale.findMany({
+    where: {
+      source: SaleSource.SITE,
+      progress: SaleProgress.NOVO,
+      status: { not: SaleStatus.CANCELADA },
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      number: true,
+      customerName: true,
+      totalRevenue: true,
+      createdAt: true,
+      _count: { select: { items: true } },
+    },
+  });
+}
+
+/** Versão pública (sem auth) — apenas dados seguros pra exibir ao cliente. */
+export async function getPublicSaleTracking(saleId: string) {
+  const sale = await prisma.sale.findUnique({
+    where: { id: saleId },
+    select: {
+      id: true,
+      number: true,
+      occurredAt: true,
+      customerName: true,
+      status: true,
+      progress: true,
+      progressUpdatedAt: true,
+      progressEstimateMinutes: true,
+      totalRevenue: true,
+      cancelledAt: true,
+      cancelReason: true,
+      items: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          quantity: true,
+          unitPrice: true,
+          totalPrice: true,
+          product: { select: { name: true } },
+          combo: { select: { name: true } },
+        },
+      },
+    },
+  });
+  if (!sale) return null;
+  return sale;
+}

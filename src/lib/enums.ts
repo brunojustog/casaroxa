@@ -12,6 +12,7 @@ import {
   ProductCategory,
   ProductStatus,
   ProductType,
+  SaleProgress,
   SaleSource,
   SaleStatus,
   SimulationTarget,
@@ -107,6 +108,25 @@ export const SALE_STATUS_LABEL: Record<SaleStatus, string> = {
   CONCLUIDA: "Concluída",
   CANCELADA: "Cancelada",
 };
+
+export const SALE_PROGRESS_LABEL: Record<SaleProgress, string> = {
+  NOVO: "Novo",
+  CONFIRMADO: "Confirmado",
+  PREPARANDO: "Preparando",
+  PRONTO: "Pronto",
+  SAIU_ENTREGA: "Saiu para entrega",
+  ENTREGUE: "Entregue",
+};
+
+/** Ordem em que aparecem na timeline pública. */
+export const SALE_PROGRESS_ORDER: SaleProgress[] = [
+  "NOVO",
+  "CONFIRMADO",
+  "PREPARANDO",
+  "PRONTO",
+  "SAIU_ENTREGA",
+  "ENTREGUE",
+];
 
 export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   DINHEIRO: "Dinheiro",

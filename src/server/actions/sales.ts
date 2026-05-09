@@ -6,6 +6,7 @@ import {
   saleItemFormSchema,
   saleItemUpdateSchema,
   salePaymentFormSchema,
+  saleProgressUpdateSchema,
 } from "@/schemas/sale.schema";
 import {
   addSaleItem,
@@ -15,6 +16,7 @@ import {
   createSale,
   removeSaleItem,
   removeSalePayment,
+  setSaleProgress,
   updateSaleHeader,
   updateSaleItem,
 } from "@/server/services/sales.service";
@@ -167,5 +169,23 @@ export async function cancelSaleAction(
     await cancelSale(saleId, user.id, reason && reason.trim().length > 0 ? reason.trim() : null);
   });
   if (result.ok) revalidateAfterStockChange(saleId);
+  return result;
+}
+
+// ---------- Tracking / progress ----------
+
+export async function setSaleProgressAction(
+  saleId: string,
+  raw: unknown,
+): Promise<ActionResult> {
+  const result = await runAction(async () => {
+    await requireAuth();
+    const parsed = saleProgressUpdateSchema.safeParse(raw);
+    if (!parsed.success) {
+      throw new BusinessError(parsed.error.errors[0]?.message ?? "Dados inválidos");
+    }
+    await setSaleProgress(saleId, parsed.data);
+  });
+  if (result.ok) revalidateSales(saleId);
   return result;
 }
