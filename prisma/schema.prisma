@@ -192,6 +192,46 @@ model User {
 }
 
 // ============================================================
+// WHATSAPP (envios via wuzapi)
+// ============================================================
+
+enum WhatsAppEvent {
+  ORDER_CONFIRMED
+  ORDER_READY
+  ORDER_ON_DELIVERY
+  BIRTHDAY_COUPON
+  LOYALTY_REDEEM
+  MANUAL // disparado pelo chat IA ou botão manual
+  TEST // botão "Testar conexão" em /configuracoes
+}
+
+enum WhatsAppMessageStatus {
+  SENT
+  FAILED
+  SKIPPED // kill switch off ou config faltando
+}
+
+model WhatsAppMessageLog {
+  id           String                @id @default(cuid())
+  customerId   String?
+  saleId       String?
+  /// Telefone destino, normalizado (só dígitos com DDI). Ex.: "5511999999999".
+  phone        String
+  event        WhatsAppEvent
+  message      String
+  status       WhatsAppMessageStatus
+  /// Mensagem de erro do servidor (se status=FAILED).
+  errorMessage String?
+  /// ID da mensagem retornado pelo wuzapi (se status=SENT).
+  externalId   String?
+  createdAt    DateTime              @default(now())
+
+  @@index([customerId, createdAt])
+  @@index([event, createdAt])
+  @@index([status, createdAt])
+}
+
+// ============================================================
 // PUSH NOTIFICATIONS (Web Push API)
 // ============================================================
 
@@ -474,6 +514,21 @@ model Settings {
   heroPromoLinkLabel String?
   /// Para onde o botão leva (ex: /cardapio?cat=COMBOS). Se vazio, sem botão.
   heroPromoLinkHref  String?
+
+  // ----- WhatsApp API (wuzapi) -----
+  /// Master switch — se false, todas as notificações ficam desabilitadas
+  /// independente dos toggles abaixo.
+  whatsappApiEnabled         Boolean @default(false)
+  /// Notifica cliente quando admin marca pedido como CONFIRMADO.
+  whatsappNotifyConfirmed    Boolean @default(false)
+  /// Notifica cliente quando pedido vira PRONTO.
+  whatsappNotifyReady        Boolean @default(false)
+  /// Notifica cliente quando pedido vira SAIU_ENTREGA.
+  whatsappNotifyOnDelivery   Boolean @default(false)
+  /// Botão "WhatsApp" no card de aniversário envia direto via API.
+  whatsappNotifyBirthday     Boolean @default(false)
+  /// Avisa cliente quando bate 100 pts e ganha cupom de fidelidade.
+  whatsappNotifyLoyaltyRedeem Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

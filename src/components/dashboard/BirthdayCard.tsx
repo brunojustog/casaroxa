@@ -3,8 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Cake, Check, Copy, MessageCircle, Tag } from "lucide-react";
-import { generateBirthdayCouponAction } from "@/server/actions/customers";
+import { Cake, Check, Copy, MessageCircle, Send, Tag } from "lucide-react";
+import {
+  generateBirthdayCouponAction,
+  sendBirthdayCouponWhatsAppAction,
+} from "@/server/actions/customers";
 import { whatsappLink } from "@/lib/whatsapp";
 
 type BirthdayCustomer = {
@@ -75,6 +78,7 @@ function BirthdayRow({ customer }: { customer: BirthdayCustomer }) {
   const [pending, startTransition] = useTransition();
   const [code, setCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [sentLabel, setSentLabel] = useState<string | null>(null);
 
   function generate() {
     startTransition(async () => {
@@ -88,19 +92,37 @@ function BirthdayRow({ customer }: { customer: BirthdayCustomer }) {
     });
   }
 
+  /** Tenta enviar via wuzapi. Se config off, cai pro link wa.me. */
+  function sendOrFallback() {
+    startTransition(async () => {
+      const res = await sendBirthdayCouponWhatsAppAction(customer.id);
+      if (!res.ok) {
+        window.alert(res.error);
+        return;
+      }
+      const data = res.data!;
+      setCode(data.code);
+      if (data.sent) {
+        setSentLabel("Enviado ✓");
+        setTimeout(() => setSentLabel(null), 3000);
+      } else {
+        // Fallback: abre wa.me com mensagem pronta.
+        const fallback = whatsappLink(
+          customer.phone,
+          `Olá ${customer.name}! 🎂 A Casa Roxa preparou um cupom especial de aniversário pra você: *${data.code}* (15% off, válido até fim do mês). É só usar no nosso cardápio: https://casaroxa.com.br/cardapio`,
+        );
+        if (fallback) window.open(fallback, "_blank", "noopener,noreferrer");
+      }
+      router.refresh();
+    });
+  }
+
   function copy() {
     if (!code) return;
     navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
-
-  const wa = code
-    ? whatsappLink(
-        customer.phone,
-        `Olá ${customer.name}! 🎂 A Casa Roxa preparou um cupom especial de aniversário pra você: *${code}* (15% off, válido até fim do mês). É só usar no nosso cardápio: https://casaroxa.com.br/cardapio`,
-      )
-    : null;
 
   return (
     <li className="flex items-center justify-between gap-3 px-2 py-2.5">
@@ -127,28 +149,48 @@ function BirthdayRow({ customer }: { customer: BirthdayCustomer }) {
             {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
             {code}
           </button>
-          {wa && (
-            <a
-              href={wa}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-green-700"
-              title="Abrir no WhatsApp"
-            >
-              <MessageCircle className="h-3 w-3" />
-            </a>
-          )}
+          <button
+            type="button"
+            onClick={sendOrFallback}
+            disabled={pending}
+            title="Enviar pelo WhatsApp (API se ligada, senão abre o app)"
+            className="inline-flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            {sentLabel ? (
+              <>
+                <Check className="h-3 w-3" />
+                {sentLabel}
+              </>
+            ) : (
+              <>
+                <MessageCircle className="h-3 w-3" />
+                Enviar
+              </>
+            )}
+          </button>
         </div>
       ) : (
-        <button
-          type="button"
-          onClick={generate}
-          disabled={pending}
-          className="inline-flex items-center gap-1 rounded-md border border-roxa-300 bg-white px-2.5 py-1 text-xs font-medium text-roxa-700 hover:bg-roxa-50 disabled:opacity-50"
-        >
-          <Tag className="h-3 w-3" />
-          {pending ? "…" : "Gerar cupom"}
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={generate}
+            disabled={pending}
+            className="inline-flex items-center gap-1 rounded-md border border-roxa-300 bg-white px-2.5 py-1 text-xs font-medium text-roxa-700 hover:bg-roxa-50 disabled:opacity-50"
+          >
+            <Tag className="h-3 w-3" />
+            {pending ? "…" : "Gerar cupom"}
+          </button>
+          <button
+            type="button"
+            onClick={sendOrFallback}
+            disabled={pending}
+            title="Gerar e enviar de uma vez"
+            className="inline-flex items-center gap-1 rounded-md bg-roxa-700 px-2.5 py-1 text-xs font-medium text-white hover:bg-roxa-800 disabled:opacity-50"
+          >
+            <Send className="h-3 w-3" />
+            {pending ? "…" : "Gerar + enviar"}
+          </button>
+        </div>
       )}
     </li>
   );

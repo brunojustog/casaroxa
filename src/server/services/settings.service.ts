@@ -81,5 +81,11 @@ function serializeSettings(s: Awaited<ReturnType<typeof getSettings>>) {
     heroPromoImageUrl: s.heroPromoImageUrl,
     heroPromoLinkLabel: s.heroPromoLinkLabel,
     heroPromoLinkHref: s.heroPromoLinkHref,
+    whatsappApiEnabled: s.whatsappApiEnabled,
+    whatsappNotifyConfirmed: s.whatsappNotifyConfirmed,
+    whatsappNotifyReady: s.whatsappNotifyReady,
+    whatsappNotifyOnDelivery: s.whatsappNotifyOnDelivery,
+    whatsappNotifyBirthday: s.whatsappNotifyBirthday,
+    whatsappNotifyLoyaltyRedeem: s.whatsappNotifyLoyaltyRedeem,
   };
 }

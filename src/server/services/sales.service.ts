@@ -27,6 +27,7 @@ import { prisma } from "@/lib/prisma";
 import { BusinessError } from "@/server/auth-helpers";
 import { toDecimal, sumDecimal } from "@/lib/decimal";
 import { applyEarnForSale } from "./loyalty.service";
+import { sendText } from "./whatsapp.service";
 import type {
   SaleHeaderFormData,
   SaleItemFormData,
@@ -404,7 +405,9 @@ async function computeIngredientConsumption(
 }
 
 export async function concludeSale(saleId: string, userId: string) {
-  return prisma.$transaction(async (tx) => {
+  // Roda a transação primeiro (atômica) e depois dispara o WhatsApp fora —
+  // I/O externo nunca dentro de transação, pra não prender locks.
+  const { closed, loyalty } = await prisma.$transaction(async (tx) => {
     const sale = await tx.sale.findUnique({
       where: { id: saleId },
       include: { _count: { select: { items: true } } },
@@ -434,7 +437,7 @@ export async function concludeSale(saleId: string, userId: string) {
     }
 
     await recomputeSaleTotals(tx, saleId);
-    const closed = await tx.sale.update({
+    const closedSale = await tx.sale.update({
       where: { id: saleId },
       data: {
         status: SaleStatus.CONCLUIDA,
@@ -445,9 +448,29 @@ export async function concludeSale(saleId: string, userId: string) {
     // Cartão fidelidade: dispara EARN (e resgate automático se atingir
     // o limiar). Idempotente — se a venda já foi creditada antes,
     // a função detecta e ignora.
-    await applyEarnForSale(tx, saleId);
-    return closed;
+    const loyaltyResult = await applyEarnForSale(tx, saleId);
+    return { closed: closedSale, loyalty: loyaltyResult };
   });
+
+  // Se gerou cupom de resgate fidelidade e a config ligada, avisa cliente.
+  if (loyalty?.redeemedCouponCode && closed.customerId) {
+    const customer = await prisma.customer.findUnique({
+      where: { id: closed.customerId },
+      select: { name: true, phone: true },
+    });
+    if (customer?.phone) {
+      sendText({
+        phone: customer.phone,
+        message: `Olá ${customer.name}! 🎉 Você atingiu 100 pontos no cartão fidelidade da Casa Roxa e ganhou um cupom de R$ 10: *${loyalty.redeemedCouponCode}* (válido por 30 dias). É só usar no próximo pedido!`,
+        event: "LOYALTY_REDEEM",
+        toggleField: "whatsappNotifyLoyaltyRedeem",
+        customerId: closed.customerId,
+        saleId: closed.id,
+      }).catch((e) => console.error("[concludeSale] whatsapp loyalty:", e));
+    }
+  }
+
+  return closed;
 }
 
 export async function cancelSale(
@@ -575,6 +598,9 @@ export type ProgressUpdate = {
 /**
  * Atualiza progress do pedido (admin). Não muda status (ABERTA/CONCLUIDA),
  * só a etapa visível ao cliente. progressUpdatedAt fica registrado.
+ *
+ * Dispara notificação WhatsApp pro cliente quando entra em CONFIRMADO,
+ * PRONTO ou SAIU_ENTREGA — se a config + toggle do evento estiverem ligados.
  */
 export async function setSaleProgress(
   saleId: string,
@@ -582,11 +608,19 @@ export async function setSaleProgress(
 ) {
   const sale = await prisma.sale.findUnique({
     where: { id: saleId },
-    select: { id: true },
+    select: {
+      id: true,
+      number: true,
+      customerName: true,
+      progress: true,
+      customerId: true,
+      notes: true,
+      customer: { select: { phone: true } },
+    },
   });
   if (!sale) throw new BusinessError("Venda não encontrada.");
 
-  return prisma.sale.update({
+  const updated = await prisma.sale.update({
     where: { id: saleId },
     data: {
       progress: input.progress,
@@ -596,6 +630,59 @@ export async function setSaleProgress(
         : {}),
     },
   });
+
+  // Tenta extrair telefone: prioridade pro customer.phone (vínculo direto);
+  // se não, parseia a linha "Telefone: ..." das notes (pedidos do site
+  // legados antes do Customer existir).
+  const phoneFromCustomer = sale.customer?.phone ?? null;
+  const phoneFromNotes = sale.notes
+    ?.split("\n")
+    .find((l) => l.toLowerCase().startsWith("telefone:"))
+    ?.replace(/[^0-9]/g, "");
+  const phone = phoneFromCustomer ?? phoneFromNotes ?? null;
+
+  if (phone && sale.progress !== input.progress) {
+    const tracking = process.env.PUBLIC_DOMAIN
+      ? `https://${process.env.PUBLIC_DOMAIN}/pedido/${saleId}`
+      : null;
+    const customer = sale.customerName ?? "cliente";
+    const eta =
+      input.estimateMinutes !== undefined && input.estimateMinutes !== null
+        ? ` (em até ~${input.estimateMinutes} min)`
+        : "";
+
+    let message: string | null = null;
+    let toggleField: Parameters<typeof sendText>[0]["toggleField"] = undefined;
+    let event: Parameters<typeof sendText>[0]["event"] = "ORDER_CONFIRMED";
+
+    if (input.progress === "CONFIRMADO") {
+      event = "ORDER_CONFIRMED";
+      toggleField = "whatsappNotifyConfirmed";
+      message = `Olá ${customer}! Seu pedido #${sale.number} na Casa Roxa foi *confirmado* ✅${eta}. Acompanhe em ${tracking ?? "(link no site)"}`;
+    } else if (input.progress === "PRONTO") {
+      event = "ORDER_READY";
+      toggleField = "whatsappNotifyReady";
+      message = `Pedido #${sale.number} *pronto* 🍗 ${customer}, pode buscar! ${tracking ?? ""}`;
+    } else if (input.progress === "SAIU_ENTREGA") {
+      event = "ORDER_ON_DELIVERY";
+      toggleField = "whatsappNotifyOnDelivery";
+      message = `Pedido #${sale.number} *saiu pra entrega* 🛵${eta}. ${customer}, acompanhe em ${tracking ?? "(link no site)"}`;
+    }
+
+    if (message && toggleField) {
+      // Fire-and-forget. Erros ficam no WhatsAppMessageLog.
+      sendText({
+        phone,
+        message,
+        event,
+        toggleField,
+        customerId: sale.customerId,
+        saleId,
+      }).catch((e) => console.error("[setSaleProgress] whatsapp:", e));
+    }
+  }
+
+  return updated;
 }
 
 /**

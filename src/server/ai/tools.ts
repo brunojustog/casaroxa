@@ -696,6 +696,36 @@ const getLoyaltyStatusTool: ToolDefinition = {
 };
 
 // ============================================================
+// Read-only — WhatsApp
+// ============================================================
+
+const checkWhatsAppStatusTool: ToolDefinition = {
+  name: "check_whatsapp_status",
+  description:
+    "Verifica se a integração WhatsApp (wuzapi) está conectada — se o número da Casa Roxa tá online e pronto pra mandar mensagem. Use quando o usuário perguntar 'WhatsApp tá funcionando?' ou se algum envio falhou.",
+  readOnly: true,
+  input_schema: { type: "object", properties: {} },
+  async run() {
+    const { checkConnectionStatus, isWhatsAppConfigured } = await import(
+      "@/server/services/whatsapp.service"
+    );
+    if (!isWhatsAppConfigured()) {
+      return {
+        configurado: false,
+        conectado: false,
+        observacao:
+          "Variáveis WHATSAPP_API_URL e WHATSAPP_API_TOKEN não estão configuradas no servidor.",
+      };
+    }
+    const r = await checkConnectionStatus();
+    if (!r.ok) {
+      return { configurado: true, conectado: false, erro: r.error };
+    }
+    return { configurado: true, conectado: true, dados: r.data };
+  },
+};
+
+// ============================================================
 // Registry
 // ============================================================
 
@@ -715,6 +745,7 @@ const READ_TOOLS: ToolDefinition[] = [
   listCustomersTool,
   getCustomerTool,
   getLoyaltyStatusTool,
+  checkWhatsAppStatusTool,
 ];
 
 export const TOOLS: ToolDefinition[] = [...READ_TOOLS, ...WRITE_TOOLS];

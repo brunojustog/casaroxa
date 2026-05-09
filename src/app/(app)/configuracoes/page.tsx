@@ -65,6 +65,12 @@ export default async function ConfiguracoesPage() {
               heroPromoImageUrl: settings.heroPromoImageUrl,
               heroPromoLinkLabel: settings.heroPromoLinkLabel,
               heroPromoLinkHref: settings.heroPromoLinkHref,
+              whatsappApiEnabled: settings.whatsappApiEnabled,
+              whatsappNotifyConfirmed: settings.whatsappNotifyConfirmed,
+              whatsappNotifyReady: settings.whatsappNotifyReady,
+              whatsappNotifyOnDelivery: settings.whatsappNotifyOnDelivery,
+              whatsappNotifyBirthday: settings.whatsappNotifyBirthday,
+              whatsappNotifyLoyaltyRedeem: settings.whatsappNotifyLoyaltyRedeem,
             }}
           />
         </div>

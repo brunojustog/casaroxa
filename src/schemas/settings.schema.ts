@@ -82,6 +82,14 @@ export const settingsFormSchema = z.object({
   heroPromoImageUrl: optionalString(500),
   heroPromoLinkLabel: optionalString(60),
   heroPromoLinkHref: optionalString(300),
+
+  // WhatsApp API (wuzapi)
+  whatsappApiEnabled: z.coerce.boolean().default(false),
+  whatsappNotifyConfirmed: z.coerce.boolean().default(false),
+  whatsappNotifyReady: z.coerce.boolean().default(false),
+  whatsappNotifyOnDelivery: z.coerce.boolean().default(false),
+  whatsappNotifyBirthday: z.coerce.boolean().default(false),
+  whatsappNotifyLoyaltyRedeem: z.coerce.boolean().default(false),
 });
 
 export type SettingsFormInput = z.input<typeof settingsFormSchema>;

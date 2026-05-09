@@ -53,6 +53,13 @@ type Defaults = {
   heroPromoImageUrl: string | null;
   heroPromoLinkLabel: string | null;
   heroPromoLinkHref: string | null;
+  // WhatsApp API (wuzapi)
+  whatsappApiEnabled: boolean;
+  whatsappNotifyConfirmed: boolean;
+  whatsappNotifyReady: boolean;
+  whatsappNotifyOnDelivery: boolean;
+  whatsappNotifyBirthday: boolean;
+  whatsappNotifyLoyaltyRedeem: boolean;
 };
 
 const FACTORY_DEFAULTS: Defaults = {
@@ -92,6 +99,12 @@ const FACTORY_DEFAULTS: Defaults = {
   heroPromoImageUrl: null,
   heroPromoLinkLabel: null,
   heroPromoLinkHref: null,
+  whatsappApiEnabled: false,
+  whatsappNotifyConfirmed: false,
+  whatsappNotifyReady: false,
+  whatsappNotifyOnDelivery: false,
+  whatsappNotifyBirthday: false,
+  whatsappNotifyLoyaltyRedeem: false,
 };
 
 function toState(d: Defaults) {
@@ -134,6 +147,12 @@ function toState(d: Defaults) {
     heroPromoImageUrl: d.heroPromoImageUrl ?? "",
     heroPromoLinkLabel: d.heroPromoLinkLabel ?? "",
     heroPromoLinkHref: d.heroPromoLinkHref ?? "",
+    whatsappApiEnabled: d.whatsappApiEnabled,
+    whatsappNotifyConfirmed: d.whatsappNotifyConfirmed,
+    whatsappNotifyReady: d.whatsappNotifyReady,
+    whatsappNotifyOnDelivery: d.whatsappNotifyOnDelivery,
+    whatsappNotifyBirthday: d.whatsappNotifyBirthday,
+    whatsappNotifyLoyaltyRedeem: d.whatsappNotifyLoyaltyRedeem,
   };
 }
 
@@ -422,6 +441,8 @@ export function SettingsForm({ initial }: { initial: Defaults }) {
               </Field>
             </div>
           </div>
+
+          <WhatsAppApiBlock state={state} set={set} />
         </CardContent>
       </Card>
 
@@ -467,5 +488,175 @@ export function SettingsForm({ initial }: { initial: Defaults }) {
         </Button>
       </div>
     </form>
+  );
+}
+
+// ============================================================
+// Bloco WhatsApp API (toggles + status check)
+// ============================================================
+
+type StateShape = ReturnType<typeof toState>;
+
+function WhatsAppApiBlock({
+  state,
+  set,
+}: {
+  state: StateShape;
+  set: <K extends keyof StateShape>(key: K, value: StateShape[K]) => void;
+}) {
+  const [statusBusy, setStatusBusy] = useState(false);
+  const [status, setStatus] = useState<{
+    ok: boolean;
+    msg: string;
+  } | null>(null);
+
+  async function check() {
+    setStatusBusy(true);
+    setStatus(null);
+    try {
+      const res = await fetch("/api/admin/whatsapp/status");
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setStatus({ ok: false, msg: data.error ?? "Falha ao consultar status." });
+      } else {
+        setStatus({
+          ok: true,
+          msg:
+            typeof data.data?.message === "string"
+              ? data.data.message
+              : "Conectado ✓",
+        });
+      }
+    } catch (e) {
+      setStatus({
+        ok: false,
+        msg: e instanceof Error ? e.message : "Erro de rede",
+      });
+    } finally {
+      setStatusBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-green-200 bg-green-50/40 p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h4 className="text-sm font-semibold text-slate-700">
+            Notificações WhatsApp (wuzapi)
+          </h4>
+          <p className="text-xs text-slate-500 mt-0.5">
+            URL e token configurados via env (WHATSAPP_API_URL +
+            WHATSAPP_API_TOKEN). Os toggles abaixo decidem quais eventos
+            disparam mensagem automática pro cliente.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={check}
+          disabled={statusBusy}
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          {statusBusy ? "Verificando…" : "Testar conexão"}
+        </button>
+      </div>
+
+      {status && (
+        <div
+          className={
+            status.ok
+              ? "rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-800"
+              : "rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+          }
+        >
+          {status.msg}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="whatsappApiEnabled"
+          checked={state.whatsappApiEnabled}
+          onChange={(e) => set("whatsappApiEnabled", e.currentTarget.checked)}
+        />
+        <label
+          htmlFor="whatsappApiEnabled"
+          className="text-sm font-medium text-slate-700"
+        >
+          Master switch — envios automáticos via API
+          <span className="ml-2 text-xs font-normal text-slate-500">
+            (se desligado, todos os eventos abaixo ficam inativos)
+          </span>
+        </label>
+      </div>
+
+      <div className="space-y-2 pl-6">
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="wnConfirmed"
+            checked={state.whatsappNotifyConfirmed}
+            onChange={(e) => set("whatsappNotifyConfirmed", e.currentTarget.checked)}
+            disabled={!state.whatsappApiEnabled}
+          />
+          <label htmlFor="wnConfirmed" className="text-sm text-slate-700">
+            Quando admin marca pedido como <strong>Confirmado</strong>
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="wnReady"
+            checked={state.whatsappNotifyReady}
+            onChange={(e) => set("whatsappNotifyReady", e.currentTarget.checked)}
+            disabled={!state.whatsappApiEnabled}
+          />
+          <label htmlFor="wnReady" className="text-sm text-slate-700">
+            Quando pedido fica <strong>Pronto</strong>
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="wnOnDelivery"
+            checked={state.whatsappNotifyOnDelivery}
+            onChange={(e) => set("whatsappNotifyOnDelivery", e.currentTarget.checked)}
+            disabled={!state.whatsappApiEnabled}
+          />
+          <label htmlFor="wnOnDelivery" className="text-sm text-slate-700">
+            Quando pedido <strong>Sai pra entrega</strong>
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="wnBirthday"
+            checked={state.whatsappNotifyBirthday}
+            onChange={(e) => set("whatsappNotifyBirthday", e.currentTarget.checked)}
+            disabled={!state.whatsappApiEnabled}
+          />
+          <label htmlFor="wnBirthday" className="text-sm text-slate-700">
+            Botão &quot;Enviar&quot; no card de <strong>aniversário</strong> envia direto
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="wnLoyalty"
+            checked={state.whatsappNotifyLoyaltyRedeem}
+            onChange={(e) => set("whatsappNotifyLoyaltyRedeem", e.currentTarget.checked)}
+            disabled={!state.whatsappApiEnabled}
+          />
+          <label htmlFor="wnLoyalty" className="text-sm text-slate-700">
+            Quando cliente bate <strong>100 pts e ganha cupom de fidelidade</strong>
+          </label>
+        </div>
+      </div>
+
+      <p className="text-[11px] text-slate-500">
+        Logs de envio em{" "}
+        <a
+          href="/configuracoes/whatsapp/logs"
+          className="text-roxa-700 hover:underline"
+        >
+          /configuracoes/whatsapp/logs
+        </a>
+        .
+      </p>
+    </div>
   );
 }

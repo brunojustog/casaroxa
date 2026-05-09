@@ -48,6 +48,9 @@ import {
 import {
   generateBirthdayCoupon as generateBirthdayCouponService,
 } from "@/server/services/customer.service";
+import {
+  sendText as sendWhatsAppText,
+} from "@/server/services/whatsapp.service";
 import type { ToolDefinition } from "./tools";
 
 // ---------- Helpers de resolução id|nome ----------
@@ -918,6 +921,81 @@ const generateBirthdayCouponTool: ToolDefinition = {
 };
 
 // ============================================================
+// WHATSAPP
+// ============================================================
+
+const sendWhatsAppMessageTool: ToolDefinition = {
+  name: "send_whatsapp_message",
+  description:
+    "Envia uma mensagem de WhatsApp via wuzapi pra um número OU pra um cliente cadastrado. DESTRUTIVO — sempre peça confirmação textual com o conteúdo da mensagem antes de chamar. Use pra contatar cliente fora dos eventos automáticos (ex.: avisar de promoção pontual).",
+  readOnly: false,
+  destructive: true,
+  requiresRole: "ADMIN",
+  async run(input) {
+    const { phone, customerId, customerName, message } = input as {
+      phone?: string;
+      customerId?: string;
+      customerName?: string;
+      message: string;
+    };
+    if (!message || message.length < 1) {
+      return { ok: false, erro: "Mensagem vazia." };
+    }
+
+    let resolvedPhone = phone;
+    let resolvedCustomerId: string | null = customerId ?? null;
+    if (!resolvedPhone) {
+      // Resolve via customerId ou nome
+      let c = null;
+      if (customerId) {
+        c = await prisma.customer.findUnique({ where: { id: customerId } });
+      } else if (customerName) {
+        c = await prisma.customer.findFirst({
+          where: { name: { equals: customerName, mode: "insensitive" } },
+        });
+      }
+      if (!c) {
+        return {
+          ok: false,
+          erro: "Forneça phone direto OU customerId/customerName válido.",
+        };
+      }
+      resolvedPhone = c.phone;
+      resolvedCustomerId = c.id;
+    }
+
+    const r = await sendWhatsAppText({
+      phone: resolvedPhone!,
+      message,
+      event: "MANUAL",
+      bypassToggles: true, // chat IA já tá no controle do humano
+      customerId: resolvedCustomerId,
+    });
+
+    if (r.status === "SENT") {
+      return { ok: true, status: "Enviado", logId: r.logId };
+    }
+    if (r.status === "SKIPPED") {
+      return {
+        ok: false,
+        erro: `Mensagem não enviada: ${r.reason}. Verifique a configuração da API em /configuracoes.`,
+      };
+    }
+    return { ok: false, erro: r.error };
+  },
+  input_schema: {
+    type: "object",
+    properties: {
+      phone: { type: "string", description: "Telefone com DDI (ex.: 5511999999999). Use isto OU customerId/customerName." },
+      customerId: { type: "string" },
+      customerName: { type: "string", description: "Busca exata por nome." },
+      message: { type: "string", description: "Texto da mensagem. Suporta *negrito*, _itálico_." },
+    },
+    required: ["message"],
+  },
+};
+
+// ============================================================
 // Registry
 // ============================================================
 
@@ -937,5 +1015,6 @@ export const WRITE_TOOLS: ToolDefinition[] = [
   createCouponTool,
   setCouponActiveTool,
   generateBirthdayCouponTool,
+  sendWhatsAppMessageTool,
 ];
 
