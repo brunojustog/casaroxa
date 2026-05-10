@@ -3,7 +3,15 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Save, ExternalLink } from "lucide-react";
+import {
+  Save,
+  ExternalLink,
+  MessageCircle,
+  RefreshCw,
+  PowerOff,
+  QrCode,
+  FileText,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -569,62 +577,177 @@ function WhatsAppApiBlock({
     }
   }
 
+  const statusToneClass =
+    status?.ok && status.connected
+      ? "bg-green-50 text-green-800 ring-green-200"
+      : status?.ok
+        ? "bg-amber-50 text-amber-800 ring-amber-200"
+        : status
+          ? "bg-red-50 text-red-700 ring-red-200"
+          : "bg-slate-100 text-slate-600 ring-slate-200";
+
+  const statusBadge =
+    status?.ok && status.connected
+      ? "Conectado"
+      : status?.ok
+        ? "Não pareado"
+        : status
+          ? "Erro"
+          : "Status desconhecido";
+
   return (
-    <div className="rounded-lg border border-green-200 bg-green-50/40 p-4 space-y-3">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-4">
+      {/* Header com título + status badge */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h4 className="text-sm font-semibold text-slate-700">
-            Notificações WhatsApp (wuzapi)
-          </h4>
-          <p className="text-xs text-slate-500 mt-0.5">
-            URL e token configurados via env (WHATSAPP_API_URL +
-            WHATSAPP_API_TOKEN). Os toggles abaixo decidem quais eventos
-            disparam mensagem automática pro cliente.
-          </p>
+        <div className="flex items-start gap-2.5">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-green-100 text-green-700">
+            <MessageCircle className="h-4 w-4" />
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-slate-900">
+              WhatsApp da Casa Roxa
+            </h4>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Notificações automáticas pro cliente em eventos do pedido,
+              aniversário e fidelidade.
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1 ring-inset ${statusToneClass}`}
+        >
+          <span
+            className={`inline-block h-1.5 w-1.5 rounded-full ${
+              status?.ok && status.connected
+                ? "bg-green-500"
+                : status?.ok
+                  ? "bg-amber-500"
+                  : status
+                    ? "bg-red-500"
+                    : "bg-slate-400"
+            }`}
+          />
+          {statusBadge}
+        </span>
+      </div>
+
+      {/* Ações */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={check}
+          disabled={statusBusy}
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${statusBusy ? "animate-spin" : ""}`} />
+          {statusBusy ? "Verificando…" : "Testar conexão"}
+        </button>
+        {status?.ok && status.connected ? (
           <button
             type="button"
-            onClick={check}
-            disabled={statusBusy}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            onClick={disconnect}
+            disabled={disconnectBusy}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-red-200 bg-white px-3 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
           >
-            {statusBusy ? "Verificando…" : "Testar conexão"}
+            <PowerOff className="h-3.5 w-3.5" />
+            {disconnectBusy ? "Desconectando…" : "Desconectar"}
           </button>
-          {status?.ok && status.connected ? (
-            <button
-              type="button"
-              onClick={disconnect}
-              disabled={disconnectBusy}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-red-300 bg-white px-3 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
-            >
-              {disconnectBusy ? "Desconectando…" : "Desconectar"}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setConnectOpen(true)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-green-600 px-3 text-xs font-medium text-white hover:bg-green-700"
-            >
-              Conectar WhatsApp
-            </button>
-          )}
-        </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConnectOpen(true)}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-green-600 px-3 text-xs font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          >
+            <QrCode className="h-3.5 w-3.5" />
+            Conectar WhatsApp
+          </button>
+        )}
+        <a
+          href="/configuracoes/whatsapp/logs"
+          className="ml-auto inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs text-slate-500 hover:bg-white hover:text-slate-700"
+        >
+          <FileText className="h-3.5 w-3.5" />
+          Ver logs
+        </a>
       </div>
 
       {status && (
         <div
-          className={
+          className={`rounded-md border px-3 py-2 text-xs ${
             status.ok && status.connected
-              ? "rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-800"
+              ? "border-green-200 bg-green-50 text-green-800"
               : status.ok
-                ? "rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
-                : "rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
-          }
+                ? "border-amber-200 bg-amber-50 text-amber-800"
+                : "border-red-200 bg-red-50 text-red-700"
+          }`}
         >
           {status.msg}
         </div>
       )}
+
+      {/* Eventos automáticos */}
+      <div className="rounded-md border border-slate-200 bg-white p-3 space-y-2.5">
+        <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-100">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+            Eventos automáticos
+          </p>
+          <span className="text-[11px] text-slate-400">
+            {state.whatsappApiEnabled ? "ativo" : "desligado"}
+          </span>
+        </div>
+
+        <ToggleRow
+          id="whatsappApiEnabled"
+          checked={state.whatsappApiEnabled}
+          onChange={(v) => set("whatsappApiEnabled", v)}
+          label="Envios automáticos via API"
+          hint="Master switch — se desligado, todos os eventos abaixo ficam pausados."
+          accent
+        />
+
+        <div className="space-y-1.5 pl-1">
+          <ToggleRow
+            id="wnConfirmed"
+            checked={state.whatsappNotifyConfirmed}
+            onChange={(v) => set("whatsappNotifyConfirmed", v)}
+            disabled={!state.whatsappApiEnabled}
+            label="Pedido confirmado"
+            hint="Quando você marca o pedido como Confirmado."
+          />
+          <ToggleRow
+            id="wnReady"
+            checked={state.whatsappNotifyReady}
+            onChange={(v) => set("whatsappNotifyReady", v)}
+            disabled={!state.whatsappApiEnabled}
+            label="Pedido pronto"
+            hint="Quando o pedido vira Pronto pra retirada/entrega."
+          />
+          <ToggleRow
+            id="wnOnDelivery"
+            checked={state.whatsappNotifyOnDelivery}
+            onChange={(v) => set("whatsappNotifyOnDelivery", v)}
+            disabled={!state.whatsappApiEnabled}
+            label="Saiu pra entrega"
+            hint="Avisa o cliente que o motoboy saiu."
+          />
+          <ToggleRow
+            id="wnBirthday"
+            checked={state.whatsappNotifyBirthday}
+            onChange={(v) => set("whatsappNotifyBirthday", v)}
+            disabled={!state.whatsappApiEnabled}
+            label="Cupom de aniversário"
+            hint="Botão Enviar no dashboard manda direto via API."
+          />
+          <ToggleRow
+            id="wnLoyalty"
+            checked={state.whatsappNotifyLoyaltyRedeem}
+            onChange={(v) => set("whatsappNotifyLoyaltyRedeem", v)}
+            disabled={!state.whatsappApiEnabled}
+            label="Resgate fidelidade"
+            hint="Cliente bateu 100 pts e ganhou cupom — avisa automático."
+          />
+        </div>
+      </div>
 
       <ConnectWhatsAppDialog
         open={connectOpen}
@@ -634,92 +757,55 @@ function WhatsAppApiBlock({
           check();
         }}
       />
-
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id="whatsappApiEnabled"
-          checked={state.whatsappApiEnabled}
-          onChange={(e) => set("whatsappApiEnabled", e.currentTarget.checked)}
-        />
-        <label
-          htmlFor="whatsappApiEnabled"
-          className="text-sm font-medium text-slate-700"
-        >
-          Master switch — envios automáticos via API
-          <span className="ml-2 text-xs font-normal text-slate-500">
-            (se desligado, todos os eventos abaixo ficam inativos)
-          </span>
-        </label>
-      </div>
-
-      <div className="space-y-2 pl-6">
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="wnConfirmed"
-            checked={state.whatsappNotifyConfirmed}
-            onChange={(e) => set("whatsappNotifyConfirmed", e.currentTarget.checked)}
-            disabled={!state.whatsappApiEnabled}
-          />
-          <label htmlFor="wnConfirmed" className="text-sm text-slate-700">
-            Quando admin marca pedido como <strong>Confirmado</strong>
-          </label>
-        </div>
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="wnReady"
-            checked={state.whatsappNotifyReady}
-            onChange={(e) => set("whatsappNotifyReady", e.currentTarget.checked)}
-            disabled={!state.whatsappApiEnabled}
-          />
-          <label htmlFor="wnReady" className="text-sm text-slate-700">
-            Quando pedido fica <strong>Pronto</strong>
-          </label>
-        </div>
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="wnOnDelivery"
-            checked={state.whatsappNotifyOnDelivery}
-            onChange={(e) => set("whatsappNotifyOnDelivery", e.currentTarget.checked)}
-            disabled={!state.whatsappApiEnabled}
-          />
-          <label htmlFor="wnOnDelivery" className="text-sm text-slate-700">
-            Quando pedido <strong>Sai pra entrega</strong>
-          </label>
-        </div>
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="wnBirthday"
-            checked={state.whatsappNotifyBirthday}
-            onChange={(e) => set("whatsappNotifyBirthday", e.currentTarget.checked)}
-            disabled={!state.whatsappApiEnabled}
-          />
-          <label htmlFor="wnBirthday" className="text-sm text-slate-700">
-            Botão &quot;Enviar&quot; no card de <strong>aniversário</strong> envia direto
-          </label>
-        </div>
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="wnLoyalty"
-            checked={state.whatsappNotifyLoyaltyRedeem}
-            onChange={(e) => set("whatsappNotifyLoyaltyRedeem", e.currentTarget.checked)}
-            disabled={!state.whatsappApiEnabled}
-          />
-          <label htmlFor="wnLoyalty" className="text-sm text-slate-700">
-            Quando cliente bate <strong>100 pts e ganha cupom de fidelidade</strong>
-          </label>
-        </div>
-      </div>
-
-      <p className="text-[11px] text-slate-500">
-        Logs de envio em{" "}
-        <a
-          href="/configuracoes/whatsapp/logs"
-          className="text-roxa-700 hover:underline"
-        >
-          /configuracoes/whatsapp/logs
-        </a>
-        .
-      </p>
     </div>
+  );
+}
+
+function ToggleRow({
+  id,
+  checked,
+  onChange,
+  label,
+  hint,
+  disabled,
+  accent,
+}: {
+  id: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  hint?: string;
+  disabled?: boolean;
+  accent?: boolean;
+}) {
+  return (
+    <label
+      htmlFor={id}
+      className={`flex items-start gap-2.5 rounded-md p-1.5 -mx-1.5 ${
+        disabled
+          ? "opacity-50 cursor-not-allowed"
+          : "cursor-pointer hover:bg-slate-50"
+      }`}
+    >
+      <Checkbox
+        id={id}
+        checked={checked}
+        onChange={(e) => onChange(e.currentTarget.checked)}
+        disabled={disabled}
+        className="mt-0.5"
+      />
+      <span className="flex-1">
+        <span
+          className={`block text-sm ${
+            accent ? "font-semibold text-slate-900" : "font-medium text-slate-700"
+          }`}
+        >
+          {label}
+        </span>
+        {hint && (
+          <span className="block text-[11px] text-slate-500 mt-0.5">{hint}</span>
+        )}
+      </span>
+    </label>
   );
 }

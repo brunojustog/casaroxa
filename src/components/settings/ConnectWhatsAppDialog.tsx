@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { CheckCircle2, RefreshCw, X } from "lucide-react";
 
-type Phase = "starting" | "waiting" | "connected" | "error";
+type Phase = "starting" | "waiting" | "connected" | "error" | "debug";
 
 /**
  * Modal pra parear o WhatsApp da Casa Roxa via QR code.
@@ -29,13 +29,18 @@ export function ConnectWhatsAppDialog({
   const [phase, setPhase] = useState<Phase>("starting");
   const [error, setError] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [rawPayload, setRawPayload] = useState<unknown>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   /** Tenta extrair data URL ou texto do QR e renderiza um <img>. */
-  async function renderQR(raw: string) {
+  async function renderQR(raw: unknown): Promise<boolean> {
+    if (typeof raw !== "string" || raw.length === 0) {
+      console.warn("[QR] payload inesperado:", raw);
+      return false;
+    }
     if (raw.startsWith("data:image")) {
       setQrDataUrl(raw);
-      return;
+      return true;
     }
     // Texto plain → gera PNG via lib qrcode
     try {
@@ -45,10 +50,10 @@ export function ConnectWhatsAppDialog({
         errorCorrectionLevel: "M",
       });
       setQrDataUrl(dataUrl);
+      return true;
     } catch (e) {
       console.error("[QR] erro ao renderizar:", e);
-      setError("Não consegui renderizar o QR code. Conteúdo recebido inesperado.");
-      setPhase("error");
+      return false;
     }
   }
 
@@ -56,22 +61,31 @@ export function ConnectWhatsAppDialog({
     setPhase("starting");
     setError(null);
     setQrDataUrl(null);
+    setRawPayload(null);
     try {
       const res = await fetch("/api/admin/whatsapp/connect", { method: "POST" });
       const data = await res.json();
       if (!data.ok) {
         setError(data.error ?? "Falha ao iniciar conexão.");
+        setRawPayload(data.raw ?? data);
         setPhase("error");
         return;
       }
       if (!data.qrcode) {
         setError(
-          "Sessão iniciada mas o servidor não retornou QR code. Talvez já esteja conectado — feche e veja status.",
+          "Servidor respondeu, mas sem QR code reconhecível. Talvez já esteja conectado — feche e teste status. Se não, mostre o JSON abaixo pra debug.",
         );
-        setPhase("error");
+        setRawPayload(data.raw ?? data);
+        setPhase("debug");
         return;
       }
-      await renderQR(data.qrcode);
+      const rendered = await renderQR(data.qrcode);
+      if (!rendered) {
+        setError("Não consegui renderizar o QR. Veja o JSON abaixo.");
+        setRawPayload(data);
+        setPhase("debug");
+        return;
+      }
       setPhase("waiting");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro de rede.");
@@ -227,6 +241,43 @@ export function ConnectWhatsAppDialog({
               <p className="mt-3 text-sm font-medium text-red-700">
                 {error ?? "Erro ao conectar."}
               </p>
+              {rawPayload !== null && (
+                <details className="mt-3 text-left">
+                  <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-700">
+                    Ver resposta do servidor (debug)
+                  </summary>
+                  <pre className="mt-2 max-h-48 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[10px] text-slate-700 whitespace-pre-wrap">
+                    {JSON.stringify(rawPayload, null, 2)}
+                  </pre>
+                </details>
+              )}
+              <button
+                type="button"
+                onClick={startConnect}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-roxa-300 bg-white px-3 py-1.5 text-xs font-medium text-roxa-700 hover:bg-roxa-50"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Tentar de novo
+              </button>
+            </>
+          )}
+
+          {phase === "debug" && (
+            <>
+              <div className="mx-auto h-32 w-32 grid place-items-center text-amber-500">
+                <RefreshCw className="h-16 w-16" strokeWidth={1.5} />
+              </div>
+              <p className="mt-3 text-sm font-medium text-amber-800">
+                {error}
+              </p>
+              <details className="mt-4 text-left" open>
+                <summary className="cursor-pointer text-xs font-medium text-slate-700">
+                  Resposta da wuzapi (mande pro suporte)
+                </summary>
+                <pre className="mt-2 max-h-64 overflow-auto rounded border border-slate-200 bg-slate-50 p-2 text-[10px] text-slate-700 whitespace-pre-wrap">
+                  {JSON.stringify(rawPayload, null, 2)}
+                </pre>
+              </details>
               <button
                 type="button"
                 onClick={startConnect}

@@ -336,9 +336,49 @@ export async function connectSession(): Promise<{
 }
 
 /**
+ * Tenta extrair uma string de QR code de um payload — wuzapi varia muito
+ * (Code/code/QRCode/qrcode/base64/data.qrcode) entre versões. Procura
+ * recursivamente até 2 níveis e retorna a primeira string longa o suficiente
+ * pra ser um QR válido.
+ */
+function extractQRString(data: unknown): string | undefined {
+  if (typeof data === "string") {
+    return data.length > 20 ? data : undefined;
+  }
+  if (!data || typeof data !== "object") return undefined;
+
+  const obj = data as Record<string, unknown>;
+  const candidateKeys = [
+    "qrcode",
+    "QRCode",
+    "qr",
+    "QR",
+    "code",
+    "Code",
+    "base64",
+    "image",
+  ];
+  for (const k of candidateKeys) {
+    const v = obj[k];
+    if (typeof v === "string" && v.length > 20) return v;
+  }
+
+  // Recurse em campos "data", "result", "session"
+  const nestedKeys = ["data", "result", "session", "Data"];
+  for (const k of nestedKeys) {
+    const nested = obj[k];
+    if (nested && typeof nested === "object") {
+      const found = extractQRString(nested);
+      if (found) return found;
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * Pega QR code atual. Retorna a string base64 ou data URL.
- * Se o wuzapi voltar com vários formatos diferentes, o caller decide
- * como renderizar (campos comuns: code, qrcode, base64, data).
+ * Se não conseguir extrair, retorna data raw pro caller debugar.
  */
 export async function getQRCode(): Promise<{
   ok: boolean;
@@ -349,14 +389,12 @@ export async function getQRCode(): Promise<{
   const r = await wuzapiCall("GET", "/session/qr");
   if (!r.ok) return { ok: false, error: r.error };
   const data = r.data ?? {};
-  // Tenta extrair o QR de campos conhecidos.
-  const qrcode =
-    (data.code as string | undefined) ??
-    (data.qrcode as string | undefined) ??
-    ((data.data as { qrcode?: string; code?: string } | undefined)?.qrcode ??
-      (data.data as { qrcode?: string; code?: string } | undefined)?.code) ??
-    (data.QRCode as string | undefined);
+  const qrcode = extractQRString(data);
   return { ok: true, qrcode, data };
+}
+
+export function extractQRStringFromPayload(data: unknown): string | undefined {
+  return extractQRString(data);
 }
 
 /**
