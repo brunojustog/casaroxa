@@ -522,15 +522,39 @@ function WhatsAppApiBlock({
   const [connectOpen, setConnectOpen] = useState(false);
   const [disconnectBusy, setDisconnectBusy] = useState(false);
 
-  function detectConnected(d: Record<string, unknown> | undefined): boolean {
-    if (!d) return false;
-    return (
-      d.loggedIn === true ||
-      d.connected === true ||
-      d.Connected === true ||
-      d.LoggedIn === true ||
-      (typeof d.status === "string" && /connected|paired|logged/i.test(d.status))
-    );
+  /**
+   * Detecta "conectado" em qualquer formato razoável que a wuzapi possa
+   * retornar. Olha campos booleanos comuns, strings de status, e desce
+   * recursivamente em data/result/session pra cobrir respostas aninhadas.
+   */
+  function detectConnected(d: unknown): boolean {
+    if (!d || typeof d !== "object") return false;
+    const obj = d as Record<string, unknown>;
+    for (const [key, value] of Object.entries(obj)) {
+      const norm = key.toLowerCase();
+      if (
+        value === true &&
+        ["connected", "loggedin", "isconnected", "islogged", "paired"].includes(
+          norm,
+        )
+      ) {
+        return true;
+      }
+      if (
+        typeof value === "string" &&
+        /connected|paired|logged|online|ready|active/i.test(value)
+      ) {
+        return true;
+      }
+      if (
+        ["data", "result", "session", "payload", "info"].includes(norm) &&
+        value &&
+        typeof value === "object"
+      ) {
+        if (detectConnected(value)) return true;
+      }
+    }
+    return false;
   }
 
   async function check() {

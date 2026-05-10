@@ -105,25 +105,43 @@ export function ConnectWhatsAppDialog({
     if (phase !== "waiting") return;
 
     let cancelled = false;
+    function isConnected(d: unknown): boolean {
+      if (!d || typeof d !== "object") return false;
+      const obj = d as Record<string, unknown>;
+      for (const [key, value] of Object.entries(obj)) {
+        const norm = key.toLowerCase();
+        if (
+          value === true &&
+          ["connected", "loggedin", "isconnected", "islogged", "paired"].includes(
+            norm,
+          )
+        ) {
+          return true;
+        }
+        if (
+          typeof value === "string" &&
+          /connected|paired|logged|online|ready|active/i.test(value)
+        ) {
+          return true;
+        }
+        if (
+          ["data", "result", "session", "payload", "info"].includes(norm) &&
+          value &&
+          typeof value === "object"
+        ) {
+          if (isConnected(value)) return true;
+        }
+      }
+      return false;
+    }
     async function poll() {
       try {
         const res = await fetch("/api/admin/whatsapp/status");
         const data = await res.json();
         if (cancelled) return;
-        if (data.ok && data.data) {
-          // Tenta detectar conexão em vários campos comuns:
-          // wuzapi pode usar "loggedIn", "connected", "Connected", etc.
-          const d = data.data as Record<string, unknown>;
-          const connected =
-            d.loggedIn === true ||
-            d.connected === true ||
-            d.Connected === true ||
-            d.LoggedIn === true ||
-            (typeof d.status === "string" && /connected|paired|logged/i.test(d.status));
-          if (connected) {
-            setPhase("connected");
-            return;
-          }
+        if (data.ok && isConnected(data.data)) {
+          setPhase("connected");
+          return;
         }
       } catch {
         /* ignora — tenta de novo no próximo tick */
