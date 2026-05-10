@@ -46,8 +46,26 @@ export type WhatsAppStatusResult =
 
 // ---------- Helpers ----------
 
+/**
+ * Normaliza telefone pra envio via wuzapi. Adiciona DDI 55 (Brasil) se
+ * faltando — sem isso a wuzapi finge que mandou (status 200) mas o
+ * WhatsApp não entrega porque o número não existe internacionalmente
+ * (só aparece como WARN "Identity change" nos logs do whatsmeow).
+ *
+ * Regras:
+ *   - 12-13 dígitos começando com 55 → mantém (já tem DDI)
+ *   - 10-11 dígitos (DDD + número) → prefixa 55
+ *   - Qualquer outro tamanho → retorna como veio (provavelmente inválido)
+ */
 function normalizePhone(raw: string): string {
-  return raw.replace(/\D+/g, "");
+  const digits = raw.replace(/\D+/g, "");
+  if (digits.length >= 12 && digits.length <= 13 && digits.startsWith("55")) {
+    return digits;
+  }
+  if (digits.length === 10 || digits.length === 11) {
+    return "55" + digits;
+  }
+  return digits;
 }
 
 function getConfig(): { url: string; token: string } | null {
