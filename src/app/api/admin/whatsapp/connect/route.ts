@@ -21,11 +21,28 @@ export async function POST() {
   }
 
   const connect = await connectSession();
-  if (!connect.ok) {
+
+  // "already connected" / "already logged in" são sucesso disfarçado —
+  // a wuzapi tá dizendo que o número já tá pareado. Trata como conectado.
+  const errMsg = (connect.error ?? "").toLowerCase();
+  const alreadyConnected =
+    errMsg.includes("already connected") ||
+    errMsg.includes("already logged") ||
+    errMsg.includes("já conectado");
+
+  if (!connect.ok && !alreadyConnected) {
     return NextResponse.json(
       { ok: false, error: connect.error ?? "Falha ao iniciar sessão." },
       { status: 200 },
     );
+  }
+
+  if (alreadyConnected) {
+    return NextResponse.json({
+      ok: true,
+      alreadyConnected: true,
+      message: "Número já está conectado.",
+    });
   }
 
   const fromConnect = extractQRStringFromPayload(connect.data);

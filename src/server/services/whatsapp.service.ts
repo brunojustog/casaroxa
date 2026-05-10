@@ -337,9 +337,10 @@ export async function connectSession(): Promise<{
 
 /**
  * Tenta extrair uma string de QR code de um payload — wuzapi varia muito
- * (Code/code/QRCode/qrcode/base64/data.qrcode) entre versões. Procura
- * recursivamente até 2 níveis e retorna a primeira string longa o suficiente
- * pra ser um QR válido.
+ * (Code/code/QRCode/qrcode/qrCode/base64/data.qrcode) entre versões.
+ * Match é CASE-INSENSITIVE pra cobrir qualquer combinação de capitalização.
+ * Procura recursivamente até 2 níveis e retorna a primeira string longa
+ * o suficiente pra ser um QR válido.
  */
 function extractQRString(data: unknown): string | undefined {
   if (typeof data === "string") {
@@ -348,27 +349,25 @@ function extractQRString(data: unknown): string | undefined {
   if (!data || typeof data !== "object") return undefined;
 
   const obj = data as Record<string, unknown>;
-  const candidateKeys = [
-    "qrcode",
-    "QRCode",
-    "qr",
-    "QR",
-    "code",
-    "Code",
-    "base64",
-    "image",
-  ];
-  for (const k of candidateKeys) {
-    const v = obj[k];
-    if (typeof v === "string" && v.length > 20) return v;
+  // Lista normalizada (lowercase). Casa com qrCode/QRCode/qrcode/QR_Code/etc.
+  const candidates = ["qrcode", "qr_code", "qr", "code", "base64", "image"];
+
+  for (const [key, value] of Object.entries(obj)) {
+    const norm = key.toLowerCase();
+    if (
+      candidates.includes(norm) &&
+      typeof value === "string" &&
+      value.length > 20
+    ) {
+      return value;
+    }
   }
 
-  // Recurse em campos "data", "result", "session"
-  const nestedKeys = ["data", "result", "session", "Data"];
-  for (const k of nestedKeys) {
-    const nested = obj[k];
-    if (nested && typeof nested === "object") {
-      const found = extractQRString(nested);
+  // Recurse em campos comuns que envolvem o QR (case-insensitive)
+  const nestedKeys = ["data", "result", "session", "payload"];
+  for (const [key, value] of Object.entries(obj)) {
+    if (nestedKeys.includes(key.toLowerCase()) && value && typeof value === "object") {
+      const found = extractQRString(value);
       if (found) return found;
     }
   }

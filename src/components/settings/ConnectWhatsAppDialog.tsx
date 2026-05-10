@@ -65,6 +65,13 @@ export function ConnectWhatsAppDialog({
     try {
       const res = await fetch("/api/admin/whatsapp/connect", { method: "POST" });
       const data = await res.json();
+
+      // Caso especial: número já está pareado — direto pra "connected"
+      if (data.ok && data.alreadyConnected) {
+        setPhase("connected");
+        return;
+      }
+
       if (!data.ok) {
         setError(data.error ?? "Falha ao iniciar conexão.");
         setRawPayload(data.raw ?? data);
