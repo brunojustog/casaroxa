@@ -201,6 +201,7 @@ enum WhatsAppEvent {
   ORDER_ON_DELIVERY
   BIRTHDAY_COUPON
   LOYALTY_REDEEM
+  OTP // código de verificação pra "Já sou cliente" no checkout
   MANUAL // disparado pelo chat IA ou botão manual
   TEST // botão "Testar conexão" em /configuracoes
 }
@@ -705,9 +706,45 @@ model Customer {
 
   sales                Sale[]
   loyaltyTransactions  LoyaltyTransaction[]
+  sessions             CustomerSession[]
 
   @@index([active, name])
   @@index([birthday])
+}
+
+// ============================================================
+// AUTENTICAÇÃO LEVE DE CLIENTE (sem senha — OTP via WhatsApp)
+// ============================================================
+
+model OtpChallenge {
+  id         String   @id @default(cuid())
+  /// Telefone normalizado com DDI (ex.: 5511999999999).
+  phone      String
+  /// Hash bcrypt do código de 6 dígitos (nunca armazenado em texto).
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int      @default(0)
+  consumedAt DateTime?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([phone, createdAt])
+}
+
+model CustomerSession {
+  id         String   @id @default(cuid())
+  /// Token opaco aleatório (32 bytes hex). Armazenado em cookie httpOnly.
+  token      String   @unique
+  customerId String
+  expiresAt  DateTime
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, expiresAt])
 }
 
 // ============================================================

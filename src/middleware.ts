@@ -16,6 +16,7 @@ const PUBLIC_PREFIXES = [
   "/cardapio",
   "/checkout",
   "/pedido",
+  "/meus-pedidos",
   "/menu",
   "/_next",
 ];
@@ -35,7 +36,14 @@ const PUBLIC_EXACT = new Set([
  * Rotas que pertencem ao SITE público (cardápio).
  * Acessadas em ADMIN_DOMAIN, redirecionam para PUBLIC_DOMAIN.
  */
-const SITE_PREFIXES = ["/cardapio", "/checkout", "/pedido", "/api/public", "/menu"];
+const SITE_PREFIXES = [
+  "/cardapio",
+  "/checkout",
+  "/pedido",
+  "/meus-pedidos",
+  "/api/public",
+  "/menu",
+];
 const SITE_EXACT = new Set(["/", "/logo.png", "/logo.jpg", "/logo.webp", "/logo.svg"]);
 
 /**

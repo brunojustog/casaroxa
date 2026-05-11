@@ -4,19 +4,25 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  AlertTriangle,
   ArrowLeft,
   Check,
   ImageOff,
+  LogOut,
   Minus,
   Plus,
   ShoppingBag,
+  Sparkles,
   Tag,
   Trash2,
+  UserCheck,
   X,
 } from "lucide-react";
 import Image from "next/image";
 import { useCart, cartKeyOf } from "@/components/public/cart/CartProvider";
 import { validateCouponAction } from "@/server/actions/coupons";
+import { OtpLoginDialog } from "@/components/public/auth/OtpLoginDialog";
+import { ConfirmOrderDialog } from "./ConfirmOrderDialog";
 
 type SiteSettingsForCheckout = {
   pickupEnabled: boolean;
@@ -30,6 +36,21 @@ type DeliveryMode = "PICKUP" | "DELIVERY";
 
 const fmt = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+
+/** Recebe phone do banco (só dígitos com DDI: 5514999991234) e formata
+ *  pra mostrar no campo: (14) 99999-1234. */
+function formatPhoneForDisplay(raw: string): string {
+  const d = raw.replace(/\D+/g, "");
+  // Remove DDI 55 se tiver
+  const local = d.startsWith("55") && d.length >= 12 ? d.slice(2) : d;
+  if (local.length === 11) {
+    return `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
+  }
+  if (local.length === 10) {
+    return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
+  }
+  return local;
+}
 
 export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout }) {
   const router = useRouter();
@@ -62,6 +83,74 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
   } | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponBusy, setCouponBusy] = useState(false);
+
+  // Identificação do cliente (sessão via OTP)
+  const [authedCustomer, setAuthedCustomer] = useState<{
+    id: string;
+    name: string;
+    phone: string;
+  } | null>(null);
+  const [otpOpen, setOtpOpen] = useState(false);
+  /** Marca quando o endereço foi pré-carregado do cadastro — gatilho do
+   *  banner amarelo e do aviso reforçado no modal de confirmação. */
+  const [addressFromCustomer, setAddressFromCustomer] = useState(false);
+  // Modal de dupla confirmação
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  /** Carrega dados do cliente autenticado (cookie de sessão) e
+   *  pré-preenche o formulário. Não roda se o cliente já começou a
+   *  digitar manualmente (evita sobrescrever entrada em curso). */
+  async function loadAuthedCustomer(force = false) {
+    try {
+      const res = await fetch("/api/public/me", { cache: "no-store" });
+      const data = await res.json();
+      if (!data.ok || !data.authenticated) {
+        setAuthedCustomer(null);
+        return;
+      }
+      const c = data.customer;
+      setAuthedCustomer({ id: c.id, name: c.name, phone: c.phone });
+      // Só pré-preenche se forçado (logo após OTP) OU se os campos
+      // estiverem vazios (visita nova sem ter mexido)
+      if (force || (!customerName && !customerPhone)) {
+        setCustomerName(c.name);
+        setCustomerPhone(formatPhoneForDisplay(c.phone));
+        if (c.address) setAddress(c.address);
+        if (c.addressNumber) setAddressNumber(c.addressNumber);
+        if (c.addressComplement) setAddressComplement(c.addressComplement);
+        if (c.neighborhood) setNeighborhood(c.neighborhood);
+        if (c.reference) setReference(c.reference);
+        if (c.address || c.neighborhood) {
+          setAddressFromCustomer(true);
+          // Se cliente tem endereço cadastrado, presume delivery
+          if (settings.deliveryEnabled) setDeliveryMode("DELIVERY");
+        }
+      }
+    } catch {
+      /* ignora — sessão expirada ou sem rede */
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await fetch("/api/public/logout", { method: "POST" });
+    } catch {
+      /* ignora */
+    }
+    setAuthedCustomer(null);
+    setAddressFromCustomer(false);
+  }
+
+  // Quando o cliente edita o endereço manualmente, remove o aviso amarelo
+  function markAddressEdited() {
+    if (addressFromCustomer) setAddressFromCustomer(false);
+  }
+
+  // Tenta carregar sessão existente ao montar
+  useEffect(() => {
+    loadAuthedCustomer(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Persist form em sessionStorage pra não perder ao trocar página
   useEffect(() => {
@@ -205,9 +294,15 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
     neighborhood,
   ]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
+    // Abre o modal de confirmação (última conferida do endereço).
+    setError(null);
+    setConfirmOpen(true);
+  }
+
+  async function actuallySubmit() {
     setError(null);
     setSubmitting(true);
     try {
@@ -272,6 +367,7 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
     } catch {
       setError("Falha de conexão. Tente novamente.");
       setSubmitting(false);
+      setConfirmOpen(false);
     }
   }
 
@@ -382,6 +478,56 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
           </ul>
         </section>
 
+        {/* Identificação por OTP (opcional, atalho pra clientes recorrentes) */}
+        {authedCustomer ? (
+          <section className="rounded-xl border border-green-200 bg-green-50 p-4 shadow-sm flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-green-100 text-green-700">
+                <UserCheck className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-green-900">
+                  Olá, {authedCustomer.name.split(/\s+/)[0]}! 👋
+                </p>
+                <p className="text-[11px] text-green-800">
+                  Seus dados foram carregados do cadastro.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1 rounded-md border border-green-300 bg-white px-2.5 py-1 text-xs font-medium text-green-800 hover:bg-green-100"
+            >
+              <LogOut className="h-3 w-3" />
+              Sair
+            </button>
+          </section>
+        ) : (
+          <section className="rounded-xl border border-roxa-100 bg-roxa-50/40 p-4 shadow-sm flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-roxa-100 text-roxa-700">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-roxa-900">
+                  Já é cliente?
+                </p>
+                <p className="text-[11px] text-roxa-800">
+                  Receba um código no WhatsApp e carregue seus dados.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOtpOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
+            >
+              Receber código
+            </button>
+          </section>
+        )}
+
         <section className="rounded-xl border border-roxa-100 bg-white p-5 shadow-sm space-y-4">
           <h2 className="font-serif text-xl font-semibold text-roxa-900">
             Seus dados
@@ -439,13 +585,30 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
                   {settings.deliveryFeeNote}
                 </p>
               )}
+              {addressFromCustomer && (
+                <div className="flex items-start gap-2 rounded-md border-2 border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">
+                      Endereço carregado do seu cadastro.
+                    </p>
+                    <p className="mt-0.5">
+                      Está pedindo de outro lugar HOJE? Confira e edite antes de
+                      finalizar.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <Field label="Endereço (rua)" required className="md:col-span-2">
                   <input
                     type="text"
                     required
                     value={address}
-                    onChange={(e) => setAddress(e.currentTarget.value)}
+                    onChange={(e) => {
+                      setAddress(e.currentTarget.value);
+                      markAddressEdited();
+                    }}
                     className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-roxa-500 focus:outline-none focus:ring-1 focus:ring-roxa-500"
                     placeholder="Rua das Flores"
                   />
@@ -454,7 +617,10 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
                   <input
                     type="text"
                     value={addressNumber}
-                    onChange={(e) => setAddressNumber(e.currentTarget.value)}
+                    onChange={(e) => {
+                      setAddressNumber(e.currentTarget.value);
+                      markAddressEdited();
+                    }}
                     className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-roxa-500 focus:outline-none focus:ring-1 focus:ring-roxa-500"
                     placeholder="123"
                   />
@@ -466,7 +632,10 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
                     type="text"
                     required
                     value={neighborhood}
-                    onChange={(e) => setNeighborhood(e.currentTarget.value)}
+                    onChange={(e) => {
+                      setNeighborhood(e.currentTarget.value);
+                      markAddressEdited();
+                    }}
                     className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-roxa-500 focus:outline-none focus:ring-1 focus:ring-roxa-500"
                     placeholder="Centro"
                   />
@@ -475,7 +644,10 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
                   <input
                     type="text"
                     value={addressComplement}
-                    onChange={(e) => setAddressComplement(e.currentTarget.value)}
+                    onChange={(e) => {
+                      setAddressComplement(e.currentTarget.value);
+                      markAddressEdited();
+                    }}
                     className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-roxa-500 focus:outline-none focus:ring-1 focus:ring-roxa-500"
                     placeholder="Apto 12"
                   />
@@ -485,7 +657,10 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
                 <input
                   type="text"
                   value={reference}
-                  onChange={(e) => setReference(e.currentTarget.value)}
+                  onChange={(e) => {
+                    setReference(e.currentTarget.value);
+                    markAddressEdited();
+                  }}
                   className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-roxa-500 focus:outline-none focus:ring-1 focus:ring-roxa-500"
                   placeholder="Próximo à praça"
                 />
@@ -644,6 +819,51 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
           ← Voltar ao cardápio
         </Link>
       </aside>
+
+      <OtpLoginDialog
+        open={otpOpen}
+        onClose={() => setOtpOpen(false)}
+        onSuccess={() => {
+          setOtpOpen(false);
+          loadAuthedCustomer(true);
+        }}
+      />
+
+      <ConfirmOrderDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={actuallySubmit}
+        onEditAddress={() => {
+          setConfirmOpen(false);
+          // Foca o campo de endereço — usa um pequeno delay pra esperar o modal fechar
+          setTimeout(() => {
+            const el = document.querySelector<HTMLInputElement>(
+              'input[placeholder="Rua das Flores"]',
+            );
+            el?.focus();
+            el?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 100);
+        }}
+        submitting={submitting}
+        items={cart.items.map((i) => ({
+          name: i.name,
+          quantity: i.quantity,
+          totalPrice: i.price * i.quantity,
+        }))}
+        subtotal={total}
+        couponCode={couponApplied?.code ?? null}
+        couponDiscount={couponDiscount}
+        total={finalTotal}
+        deliveryMode={deliveryMode}
+        address={address}
+        addressNumber={addressNumber}
+        addressComplement={addressComplement}
+        neighborhood={neighborhood}
+        reference={reference}
+        customerName={customerName}
+        customerPhone={customerPhone}
+        addressFromCustomer={addressFromCustomer}
+      />
     </form>
   );
 }

@@ -25,6 +25,7 @@ const EVENT_LABEL: Record<WhatsAppEvent, string> = {
   ORDER_ON_DELIVERY: "Saiu p/ entrega",
   BIRTHDAY_COUPON: "Cupom de aniversário",
   LOYALTY_REDEEM: "Resgate fidelidade",
+  OTP: "Código de verificação",
   MANUAL: "Manual",
   TEST: "Teste",
 };
