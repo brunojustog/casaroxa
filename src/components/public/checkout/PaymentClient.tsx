@@ -66,6 +66,50 @@ export function PaymentClient({
   const [paid, setPaid] = useState(false);
   const [copied, setCopied] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const popupRef = useRef<Window | null>(null);
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [popupBlocked, setPopupBlocked] = useState(false);
+
+  const openCardPopup = useCallback((url: string) => {
+    setPopupBlocked(false);
+    const w = 480;
+    const h = 720;
+    const left = Math.max(0, (window.screen.width - w) / 2);
+    const top = Math.max(0, (window.screen.height - h) / 2);
+    const win = window.open(
+      url,
+      "asaas_checkout",
+      `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes`,
+    );
+    if (!win) {
+      setPopupBlocked(true);
+      return;
+    }
+    popupRef.current = win;
+    setPopupOpen(true);
+    win.focus();
+  }, []);
+
+  // Detecta se cliente fechou o popup sem pagar (pra mostrar "abrir de novo")
+  useEffect(() => {
+    if (!popupOpen) return;
+    const t = setInterval(() => {
+      if (popupRef.current?.closed) {
+        setPopupOpen(false);
+        popupRef.current = null;
+      }
+    }, 800);
+    return () => clearInterval(t);
+  }, [popupOpen]);
+
+  // Quando pagamento confirma, fecha popup automaticamente
+  useEffect(() => {
+    if (paid && popupRef.current && !popupRef.current.closed) {
+      popupRef.current.close();
+      popupRef.current = null;
+      setPopupOpen(false);
+    }
+  }, [paid]);
 
   const initiate = useCallback(
     async (m: Method, cpfCnpj?: string) => {
@@ -209,7 +253,12 @@ export function PaymentClient({
       )}
 
       {!loading && !needCpf && !error && data && method === "CREDIT_CARD" && (
-        <CardBlock data={data} />
+        <CardBlock
+          data={data}
+          popupOpen={popupOpen}
+          popupBlocked={popupBlocked}
+          onOpen={() => data.invoiceUrl && openCardPopup(data.invoiceUrl)}
+        />
       )}
 
       <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
@@ -385,8 +434,14 @@ function PixBlock({
 
 function CardBlock({
   data,
+  popupOpen,
+  popupBlocked,
+  onOpen,
 }: {
   data: Extract<InitiateResponse, { ok: true }>;
+  popupOpen: boolean;
+  popupBlocked: boolean;
+  onOpen: () => void;
 }) {
   return (
     <div className="space-y-4 rounded-xl border border-roxa-100 bg-white p-5 shadow-sm">
@@ -397,28 +452,63 @@ function CardBlock({
         </h2>
       </div>
       <p className="text-sm text-slate-700">
-        O pagamento por cartão é feito em uma página segura do Asaas (gateway de
-        pagamento). Clique abaixo para concluir.
+        O cartão é processado em uma janela segura do Asaas — abre aqui mesmo
+        sobre essa página, sem sair do site da Casa Roxa.
       </p>
-      {data.invoiceUrl ? (
-        <a
-          href={data.invoiceUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-roxa-700 px-4 py-3 text-base font-semibold text-white hover:bg-roxa-800"
-        >
-          <CreditCard className="h-5 w-5" />
-          Ir para o checkout
-        </a>
-      ) : (
+
+      {!data.invoiceUrl && (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
           Link do checkout indisponível. Tente trocar pra PIX ou recarregar.
         </p>
       )}
-      <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Esta tela atualiza sozinha quando o pagamento for autorizado.
-      </div>
+
+      {data.invoiceUrl && !popupOpen && (
+        <button
+          type="button"
+          onClick={onOpen}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-roxa-700 px-4 py-3 text-base font-semibold text-white hover:bg-roxa-800"
+        >
+          <CreditCard className="h-5 w-5" />
+          Abrir checkout seguro
+        </button>
+      )}
+
+      {data.invoiceUrl && popupOpen && (
+        <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+          <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+          <div className="flex-1">
+            <p className="font-medium">Janela do checkout aberta</p>
+            <p className="mt-0.5 text-xs">
+              Conclua o pagamento na janelinha. Esta tela vai atualizar sozinha
+              quando o cartão for autorizado.
+            </p>
+            <button
+              type="button"
+              onClick={onOpen}
+              className="mt-2 text-xs font-medium text-blue-800 underline hover:text-blue-900"
+            >
+              Reabrir janela
+            </button>
+          </div>
+        </div>
+      )}
+
+      {data.invoiceUrl && popupBlocked && (
+        <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <p className="font-medium">Janela bloqueada pelo navegador</p>
+          <p className="text-xs">
+            Permita pop-ups deste site, ou abra o checkout em outra aba:
+          </p>
+          <a
+            href={data.invoiceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+          >
+            Abrir em nova aba <ArrowRight className="h-3.5 w-3.5" />
+          </a>
+        </div>
+      )}
     </div>
   );
 }
