@@ -87,5 +87,8 @@ function serializeSettings(s: Awaited<ReturnType<typeof getSettings>>) {
     whatsappNotifyOnDelivery: s.whatsappNotifyOnDelivery,
     whatsappNotifyBirthday: s.whatsappNotifyBirthday,
     whatsappNotifyLoyaltyRedeem: s.whatsappNotifyLoyaltyRedeem,
+    whatsappNotifyPaymentReceived: s.whatsappNotifyPaymentReceived,
+    asaasEnabled: s.asaasEnabled,
+    asaasPaymentTtlHours: s.asaasPaymentTtlHours,
   };
 }

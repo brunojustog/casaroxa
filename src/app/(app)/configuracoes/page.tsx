@@ -71,6 +71,9 @@ export default async function ConfiguracoesPage() {
               whatsappNotifyOnDelivery: settings.whatsappNotifyOnDelivery,
               whatsappNotifyBirthday: settings.whatsappNotifyBirthday,
               whatsappNotifyLoyaltyRedeem: settings.whatsappNotifyLoyaltyRedeem,
+              whatsappNotifyPaymentReceived: settings.whatsappNotifyPaymentReceived,
+              asaasEnabled: settings.asaasEnabled,
+              asaasPaymentTtlHours: settings.asaasPaymentTtlHours,
             }}
           />
         </div>

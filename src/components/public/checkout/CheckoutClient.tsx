@@ -27,12 +27,20 @@ import { ConfirmOrderDialog } from "./ConfirmOrderDialog";
 type SiteSettingsForCheckout = {
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
+  asaasEnabled: boolean;
   deliveryFeeNote: string | null;
   minimumOrderValue: number | null;
   whatsappNumber: string | null;
 };
 
 type DeliveryMode = "PICKUP" | "DELIVERY";
+
+/** Como o cliente quer pagar:
+ *   - WHATSAPP: combinar pelo WhatsApp depois (jeito atual)
+ *   - PIX_ONLINE: pagar agora via Asaas com QR PIX
+ *   - CARD_ONLINE: pagar agora via Asaas com cartão de crédito
+ */
+type PaymentMode = "WHATSAPP" | "PIX_ONLINE" | "CARD_ONLINE";
 
 const fmt = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -67,6 +75,7 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>(initialMode);
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>("WHATSAPP");
   const [address, setAddress] = useState("");
   const [addressNumber, setAddressNumber] = useState("");
   const [addressComplement, setAddressComplement] = useState("");
@@ -363,6 +372,15 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
       } catch {
         /* ignora */
       }
+
+      // Se cliente escolheu pagamento online, vai pra página de pagamento.
+      if (paymentMode !== "WHATSAPP") {
+        router.push(
+          `/checkout/pagamento/${data.saleId}?method=${paymentMode === "PIX_ONLINE" ? "PIX" : "CREDIT_CARD"}`,
+        );
+        return;
+      }
+
       router.push("/checkout/sucesso");
     } catch {
       setError("Falha de conexão. Tente novamente.");
@@ -673,22 +691,57 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
           <h2 className="font-serif text-xl font-semibold text-roxa-900">
             Pagamento e observações
           </h2>
-          <Field
-            label="Forma de pagamento desejada"
-            hint="O pagamento é feito na entrega ou retirada — informamos opções (dinheiro, PIX, cartão)."
-          >
-            <select
-              value={paymentHint}
-              onChange={(e) => setPaymentHint(e.currentTarget.value)}
-              className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-roxa-500 focus:outline-none focus:ring-1 focus:ring-roxa-500"
+
+          {/* Pagamento online (Asaas) — só se habilitado nas configurações */}
+          {settings.asaasEnabled && (
+            <Field
+              label="Como você quer pagar?"
+              hint="Pagar online agora confirma o pedido na hora. Combinar pelo WhatsApp mantém o fluxo atual."
             >
-              <option value="">— sem preferência —</option>
-              <option value="Dinheiro">Dinheiro</option>
-              <option value="PIX">PIX</option>
-              <option value="Cartão de crédito">Cartão de crédito</option>
-              <option value="Cartão de débito">Cartão de débito</option>
-            </select>
-          </Field>
+              <div className="space-y-2">
+                <PaymentOption
+                  id="pix"
+                  checked={paymentMode === "PIX_ONLINE"}
+                  onChange={() => setPaymentMode("PIX_ONLINE")}
+                  title="Pagar agora com PIX"
+                  description="QR Code instantâneo. Pedido confirma na hora."
+                />
+                <PaymentOption
+                  id="card"
+                  checked={paymentMode === "CARD_ONLINE"}
+                  onChange={() => setPaymentMode("CARD_ONLINE")}
+                  title="Pagar agora com cartão de crédito"
+                  description="Checkout seguro do Asaas. Confirmação em segundos."
+                />
+                <PaymentOption
+                  id="whatsapp"
+                  checked={paymentMode === "WHATSAPP"}
+                  onChange={() => setPaymentMode("WHATSAPP")}
+                  title="Combinar pelo WhatsApp depois"
+                  description="Você paga na retirada ou entrega — dinheiro, PIX, cartão."
+                />
+              </div>
+            </Field>
+          )}
+
+          {paymentMode === "WHATSAPP" && (
+            <Field
+              label="Forma de pagamento desejada"
+              hint="Combinaremos pelo WhatsApp — informamos opções (dinheiro, PIX, cartão)."
+            >
+              <select
+                value={paymentHint}
+                onChange={(e) => setPaymentHint(e.currentTarget.value)}
+                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-roxa-500 focus:outline-none focus:ring-1 focus:ring-roxa-500"
+              >
+                <option value="">— sem preferência —</option>
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="PIX">PIX</option>
+                <option value="Cartão de crédito">Cartão de crédito</option>
+                <option value="Cartão de débito">Cartão de débito</option>
+              </select>
+            </Field>
+          )}
           <Field label="Observações" hint="Pimenta, retirada de algum item, troco, etc.">
             <textarea
               rows={3}
@@ -914,5 +967,45 @@ function ModeButton({
     >
       {label}
     </button>
+  );
+}
+
+function PaymentOption({
+  id,
+  checked,
+  onChange,
+  title,
+  description,
+}: {
+  id: string;
+  checked: boolean;
+  onChange: () => void;
+  title: string;
+  description: string;
+}) {
+  return (
+    <label
+      htmlFor={`pay-${id}`}
+      className={
+        checked
+          ? "flex cursor-pointer items-start gap-3 rounded-md border-2 border-roxa-500 bg-roxa-50/50 p-3"
+          : "flex cursor-pointer items-start gap-3 rounded-md border border-slate-200 bg-white p-3 hover:border-roxa-200"
+      }
+    >
+      <input
+        type="radio"
+        id={`pay-${id}`}
+        name="paymentMode"
+        checked={checked}
+        onChange={onChange}
+        className="mt-1 h-4 w-4 accent-roxa-700"
+      />
+      <div className="flex-1">
+        <p className={checked ? "text-sm font-semibold text-roxa-900" : "text-sm font-medium text-slate-800"}>
+          {title}
+        </p>
+        <p className="text-xs text-slate-500">{description}</p>
+      </div>
+    </label>
   );
 }

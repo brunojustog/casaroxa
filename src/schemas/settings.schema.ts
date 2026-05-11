@@ -90,6 +90,11 @@ export const settingsFormSchema = z.object({
   whatsappNotifyOnDelivery: z.coerce.boolean().default(false),
   whatsappNotifyBirthday: z.coerce.boolean().default(false),
   whatsappNotifyLoyaltyRedeem: z.coerce.boolean().default(false),
+  whatsappNotifyPaymentReceived: z.coerce.boolean().default(false),
+
+  // Pagamento online (Asaas)
+  asaasEnabled: z.coerce.boolean().default(false),
+  asaasPaymentTtlHours: z.coerce.number().int().min(1).max(168).default(24),
 });
 
 export type SettingsFormInput = z.input<typeof settingsFormSchema>;

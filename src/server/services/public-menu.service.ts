@@ -280,6 +280,7 @@ export type PublicSiteSettings = {
   facebookUrl: string | null;
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
+  asaasEnabled: boolean;
   deliveryFeeNote: string | null;
   minimumOrderValue: number | null;
   heroPromoTitle: string | null;
@@ -303,6 +304,7 @@ export async function getSiteSettings(): Promise<PublicSiteSettings> {
       facebookUrl: true,
       pickupEnabled: true,
       deliveryEnabled: true,
+      asaasEnabled: true,
       deliveryFeeNote: true,
       minimumOrderValue: true,
       heroPromoTitle: true,
@@ -324,6 +326,7 @@ export async function getSiteSettings(): Promise<PublicSiteSettings> {
     facebookUrl: s?.facebookUrl ?? null,
     pickupEnabled: s?.pickupEnabled ?? true,
     deliveryEnabled: s?.deliveryEnabled ?? true,
+    asaasEnabled: s?.asaasEnabled ?? false,
     deliveryFeeNote: s?.deliveryFeeNote ?? null,
     minimumOrderValue:
       s?.minimumOrderValue !== null && s?.minimumOrderValue !== undefined

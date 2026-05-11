@@ -35,7 +35,8 @@ export type SendTextInput = {
     | "whatsappNotifyReady"
     | "whatsappNotifyOnDelivery"
     | "whatsappNotifyBirthday"
-    | "whatsappNotifyLoyaltyRedeem";
+    | "whatsappNotifyLoyaltyRedeem"
+    | "whatsappNotifyPaymentReceived";
   /** Atraso de digitação em ms (default 1500). */
   typingDelayMs?: number;
 };
@@ -122,6 +123,7 @@ export async function isEventEnabled(
       whatsappNotifyOnDelivery: true,
       whatsappNotifyBirthday: true,
       whatsappNotifyLoyaltyRedeem: true,
+      whatsappNotifyPaymentReceived: true,
     },
   });
   if (!settings || !settings.whatsappApiEnabled) return false;

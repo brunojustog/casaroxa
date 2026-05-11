@@ -204,6 +204,7 @@ enum WhatsAppEvent {
   LOYALTY_REDEEM
   OTP // código de verificação pra "Já sou cliente" no checkout
   RAFFLE_WIN // ganhador de sorteio
+  PAYMENT_RECEIVED // pagamento online recebido (Asaas)
   MANUAL // disparado pelo chat IA ou botão manual
   TEST // botão "Testar conexão" em /configuracoes
 }
@@ -537,6 +538,17 @@ model Settings {
   whatsappNotifyBirthday     Boolean @default(false)
   /// Avisa cliente quando bate 100 pts e ganha cupom de fidelidade.
   whatsappNotifyLoyaltyRedeem Boolean @default(false)
+  /// Avisa cliente quando o pagamento online é confirmado.
+  whatsappNotifyPaymentReceived Boolean @default(false)
+
+  // ----- Pagamento online (Asaas) -----
+  /// Master switch — se false, opções de pagamento online ficam ocultas
+  /// no checkout. Mesmo desligado, payments existentes continuam acessíveis
+  /// (cliente que iniciou pagamento pode finalizar).
+  asaasEnabled        Boolean @default(false)
+  /// Quantas horas após a criação o cliente tem pra pagar (default 24h).
+  /// Após isso o sistema marca como OVERDUE.
+  asaasPaymentTtlHours Int    @default(24)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -708,6 +720,8 @@ model Customer {
   /// Pontos atuais do cartão fidelidade. Acumula 1 ponto por R$ 1 gasto
   /// em vendas concluídas, e zera/decrementa quando vira cupom de resgate.
   loyaltyPoints     Int     @default(0)
+  /// ID do cliente no Asaas (cache pra não recriar a cada cobrança).
+  asaasCustomerId   String?  @unique
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -1088,6 +1102,7 @@ model Sale {
   customer    Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
   items       SaleItem[]
   payments    SalePayment[]
+  onlinePayment OnlinePayment?
 
   @@index([occurredAt])
   @@index([status, occurredAt])
@@ -1135,4 +1150,52 @@ model SalePayment {
   sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
   @@index([saleId])
+}
+
+// ============================================================
+// PAGAMENTO ONLINE (Asaas)
+// ============================================================
+
+enum OnlinePaymentBillingType {
+  PIX
+  CREDIT_CARD
+  BOLETO // futuro, não exposto na UI hoje
+}
+
+enum OnlinePaymentStatus {
+  PENDING // criado, aguardando pagamento
+  RECEIVED // recebido (notificação do Asaas)
+  CONFIRMED // confirmado (PIX é instantâneo, cartão pode demorar)
+  OVERDUE // venceu sem pagar (sistema marca via cron ou no acesso)
+  REFUNDED // estornado
+  FAILED // erro no processamento
+  CANCELLED // cancelado pelo admin / cliente
+}
+
+model OnlinePayment {
+  id              String                   @id @default(cuid())
+  saleId          String                   @unique
+  /// ID do payment no Asaas (formato pay_xxxxx).
+  asaasPaymentId  String                   @unique
+  /// ID do customer no Asaas que originou esse payment.
+  asaasCustomerId String
+  billingType     OnlinePaymentBillingType
+  value           Decimal                  @db.Decimal(14, 2)
+  status          OnlinePaymentStatus      @default(PENDING)
+  /// URL pública do checkout transparente Asaas (cliente paga lá).
+  invoiceUrl      String?
+  /// Chave PIX copia-cola (preenchida só pra billingType=PIX).
+  pixPayload      String?
+  /// QR code PIX (base64 do PNG, preenchido só pra PIX).
+  pixQrCodeBase64 String?                  @db.Text
+  dueDate         DateTime
+  paidAt          DateTime?
+  /// Último evento bruto do webhook (debug).
+  lastEventRaw    Json?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
 }

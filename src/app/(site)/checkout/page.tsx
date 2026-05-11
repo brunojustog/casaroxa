@@ -21,6 +21,7 @@ export default async function CheckoutPage() {
         settings={{
           pickupEnabled: settings.pickupEnabled,
           deliveryEnabled: settings.deliveryEnabled,
+          asaasEnabled: settings.asaasEnabled,
           deliveryFeeNote: settings.deliveryFeeNote,
           minimumOrderValue: settings.minimumOrderValue,
           whatsappNumber: settings.whatsappNumber,
