@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Copy,
   CreditCard,
+  IdCard,
   Loader2,
   QrCode,
   RefreshCw,
@@ -34,7 +35,7 @@ type InitiateResponse =
       value: number;
       dueDate: string;
     }
-  | { ok: false; error: string };
+  | { ok: false; error: string; code?: "NEED_CPF" };
 
 type StatusResponse =
   | {
@@ -58,6 +59,7 @@ export function PaymentClient({
   const [method, setMethod] = useState<Method>(initialMethod);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [needCpf, setNeedCpf] = useState(false);
   const [data, setData] = useState<Extract<InitiateResponse, { ok: true }> | null>(
     null,
   );
@@ -66,7 +68,7 @@ export function PaymentClient({
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const initiate = useCallback(
-    async (m: Method) => {
+    async (m: Method, cpfCnpj?: string) => {
       setLoading(true);
       setError(null);
       setData(null);
@@ -74,13 +76,22 @@ export function PaymentClient({
         const res = await fetch("/api/public/payments/initiate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ saleId, billingType: m }),
+          body: JSON.stringify({
+            saleId,
+            billingType: m,
+            ...(cpfCnpj ? { cpfCnpj } : {}),
+          }),
         });
         const json = (await res.json()) as InitiateResponse;
         if (!json.ok) {
-          setError(json.error);
+          if (json.code === "NEED_CPF") {
+            setNeedCpf(true);
+          } else {
+            setError(json.error);
+          }
           return;
         }
+        setNeedCpf(false);
         setData(json);
         if (json.status === "RECEIVED" || json.status === "CONFIRMED") {
           setPaid(true);
@@ -172,7 +183,11 @@ export function PaymentClient({
         </div>
       )}
 
-      {!loading && error && (
+      {!loading && needCpf && (
+        <CpfForm onSubmit={(cpf) => initiate(method, cpf)} />
+      )}
+
+      {!loading && !needCpf && error && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
           <div className="flex items-start gap-2">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
@@ -189,11 +204,11 @@ export function PaymentClient({
         </div>
       )}
 
-      {!loading && !error && data && method === "PIX" && (
+      {!loading && !needCpf && !error && data && method === "PIX" && (
         <PixBlock data={data} copyPix={copyPix} copied={copied} />
       )}
 
-      {!loading && !error && data && method === "CREDIT_CARD" && (
+      {!loading && !needCpf && !error && data && method === "CREDIT_CARD" && (
         <CardBlock data={data} />
       )}
 
@@ -247,6 +262,64 @@ function MethodSwitcher({
         <CreditCard className="h-4 w-4" /> Cartão
       </button>
     </div>
+  );
+}
+
+function maskCpfCnpj(digits: string): string {
+  const d = digits.replace(/\D/g, "").slice(0, 14);
+  if (d.length <= 11) {
+    return d
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+  }
+  return d
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+}
+
+function CpfForm({ onSubmit }: { onSubmit: (cpfCnpj: string) => void }) {
+  const [value, setValue] = useState("");
+  const digits = value.replace(/\D/g, "");
+  const valid = digits.length === 11 || digits.length === 14;
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (valid) onSubmit(digits);
+      }}
+      className="space-y-3 rounded-xl border border-roxa-100 bg-white p-5 shadow-sm"
+    >
+      <div className="flex items-center gap-2">
+        <IdCard className="h-5 w-5 text-roxa-700" />
+        <h2 className="font-serif text-lg font-semibold text-roxa-900">
+          CPF / CNPJ
+        </h2>
+      </div>
+      <p className="text-sm text-slate-600">
+        Pra emitir a cobrança no PIX, o banco exige o CPF (ou CNPJ) do pagador.
+        É usado só pra essa cobrança e fica salvo no seu cadastro.
+      </p>
+      <input
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        value={value}
+        onChange={(e) => setValue(maskCpfCnpj(e.target.value))}
+        placeholder="000.000.000-00"
+        className="w-full rounded-md border border-slate-300 px-3 py-2.5 text-base shadow-sm focus:border-roxa-500 focus:outline-none focus:ring-1 focus:ring-roxa-500"
+      />
+      <button
+        type="submit"
+        disabled={!valid}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-roxa-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-roxa-800 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Continuar para pagamento <ArrowRight className="h-4 w-4" />
+      </button>
+    </form>
   );
 }
 

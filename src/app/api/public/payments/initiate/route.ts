@@ -1,12 +1,24 @@
 import { NextResponse } from "next/server";
-import { initiateOnlinePayment } from "@/server/services/payment.service";
+import {
+  initiateOnlinePayment,
+  NeedCpfError,
+} from "@/server/services/payment.service";
 import { BusinessError } from "@/server/auth-helpers";
 import { z } from "zod";
 
 const bodySchema = z.object({
   saleId: z.string().min(1),
   billingType: z.enum(["PIX", "CREDIT_CARD"]),
+  /** Só dígitos. Validado abaixo (11 = CPF, 14 = CNPJ). */
+  cpfCnpj: z.string().optional(),
 });
+
+function sanitizeCpfCnpj(raw: string | undefined): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length !== 11 && digits.length !== 14) return null;
+  return digits;
+}
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
@@ -18,13 +30,32 @@ export async function POST(req: Request) {
     );
   }
 
+  let cpfCnpj: string | undefined;
+  if (parsed.data.cpfCnpj) {
+    const clean = sanitizeCpfCnpj(parsed.data.cpfCnpj);
+    if (!clean) {
+      return NextResponse.json(
+        { ok: false, error: "CPF/CNPJ inválido. Use só os dígitos." },
+        { status: 400 },
+      );
+    }
+    cpfCnpj = clean;
+  }
+
   try {
     const result = await initiateOnlinePayment(
       parsed.data.saleId,
       parsed.data.billingType,
+      cpfCnpj,
     );
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
+    if (e instanceof NeedCpfError) {
+      return NextResponse.json(
+        { ok: false, code: "NEED_CPF", error: e.message },
+        { status: 400 },
+      );
+    }
     if (e instanceof BusinessError) {
       return NextResponse.json(
         { ok: false, error: e.message },

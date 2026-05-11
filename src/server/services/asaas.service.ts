@@ -91,11 +91,13 @@ export async function createAsaasCustomer(input: {
   name: string;
   phone: string;
   email?: string | null;
+  cpfCnpj: string;
 }): Promise<{ ok: true; customerId: string } | { ok: false; error: string }> {
   const r = await asaasCall<AsaasCustomer>("POST", "/v3/customers", {
     name: input.name,
     mobilePhone: input.phone,
     email: input.email ?? undefined,
+    cpfCnpj: input.cpfCnpj,
     // notificationDisabled: true → não dispara notificações próprias do Asaas
     notificationDisabled: true,
   });

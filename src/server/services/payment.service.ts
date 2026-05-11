@@ -34,22 +34,55 @@ import { sendText } from "./whatsapp.service";
 
 const DEFAULT_TTL_HOURS = 24;
 
+/**
+ * Erro especial — sinaliza pra UI pedir CPF do cliente antes de prosseguir.
+ * Asaas exige CPF/CNPJ pra criar cobrança PIX/cartão (obrigação fiscal).
+ */
+export class NeedCpfError extends BusinessError {
+  constructor() {
+    super("Precisamos do seu CPF pra emitir a cobrança. Informe abaixo.");
+    this.name = "NeedCpfError";
+  }
+}
+
 async function getOrCreateAsaasCustomer(
   customerId: string,
+  cpfCnpjOverride?: string,
 ): Promise<{ asaasCustomerId: string }> {
   const customer = await prisma.customer.findUnique({
     where: { id: customerId },
-    select: { id: true, name: true, phone: true, email: true, asaasCustomerId: true },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      email: true,
+      asaasCustomerId: true,
+      cpfCnpj: true,
+    },
   });
   if (!customer) throw new BusinessError("Cliente não encontrado.");
   if (customer.asaasCustomerId) {
     return { asaasCustomerId: customer.asaasCustomerId };
   }
 
+  const cpfCnpj = cpfCnpjOverride ?? customer.cpfCnpj;
+  if (!cpfCnpj) {
+    throw new NeedCpfError();
+  }
+
+  // Salva CPF no Customer pra próximas cobranças (se veio override)
+  if (cpfCnpjOverride && cpfCnpjOverride !== customer.cpfCnpj) {
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: { cpfCnpj: cpfCnpjOverride },
+    });
+  }
+
   const created = await createAsaasCustomer({
     name: customer.name,
     phone: customer.phone,
     email: customer.email,
+    cpfCnpj,
   });
   if (!created.ok) {
     throw new BusinessError(
@@ -81,10 +114,14 @@ export type InitiateOnlinePaymentResult = {
 /**
  * Inicia (ou retorna existente) o OnlinePayment de uma Sale. Idempotente —
  * chamar 2x retorna o mesmo registro.
+ *
+ * Asaas exige CPF/CNPJ do cliente. Se ainda não tem cadastrado e nada veio
+ * em `cpfCnpj`, lança `NeedCpfError` pra UI pedir.
  */
 export async function initiateOnlinePayment(
   saleId: string,
   billingType: OnlinePaymentBillingType,
+  cpfCnpj?: string,
 ): Promise<InitiateOnlinePaymentResult> {
   if (!isAsaasConfigured()) {
     throw new BusinessError(
@@ -136,7 +173,10 @@ export async function initiateOnlinePayment(
     throw new BusinessError("Valor do pedido inválido pra cobrança online.");
   }
 
-  const { asaasCustomerId } = await getOrCreateAsaasCustomer(sale.customerId);
+  const { asaasCustomerId } = await getOrCreateAsaasCustomer(
+    sale.customerId,
+    cpfCnpj,
+  );
 
   // TTL — busca settings
   const settings = await prisma.settings.findUnique({

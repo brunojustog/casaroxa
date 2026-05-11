@@ -722,6 +722,9 @@ model Customer {
   loyaltyPoints     Int     @default(0)
   /// ID do cliente no Asaas (cache pra não recriar a cada cobrança).
   asaasCustomerId   String?  @unique
+  /// CPF (11 dígitos) ou CNPJ (14). Só dígitos. Pedido só quando o cliente
+  /// escolhe pagar online (Asaas exige).
+  cpfCnpj           String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
