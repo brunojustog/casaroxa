@@ -98,22 +98,31 @@ const OPERATOR_ALLOWED_PREFIXES = [
   "/login",
 ];
 
+/**
+ * Match de prefixo respeitando boundary de segmento — evita `/sorteios`
+ * casar com `/sorteio` (singular vs plural) e variações similares.
+ * Casa se pathname === prefix OU pathname começa com prefix + "/".
+ */
+function matchesPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(prefix + "/");
+}
+
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_EXACT.has(pathname)) return true;
-  return PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
+  return PUBLIC_PREFIXES.some((p) => matchesPrefix(pathname, p));
 }
 
 function isSitePath(pathname: string): boolean {
   if (SITE_EXACT.has(pathname)) return true;
-  return SITE_PREFIXES.some((p) => pathname.startsWith(p));
+  return SITE_PREFIXES.some((p) => matchesPrefix(pathname, p));
 }
 
 function isAdminPath(pathname: string): boolean {
-  return ADMIN_PREFIXES.some((p) => pathname.startsWith(p));
+  return ADMIN_PREFIXES.some((p) => matchesPrefix(pathname, p));
 }
 
 function isOperatorAllowed(pathname: string): boolean {
-  return OPERATOR_ALLOWED_PREFIXES.some((p) => pathname.startsWith(p));
+  return OPERATOR_ALLOWED_PREFIXES.some((p) => matchesPrefix(pathname, p));
 }
 
 function getHost(req: Request): string {
