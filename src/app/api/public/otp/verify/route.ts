@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { verifyOtp } from "@/server/services/otp.service";
 import {
   createSession,
   setSessionCookie,
 } from "@/server/services/customer-session.service";
+
+const PENDING_PHONE_COOKIE = "casaroxa_pending_phone";
+const PENDING_PHONE_TTL_MIN = 15;
 
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as
@@ -21,16 +25,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
   }
 
-  // Sem Customer cadastrado: código válido mas sem sessão criada.
-  // Cliente segue como "convidado" — só recebe atalho de identificação
-  // se já tinha feito pedido antes.
+  // Sem Customer cadastrado: telefone está verificado mas falta nome.
+  // Setta cookie temporário (15min) com o phone, frontend pede o nome
+  // e chama /api/public/customer/complete-signup pra finalizar.
   if (!result.customerId) {
+    const store = await cookies();
+    store.set(PENDING_PHONE_COOKIE, result.phone, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: PENDING_PHONE_TTL_MIN * 60,
+    });
     return NextResponse.json({
       ok: true,
       authenticated: false,
+      needsName: true,
       phone: result.phone,
-      message:
-        "Código confirmado, mas você ainda não tem cadastro. Faça seu primeiro pedido normalmente.",
     });
   }
 
