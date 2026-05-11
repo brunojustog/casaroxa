@@ -26,6 +26,7 @@ const WRITE_TOOL_NAMES = new Set([
   "set_coupon_active",
   "generate_birthday_coupon",
   "send_whatsapp_message",
+  "draw_raffle",
 ]);
 
 /**

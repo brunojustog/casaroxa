@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Award, ChevronRight, ShoppingBag, Tag } from "lucide-react";
+import { Award, ChevronRight, Gift, ShoppingBag, Tag, Trophy } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getAuthedCustomer } from "@/server/services/customer-session.service";
 import { LOYALTY_RULE } from "@/server/services/loyalty.service";
+import { listRafflesForCustomer } from "@/server/services/raffle.service";
 import { MyOrdersLogin } from "@/components/public/auth/MyOrdersLogin";
 import { CouponCopyButton } from "@/components/public/auth/CouponCopyButton";
 import { LogoutButton } from "@/components/public/auth/LogoutButton";
@@ -57,8 +58,8 @@ export default async function MyOrdersPage() {
     );
   }
 
-  // Busca pedidos + cupons do cliente
-  const [sales, coupons] = await Promise.all([
+  // Busca pedidos + cupons + sorteios do cliente
+  const [sales, coupons, raffleEntries] = await Promise.all([
     prisma.sale.findMany({
       where: { customerId: customer.id },
       orderBy: { occurredAt: "desc" },
@@ -91,6 +92,7 @@ export default async function MyOrdersPage() {
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
+    listRafflesForCustomer(customer.id),
   ]);
 
   const totalSpent = sales
@@ -178,6 +180,67 @@ export default async function MyOrdersPage() {
                 <CouponCopyButton code={c.code} />
               </li>
             ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Meus sorteios */}
+      {raffleEntries.length > 0 && (
+        <section>
+          <h2 className="font-serif text-lg font-semibold text-roxa-900 mb-2 inline-flex items-center gap-1.5">
+            <Gift className="h-4 w-4" />
+            Meus sorteios
+          </h2>
+          <ul className="divide-y divide-roxa-50 rounded-xl border border-roxa-100 bg-white shadow-sm">
+            {raffleEntries.map((e) => {
+              const won = e.raffle.winnerEntryId === e.id;
+              return (
+                <li key={e.id}>
+                  <Link
+                    href={`/sorteio/${e.raffle.id}`}
+                    className="flex items-center gap-3 p-4 hover:bg-roxa-50/30"
+                  >
+                    <div
+                      className={
+                        won
+                          ? "grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-700"
+                          : "grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500"
+                      }
+                    >
+                      {won ? (
+                        <Trophy className="h-4 w-4" />
+                      ) : (
+                        <Gift className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-slate-900">
+                        {e.raffle.name}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Seu número:{" "}
+                        <span className="font-mono font-semibold text-amber-700">
+                          #{e.number}
+                        </span>
+                        {e.raffle.status === "DRAWN"
+                          ? won
+                            ? " · 🏆 VOCÊ GANHOU!"
+                            : " · Sorteio realizado"
+                          : e.raffle.status === "OPEN"
+                            ? " · Aguardando sorteio"
+                            : ""}
+                      </p>
+                      {won && e.raffle.prizeDescription && (
+                        <p className="mt-1 text-xs font-medium text-amber-800">
+                          🎁 {e.raffle.prizeDescription}
+                        </p>
+                      )}
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-slate-400" />
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}

@@ -699,6 +699,59 @@ const getLoyaltyStatusTool: ToolDefinition = {
 // Read-only — WhatsApp
 // ============================================================
 
+const listRafflesTool: ToolDefinition = {
+  name: "list_raffles",
+  description:
+    "Lista sorteios (status, inscritos, ganhador). Use pra 'que sorteios estão abertos?' ou 'quem ganhou o sorteio de maio?'.",
+  readOnly: true,
+  input_schema: {
+    type: "object",
+    properties: {
+      status: {
+        type: "string",
+        enum: ["all", "DRAFT", "OPEN", "CLOSED", "DRAWN", "CANCELLED"],
+        default: "all",
+      },
+      limit: { type: "integer", default: 20 },
+    },
+  },
+  async run(input) {
+    const { status = "all", limit = 20 } = input as {
+      status?: "all" | "DRAFT" | "OPEN" | "CLOSED" | "DRAWN" | "CANCELLED";
+      limit?: number;
+    };
+    const where = status === "all" ? {} : { status };
+    const items = await prisma.raffle.findMany({
+      where: where as never,
+      orderBy: { createdAt: "desc" },
+      take: Math.min(limit, 100),
+      include: {
+        _count: { select: { entries: true } },
+        winnerEntry: {
+          include: { customer: { select: { name: true, phone: true } } },
+        },
+      },
+    });
+    return items.map((r) => ({
+      id: r.id,
+      nome: r.name,
+      premio: r.prizeDescription,
+      status: r.status,
+      inscritos: r._count.entries,
+      abreEm: r.opensAt.toISOString(),
+      fechaEm: r.closesAt.toISOString(),
+      sorteadoEm: r.drawnAt?.toISOString() ?? null,
+      ganhador: r.winnerEntry
+        ? {
+            numero: r.winnerEntry.number,
+            nome: r.winnerEntry.customer.name,
+            telefone: r.winnerEntry.customer.phone,
+          }
+        : null,
+    }));
+  },
+};
+
 const checkWhatsAppStatusTool: ToolDefinition = {
   name: "check_whatsapp_status",
   description:
@@ -746,6 +799,7 @@ const READ_TOOLS: ToolDefinition[] = [
   getCustomerTool,
   getLoyaltyStatusTool,
   checkWhatsAppStatusTool,
+  listRafflesTool,
 ];
 
 export const TOOLS: ToolDefinition[] = [...READ_TOOLS, ...WRITE_TOOLS];

@@ -24,6 +24,7 @@ import {
   ClipboardCheck,
   Tag,
   UsersRound,
+  Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@prisma/client";
@@ -53,6 +54,7 @@ const NAV: NavSection[] = [
       { href: "/combos",          label: "Combos",          icon: Boxes },
       { href: "/fornecedores",    label: "Fornecedores",    icon: Truck },
       { href: "/cupons",          label: "Cupons",          icon: Tag },
+      { href: "/sorteios",        label: "Sorteios",        icon: Gift },
     ],
   },
   {

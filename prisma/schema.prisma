@@ -189,6 +189,7 @@ model User {
   inventoriesClosed      Inventory[]              @relation("InventoryClosedBy")
   inventoryItemsCounted  InventoryItem[]
   pushSubscriptions      PushSubscription[]
+  rafflesDrawn           Raffle[]                 @relation("RaffleDrawnBy")
 }
 
 // ============================================================
@@ -202,6 +203,7 @@ enum WhatsAppEvent {
   BIRTHDAY_COUPON
   LOYALTY_REDEEM
   OTP // código de verificação pra "Já sou cliente" no checkout
+  RAFFLE_WIN // ganhador de sorteio
   MANUAL // disparado pelo chat IA ou botão manual
   TEST // botão "Testar conexão" em /configuracoes
 }
@@ -712,6 +714,7 @@ model Customer {
   sales                Sale[]
   loyaltyTransactions  LoyaltyTransaction[]
   sessions             CustomerSession[]
+  raffleEntries        RaffleEntry[]
 
   @@index([active, name])
   @@index([birthday])
@@ -750,6 +753,69 @@ model CustomerSession {
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([customerId, expiresAt])
+}
+
+// ============================================================
+// SORTEIOS / RIFAS
+// ============================================================
+
+enum RaffleStatus {
+  DRAFT // criado mas ainda não publicado
+  OPEN // aceitando inscrições
+  CLOSED // fechado, aguardando sorteio
+  DRAWN // sorteado
+  CANCELLED // cancelado
+}
+
+model Raffle {
+  id   String @id @default(cuid())
+  /// Nome público do sorteio (ex.: "Combo Família — Maio/26").
+  name String
+  /// Descrição livre do prêmio (ex.: "1 Combo Família com 4 acompanhamentos").
+  prizeDescription String?
+  /// Imagem opcional pra divulgação na landing pública.
+  imageUrl         String?
+  /// Quando começa a aceitar inscrições.
+  opensAt          DateTime
+  /// Última data pra entrar.
+  closesAt         DateTime
+  /// Data prevista do sorteio (informativa pro cliente — sorteio é manual).
+  drawAt           DateTime?
+  status           RaffleStatus @default(DRAFT)
+
+  /// Ganhador (entry sorteada). FK opcional preenchida ao sortear.
+  winnerEntryId String?      @unique
+  drawnAt       DateTime?
+  drawnById     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries     RaffleEntry[]
+  winnerEntry RaffleEntry?  @relation("RaffleWinner", fields: [winnerEntryId], references: [id])
+  drawnBy     User?         @relation("RaffleDrawnBy", fields: [drawnById], references: [id])
+
+  @@index([status, closesAt])
+}
+
+model RaffleEntry {
+  id         String   @id @default(cuid())
+  raffleId   String
+  customerId String
+  /// Número sequencial da entrada dentro do sorteio (1, 2, 3...). Facilita
+  /// comunicar "número 47 ganhou" e permite sortear via Math.random()
+  /// uniforme entre 1 e total.
+  number     Int
+  createdAt  DateTime @default(now())
+
+  raffle   Raffle   @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  wonAt    Raffle?  @relation("RaffleWinner")
+
+  /// 1 cliente = 1 entrada por sorteio.
+  @@unique([raffleId, customerId])
+  @@unique([raffleId, number])
+  @@index([customerId])
 }
 
 // ============================================================

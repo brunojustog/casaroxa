@@ -51,6 +51,9 @@ import {
 import {
   sendText as sendWhatsAppText,
 } from "@/server/services/whatsapp.service";
+import {
+  drawRaffle as drawRaffleService,
+} from "@/server/services/raffle.service";
 import type { ToolDefinition } from "./tools";
 
 // ---------- Helpers de resolução id|nome ----------
@@ -1065,6 +1068,48 @@ const sendWhatsAppMessageTool: ToolDefinition = {
 };
 
 // ============================================================
+// SORTEIOS
+// ============================================================
+
+const drawRaffleTool: ToolDefinition = {
+  name: "draw_raffle",
+  description:
+    "Sorteia o ganhador de um sorteio. DESTRUTIVO — uma vez sorteado, não pode reverter. SEMPRE peça confirmação explícita ao usuário antes de chamar, citando o nome do sorteio e o número de inscritos. Avisa o ganhador automaticamente por WhatsApp.",
+  readOnly: false,
+  destructive: true,
+  requiresRole: "ADMIN",
+  async run(input, ctx) {
+    const { raffleId } = input as { raffleId: string };
+    if (!ctx.userId) return { ok: false, erro: "Sessão expirada." };
+    if (!raffleId) return { ok: false, erro: "raffleId obrigatório." };
+    try {
+      const r = await drawRaffleService(raffleId, ctx.userId);
+      return {
+        ok: true,
+        ganhador: {
+          numero: r.winnerNumber,
+          nome: r.customerName,
+          telefone: r.customerPhone,
+        },
+        observacao: "Mensagem de parabéns enviada pelo WhatsApp.",
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        erro: e instanceof BusinessError ? e.message : "Erro ao sortear.",
+      };
+    }
+  },
+  input_schema: {
+    type: "object",
+    properties: {
+      raffleId: { type: "string", description: "ID do sorteio (use list_raffles pra achar)." },
+    },
+    required: ["raffleId"],
+  },
+};
+
+// ============================================================
 // Registry
 // ============================================================
 
@@ -1086,5 +1131,6 @@ export const WRITE_TOOLS: ToolDefinition[] = [
   setCouponActiveTool,
   generateBirthdayCouponTool,
   sendWhatsAppMessageTool,
+  drawRaffleTool,
 ];
 
