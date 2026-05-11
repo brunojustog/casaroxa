@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, AlertTriangle, PackageX, Calendar } from "lucide-react";
+import { Plus, AlertTriangle, PackageX, Calendar, TrendingDown } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -33,8 +33,8 @@ export default async function EstoquePage({
     search: typeof params.search === "string" ? params.search : undefined,
     filter:
       typeof params.filter === "string" &&
-      ["all", "expiring", "empty"].includes(params.filter)
-        ? (params.filter as "all" | "expiring" | "empty")
+      ["all", "expiring", "empty", "below_min"].includes(params.filter)
+        ? (params.filter as "all" | "expiring" | "empty" | "below_min")
         : "all",
   });
 
@@ -67,7 +67,9 @@ export default async function EstoquePage({
             ? "Nenhum ingrediente com validade próxima nos próximos 7 dias."
             : filters.filter === "empty"
               ? "Nenhum ingrediente em uso está com saldo zerado."
-              : "Nenhum ingrediente encontrado."}
+              : filters.filter === "below_min"
+                ? "Nenhum ingrediente abaixo do estoque mínimo configurado."
+                : "Nenhum ingrediente encontrado."}
         </EmptyState>
       ) : (
         <Table>
@@ -76,6 +78,7 @@ export default async function EstoquePage({
               <TH>Ingrediente</TH>
               <TH>Categoria</TH>
               <TH className="text-right">Saldo atual</TH>
+              <TH className="text-right">Mínimo</TH>
               <TH className="text-right">Custo unit.</TH>
               <TH className="text-right">Valor em estoque</TH>
               <TH>Próx. validade</TH>
@@ -106,7 +109,9 @@ export default async function EstoquePage({
                       className={
                         isEmpty
                           ? "text-red-700 font-semibold"
-                          : "text-slate-900 font-medium"
+                          : r.belowMin
+                            ? "text-amber-700 font-semibold"
+                            : "text-slate-900 font-medium"
                       }
                     >
                       {formatNumber(r.balance)}
@@ -114,6 +119,15 @@ export default async function EstoquePage({
                     <span className="text-xs text-slate-400">
                       {INGREDIENT_UNIT_LABEL[r.unit as IngredientUnit]}
                     </span>
+                  </TD>
+                  <TD className="text-right tabular-nums">
+                    {r.minStock !== null && r.minStock > 0 ? (
+                      <span className="text-xs text-slate-500">
+                        {formatNumber(r.minStock)}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 text-xs">—</span>
+                    )}
                   </TD>
                   <TD className="text-right tabular-nums text-slate-500">
                     {formatBRL(r.unitCost)}
@@ -147,6 +161,11 @@ export default async function EstoquePage({
                       {isEmpty && (
                         <Badge tone="danger" className="hidden md:inline-flex">
                           <PackageX className="h-3 w-3" /> sem saldo
+                        </Badge>
+                      )}
+                      {!isEmpty && r.belowMin && (
+                        <Badge tone="warning" className="hidden md:inline-flex">
+                          <TrendingDown className="h-3 w-3" /> abaixo do mínimo
                         </Badge>
                       )}
                       {expiresSoon && !expired && (

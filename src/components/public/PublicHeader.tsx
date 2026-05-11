@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { MessageCircle } from "lucide-react";
+import { History, MessageCircle } from "lucide-react";
 import { whatsappLink } from "@/lib/whatsapp";
 import { CartIndicator } from "./cart/CartIndicator";
 import type { PublicSiteSettings } from "@/server/services/public-menu.service";
@@ -37,6 +37,14 @@ export function PublicHeader({ settings }: { settings: PublicSiteSettings }) {
             className="rounded-md px-3 py-2 text-roxa-800 hover:bg-roxa-100"
           >
             Cardápio
+          </Link>
+          <Link
+            href="/meus-pedidos"
+            className="hidden md:inline-flex items-center gap-1 rounded-md px-3 py-2 text-roxa-800 hover:bg-roxa-100"
+            title="Histórico de pedidos e cupons"
+          >
+            <History className="h-3.5 w-3.5" />
+            Meus pedidos
           </Link>
           <CartIndicator />
           {wa && (

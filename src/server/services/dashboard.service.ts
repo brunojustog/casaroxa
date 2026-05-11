@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { calculateCmv, calculateGrossProfit } from "@/domain/calculations";
 import { PRODUCT_CATEGORY_LABEL } from "@/lib/enums";
 import {
+  countBelowMinStock,
   countEmptyButUsed,
   countExpiringSoon,
   countMovementsLast30Days,
@@ -31,6 +32,7 @@ export async function getOperatorDashboardData() {
     settings,
     expiringSoonCount,
     emptyButUsedCount,
+    belowMinCount,
     openSalesCount,
     openSalesStale,
     salesTodayCount,
@@ -41,6 +43,7 @@ export async function getOperatorDashboardData() {
     prisma.settings.findUnique({ where: { id: 1 } }),
     countExpiringSoon(7),
     countEmptyButUsed(),
+    countBelowMinStock(),
     prisma.sale.count({ where: { status: SaleStatus.ABERTA } }),
     countOpenSalesOlderThan24h(),
     prisma.sale.count({
@@ -72,7 +75,16 @@ export async function getOperatorDashboardData() {
       severity: "danger",
       title: `${emptyButUsedCount} ingrediente(s) usados zerados no estoque`,
       count: emptyButUsedCount,
-      href: "/estoque",
+      href: "/estoque?filter=empty",
+    });
+  }
+  if (belowMinCount > 0) {
+    alerts.push({
+      id: "below-min-stock",
+      severity: "warning",
+      title: `${belowMinCount} ingrediente(s) abaixo do estoque mínimo`,
+      count: belowMinCount,
+      href: "/estoque?filter=below_min",
     });
   }
   if (expiringSoonCount > 0) {
@@ -81,7 +93,7 @@ export async function getOperatorDashboardData() {
       severity: "warning",
       title: `${expiringSoonCount} lote(s) vencendo nos próximos 7 dias`,
       count: expiringSoonCount,
-      href: "/estoque",
+      href: "/estoque?filter=expiring",
     });
   }
 
@@ -397,6 +409,18 @@ export async function getDashboardData() {
       title: "Ingredientes sem saldo, mas usados em fichas",
       count: emptyButUsedCount,
       href: "/estoque?filter=empty",
+    });
+  }
+  // Alerta de estoque abaixo do mínimo configurado
+  // (reusa countBelowMinStock — chamado fora do Promise.all pra simplicidade)
+  const belowMinCount = await countBelowMinStock();
+  if (belowMinCount > 0) {
+    alerts.push({
+      id: "stock-below-min",
+      severity: "warning",
+      title: `${belowMinCount} ingrediente(s) abaixo do estoque mínimo`,
+      count: belowMinCount,
+      href: "/estoque?filter=below_min",
     });
   }
   if (combosAboveCmv > 0) {

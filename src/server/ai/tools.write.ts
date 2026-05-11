@@ -619,6 +619,7 @@ const updateIngredientCostTool: ToolDefinition = {
           unitCost,
           packageSize: full.packageSize === null ? null : Number(full.packageSize),
           packagePrice: full.packagePrice === null ? null : Number(full.packagePrice),
+          minStock: full.minStock === null ? null : Number(full.minStock),
           supplier: full.supplier,
           brand: full.brand,
           notes: full.notes,
@@ -683,6 +684,73 @@ const setIngredientActiveTool: ToolDefinition = {
   },
 };
 
+const setIngredientMinStockTool: ToolDefinition = {
+  name: "set_ingredient_min_stock",
+  description:
+    "Define o estoque mínimo de um ingrediente. Quando o saldo cai abaixo, vira alerta no dashboard. Passe minStock=null pra remover o alerta. ADMIN.",
+  readOnly: false,
+  requiresRole: "ADMIN",
+  async run(input, ctx) {
+    const { ingredientId, name, minStock } = input as {
+      ingredientId?: string;
+      name?: string;
+      minStock: number | null;
+    };
+    const ing = await resolveIngredient({ ingredientId, name });
+    if (!ing) return { ok: false, erro: "Ingrediente não encontrado." };
+
+    try {
+      const full = await prisma.ingredient.findUnique({ where: { id: ing.id } });
+      if (!full) return { ok: false, erro: "Ingrediente não encontrado." };
+
+      const normalized =
+        typeof minStock === "number" && minStock > 0 ? minStock : null;
+
+      await updateIngredientService(
+        ing.id,
+        {
+          name: full.name,
+          category: full.category,
+          unit: full.unit,
+          unitCost: Number(full.unitCost),
+          packageSize: full.packageSize === null ? null : Number(full.packageSize),
+          packagePrice: full.packagePrice === null ? null : Number(full.packagePrice),
+          minStock: normalized,
+          supplier: full.supplier,
+          brand: full.brand,
+          notes: full.notes,
+          active: full.active,
+        },
+        ctx.userId,
+      );
+      return {
+        ok: true,
+        ingrediente: ing.name,
+        minStockAnterior:
+          full.minStock === null ? null : Number(full.minStock),
+        minStockNovo: normalized,
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        erro: e instanceof BusinessError ? e.message : "Erro ao salvar.",
+      };
+    }
+  },
+  input_schema: {
+    type: "object",
+    properties: {
+      ingredientId: { type: "string" },
+      name: { type: "string" },
+      minStock: {
+        type: ["number", "null"],
+        description: "Quantidade mínima (mesma unidade do ingrediente). null/0 = sem alerta.",
+      },
+    },
+    required: ["minStock"],
+  },
+};
+
 const createIngredientTool: ToolDefinition = {
   name: "create_ingredient",
   description:
@@ -722,6 +790,7 @@ const createIngredientTool: ToolDefinition = {
           unitCost,
           packageSize: packageSize ?? null,
           packagePrice: packagePrice ?? null,
+          minStock: null,
           supplier: supplier ?? null,
           brand: brand ?? null,
           notes: notes ?? null,
@@ -1011,6 +1080,7 @@ export const WRITE_TOOLS: ToolDefinition[] = [
   setComboActiveTool,
   updateIngredientCostTool,
   setIngredientActiveTool,
+  setIngredientMinStockTool,
   createIngredientTool,
   createCouponTool,
   setCouponActiveTool,

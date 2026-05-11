@@ -35,6 +35,8 @@ export const ingredientFormSchema = z.object({
     .pipe(z.number({ invalid_type_error: "Custo inválido" }).min(0, "Custo não pode ser negativo")),
   packageSize: optionalPositive,
   packagePrice: optionalPositive,
+  /** Estoque mínimo desejado (mesma unidade do ingrediente). Vazio = sem alerta. */
+  minStock: optionalPositive,
   supplier: optionalString(120),
   brand: optionalString(120),
   notes: optionalString(2000),

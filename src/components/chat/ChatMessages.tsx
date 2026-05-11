@@ -20,6 +20,7 @@ const WRITE_TOOL_NAMES = new Set([
   "set_combo_active",
   "update_ingredient_cost",
   "set_ingredient_active",
+  "set_ingredient_min_stock",
   "create_ingredient",
   "create_coupon",
   "set_coupon_active",

@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, ListOrdered, MessageCircle } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  History,
+  ListOrdered,
+  MessageCircle,
+} from "lucide-react";
 
 type LastOrder = {
   saleNumber: number;
@@ -129,6 +135,31 @@ export function OrderSuccessClient() {
           </div>
         </div>
       )}
+
+      {/* Atalho pra Meus pedidos — só aparece se sale tem ID (pode buscar lá) */}
+      <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+        <div className="flex items-start gap-3">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-700">
+            <History className="h-4 w-4" />
+          </div>
+          <div className="flex-1 text-sm">
+            <p className="font-semibold text-amber-900">
+              Quer acompanhar todos os seus pedidos no mesmo lugar?
+            </p>
+            <p className="mt-0.5 text-amber-800">
+              Entre em{" "}
+              <Link
+                href="/meus-pedidos"
+                className="font-medium text-amber-900 underline hover:text-amber-950"
+              >
+                meus-pedidos
+              </Link>{" "}
+              com seu WhatsApp — verá histórico, cupons disponíveis e pontos de
+              fidelidade.
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div className="text-center">
         <Link

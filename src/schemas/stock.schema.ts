@@ -54,8 +54,8 @@ export const stockListFiltersSchema = z.object({
   search: z.string().trim().optional(),
   type: z.nativeEnum(StockMovementType).optional(),
   ingredientId: z.string().optional(),
-  /** "expiring" | "empty" | "all" — filtros derivados aplicados na UI/service. */
-  filter: z.enum(["all", "expiring", "empty"]).optional().default("all"),
+  /** "expiring" | "empty" | "below_min" | "all" — filtros derivados aplicados na UI/service. */
+  filter: z.enum(["all", "expiring", "empty", "below_min"]).optional().default("all"),
 });
 
 export type StockListFilters = z.infer<typeof stockListFiltersSchema>;

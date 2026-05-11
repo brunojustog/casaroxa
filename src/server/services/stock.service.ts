@@ -64,6 +64,10 @@ export type IngredientStockRow = {
   unitCost: number;
   active: boolean;
   balance: number;
+  /** Mínimo desejado (null = sem alerta configurado). */
+  minStock: number | null;
+  /** true se minStock > 0 e balance < minStock. */
+  belowMin: boolean;
   lastMovementAt: Date | null;
   /** Próxima data de validade (entre as ENTRADAs com expiryDate definido). */
   nextExpiryDate: Date | null;
@@ -121,6 +125,8 @@ export async function listStockOverview(
 
     const movementsLast30Days = movs.filter((m) => m.createdAt >= last30).length;
 
+    const minStock = ing.minStock !== null ? Number(ing.minStock) : null;
+    const belowMin = minStock !== null && minStock > 0 && balance < minStock;
     return {
       id: ing.id,
       name: ing.name,
@@ -129,6 +135,8 @@ export async function listStockOverview(
       unitCost: Number(ing.unitCost),
       active: ing.active,
       balance,
+      minStock,
+      belowMin,
       lastMovementAt,
       nextExpiryDate,
       movementsLast30Days,
@@ -147,7 +155,35 @@ export async function listStockOverview(
     );
     return rows.filter((r) => r.balance <= 0 && usedInRecipes.has(r.id));
   }
+  if (filters.filter === "below_min") {
+    return rows.filter((r) => r.belowMin);
+  }
   return rows;
+}
+
+/**
+ * Conta ingredientes ativos com saldo abaixo do mínimo configurado.
+ * Usado no dashboard como alerta.
+ */
+export async function countBelowMinStock(): Promise<number> {
+  const ingredients = await prisma.ingredient.findMany({
+    where: { active: true, minStock: { not: null, gt: 0 } },
+    select: {
+      id: true,
+      minStock: true,
+      stockMovements: { select: { type: true, quantity: true } },
+    },
+  });
+  let count = 0;
+  for (const ing of ingredients) {
+    if (ing.minStock === null) continue;
+    const balance = ing.stockMovements.reduce(
+      (acc, m) => acc + movementSign(m.type) * Number(m.quantity),
+      0,
+    );
+    if (balance < Number(ing.minStock)) count += 1;
+  }
+  return count;
 }
 
 // ---------- Histórico de movimentos ----------

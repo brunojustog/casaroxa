@@ -40,6 +40,7 @@ type FormShape = {
   unitCost: number | string;
   packageSize: number | string;
   packagePrice: number | string;
+  minStock: number | string;
   supplier: string;
   brand: string;
   notes: string;
@@ -53,6 +54,7 @@ export type IngredientFormDefaults = Partial<{
   unitCost: number;
   packageSize: number | null;
   packagePrice: number | null;
+  minStock: number | null;
   supplier: string | null;
   brand: string | null;
   notes: string | null;
@@ -66,6 +68,7 @@ const EMPTY_DEFAULTS: FormShape = {
   unitCost: 0,
   packageSize: "",
   packagePrice: "",
+  minStock: "",
   supplier: "",
   brand: "",
   notes: "",
@@ -80,6 +83,7 @@ function toFormShape(d: IngredientFormDefaults | undefined): FormShape {
     unitCost: d?.unitCost ?? EMPTY_DEFAULTS.unitCost,
     packageSize: d?.packageSize ?? "",
     packagePrice: d?.packagePrice ?? "",
+    minStock: d?.minStock ?? "",
     supplier: d?.supplier ?? "",
     brand: d?.brand ?? "",
     notes: d?.notes ?? "",
@@ -220,6 +224,24 @@ export function IngredientForm({
             </div>
           </Field>
         </div>
+      </section>
+
+      {/* Alerta de estoque mínimo */}
+      <section>
+        <Field
+          label="Estoque mínimo"
+          htmlFor="minStock"
+          hint="Quando o saldo cai abaixo deste valor, vira alerta no dashboard. Vazio = sem alerta."
+        >
+          <Input
+            id="minStock"
+            type="number"
+            step="0.0001"
+            min="0"
+            {...form.register("minStock")}
+            placeholder="—"
+          />
+        </Field>
       </section>
 
       {/* Comercial */}

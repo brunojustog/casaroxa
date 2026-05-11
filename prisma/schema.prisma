@@ -273,6 +273,11 @@ model Ingredient {
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
+  /// Estoque mínimo desejado (unidade igual à do ingrediente). Quando o
+  /// saldo cai abaixo, aparece como alerta no dashboard e fica destacado
+  /// em /estoque. null = sem alerta configurado.
+  minStock Decimal? @db.Decimal(12, 4)
+
   recipeItems    RecipeItem[]
   priceHistory   IngredientPriceHistory[]
   stockMovements StockMovement[]

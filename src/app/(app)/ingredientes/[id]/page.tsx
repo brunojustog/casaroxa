@@ -75,6 +75,7 @@ export default async function EditarIngredientePage({
                   unitCost: Number(ing.unitCost),
                   packageSize: ing.packageSize ? Number(ing.packageSize) : null,
                   packagePrice: ing.packagePrice ? Number(ing.packagePrice) : null,
+                  minStock: ing.minStock ? Number(ing.minStock) : null,
                   supplier: ing.supplier,
                   brand: ing.brand,
                   notes: ing.notes,

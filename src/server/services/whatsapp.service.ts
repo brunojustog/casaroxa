@@ -208,6 +208,10 @@ export async function sendText(input: SendTextInput): Promise<SendTextResult> {
   const body = {
     phone,
     body: input.message,
+    // check: true → wuzapi valida se o número existe no WhatsApp antes de
+    // enviar. Sem isso, números inválidos retornam 200 OK e a mensagem
+    // some no éter (whatsmeow só loga WARN "Identity change").
+    check: true,
     delay: typeof input.typingDelayMs === "number" ? input.typingDelayMs : 1500,
     linkPreview: true,
     mentionAll: false,

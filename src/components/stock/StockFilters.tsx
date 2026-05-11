@@ -36,6 +36,7 @@ export function StockFilters() {
         className="w-56"
       >
         <option value="all">Todos os ingredientes</option>
+        <option value="below_min">Abaixo do estoque mínimo</option>
         <option value="expiring">Vencendo em 7 dias</option>
         <option value="empty">Saldo zerado mas usado em ficha</option>
       </Select>
