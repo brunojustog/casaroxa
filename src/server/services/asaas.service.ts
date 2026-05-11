@@ -105,6 +105,26 @@ export async function createAsaasCustomer(input: {
   return { ok: true, customerId: r.data.id };
 }
 
+/**
+ * Atualiza um customer existente no Asaas. Útil quando o customer foi criado
+ * sem CPF (versão antiga) e precisamos preencher pra emitir cobrança PIX.
+ */
+export async function updateAsaasCustomer(
+  asaasCustomerId: string,
+  patch: { cpfCnpj?: string; email?: string | null },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const body: Record<string, unknown> = {};
+  if (patch.cpfCnpj) body.cpfCnpj = patch.cpfCnpj;
+  if (patch.email !== undefined) body.email = patch.email ?? undefined;
+  const r = await asaasCall<AsaasCustomer>(
+    "POST",
+    `/v3/customers/${asaasCustomerId}`,
+    body,
+  );
+  if (!r.ok) return { ok: false, error: r.error };
+  return { ok: true };
+}
+
 // ---------- Payment ----------
 
 export type AsaasPayment = {

@@ -29,6 +29,7 @@ import {
   getAsaasPixQrCode,
   isAsaasConfigured,
   mapAsaasStatus,
+  updateAsaasCustomer,
 } from "./asaas.service";
 import { sendText } from "./whatsapp.service";
 
@@ -61,21 +62,36 @@ async function getOrCreateAsaasCustomer(
     },
   });
   if (!customer) throw new BusinessError("Cliente não encontrado.");
-  if (customer.asaasCustomerId) {
-    return { asaasCustomerId: customer.asaasCustomerId };
-  }
 
+  // CPF é obrigatório pra Asaas — sempre exige ANTES de criar/usar customer.
   const cpfCnpj = cpfCnpjOverride ?? customer.cpfCnpj;
   if (!cpfCnpj) {
     throw new NeedCpfError();
   }
 
-  // Salva CPF no Customer pra próximas cobranças (se veio override)
+  // Salva CPF no Customer local pra próximas cobranças (se veio override novo)
   if (cpfCnpjOverride && cpfCnpjOverride !== customer.cpfCnpj) {
     await prisma.customer.update({
       where: { id: customer.id },
       data: { cpfCnpj: cpfCnpjOverride },
     });
+  }
+
+  // Já existe no Asaas? Garante que o CPF está sincronizado lá
+  // (cobre o caso de customer criado por versão antiga, sem CPF).
+  if (customer.asaasCustomerId) {
+    if (!customer.cpfCnpj) {
+      // CPF é novo — sincroniza no Asaas
+      const updated = await updateAsaasCustomer(customer.asaasCustomerId, {
+        cpfCnpj,
+      });
+      if (!updated.ok) {
+        throw new BusinessError(
+          `Falha ao atualizar cliente no Asaas: ${updated.error}`,
+        );
+      }
+    }
+    return { asaasCustomerId: customer.asaasCustomerId };
   }
 
   const created = await createAsaasCustomer({
