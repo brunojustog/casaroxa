@@ -148,8 +148,13 @@ export function RaffleEnterCard({
         onClose={() => setOtpOpen(false)}
         onSuccess={() => {
           setOtpOpen(false);
-          // Após login, tenta entrar automaticamente
-          enter();
+          // Após login: paga vai direto pra tela de pagamento, grátis chama
+          // a API de inscrição (que agora encontra o cookie de sessão).
+          if (isPaid) {
+            router.push(`/sorteio/${raffleId}/pagamento`);
+          } else {
+            enter();
+          }
         }}
       />
     </div>
