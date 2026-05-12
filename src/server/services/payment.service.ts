@@ -37,6 +37,13 @@ import {
   confirmRaffleEntriesFromPayment,
   releasePendingRaffleEntries,
 } from "./raffle.service";
+import { isValidCpfOrCnpj } from "@/lib/cpf-cnpj";
+
+/** Erro vindo do Asaas significa que o CPF/CNPJ é ruim de verdade. */
+function isAsaasCpfError(msg: string): boolean {
+  const m = msg.toLowerCase();
+  return m.includes("cpf") || m.includes("cnpj");
+}
 
 const DEFAULT_TTL_HOURS = 24;
 
@@ -68,6 +75,17 @@ async function getOrCreateAsaasCustomer(
   if (!cpfCnpj) {
     throw new NeedCpfError();
   }
+  // Valida DV antes de mandar pro Asaas. Se o que está salvo no DB é
+  // inválido, limpa e pede de novo.
+  if (!isValidCpfOrCnpj(cpfCnpj)) {
+    if (customer.cpfCnpj) {
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: { cpfCnpj: null },
+      });
+    }
+    throw new NeedCpfError();
+  }
 
   if (cpfCnpjOverride && cpfCnpjOverride !== customer.cpfCnpj) {
     await prisma.customer.update({
@@ -77,14 +95,20 @@ async function getOrCreateAsaasCustomer(
   }
 
   if (customer.asaasCustomerId) {
-    // Sincroniza dados que podem ter mudado (CPF, phone com DDI corrigido,
-    // email). Cobre customers criados em versões com phone errado etc.
     const updated = await updateAsaasCustomer(customer.asaasCustomerId, {
       cpfCnpj,
       phone: customer.phone,
       email: customer.email,
     });
     if (!updated.ok) {
+      // Asaas reclamou de CPF/CNPJ — limpa e pede novamente
+      if (isAsaasCpfError(updated.error)) {
+        await prisma.customer.update({
+          where: { id: customer.id },
+          data: { cpfCnpj: null },
+        });
+        throw new NeedCpfError();
+      }
       throw new BusinessError(
         `Falha ao atualizar cliente no Asaas: ${updated.error}`,
       );
@@ -99,6 +123,13 @@ async function getOrCreateAsaasCustomer(
     cpfCnpj,
   });
   if (!created.ok) {
+    if (isAsaasCpfError(created.error)) {
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: { cpfCnpj: null },
+      });
+      throw new NeedCpfError();
+    }
     throw new BusinessError(
       `Falha ao criar cliente no Asaas: ${created.error}`,
     );

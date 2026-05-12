@@ -7,6 +7,7 @@ import {
   NeedCpfError,
 } from "@/server/services/payment.service";
 import { BusinessError } from "@/server/auth-helpers";
+import { isValidCpfOrCnpj } from "@/lib/cpf-cnpj";
 
 /**
  * Cliente identificado escolhe N números numa rifa paga, gera 1 PIX no
@@ -47,7 +48,7 @@ export async function POST(
   let cpfCnpj: string | undefined;
   if (parsed.data.cpfCnpj) {
     const digits = parsed.data.cpfCnpj.replace(/\D/g, "");
-    if (digits.length !== 11 && digits.length !== 14) {
+    if (!isValidCpfOrCnpj(digits)) {
       return NextResponse.json(
         { ok: false, error: "CPF/CNPJ inválido." },
         { status: 400 },

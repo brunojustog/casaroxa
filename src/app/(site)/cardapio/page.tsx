@@ -65,40 +65,61 @@ export default async function CardapioPage({
         </p>
       </header>
 
-      {/* Banner de sorteios em andamento */}
+      {/* Banner de rifas/sorteios em andamento */}
       {openRaffles.length > 0 && (
         <section className="space-y-2">
-          {openRaffles.map((r) => (
-            <Link
-              key={r.id}
-              href={`/sorteio/${r.id}`}
-              className="flex items-center gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 hover:bg-amber-100 transition"
-            >
-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-amber-200 text-amber-700">
-                <Gift className="h-5 w-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-serif text-base font-semibold text-amber-900">
-                  🎁 {r.name}
-                </p>
-                {r.prizeDescription && (
-                  <p className="text-xs text-amber-800 line-clamp-1">
-                    {r.prizeDescription}
+          {openRaffles.map((r) => {
+            const isPaid = r.ticketPriceCents > 0;
+            const priceFmt = new Intl.NumberFormat("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            }).format(r.ticketPriceCents / 100);
+            const label = isPaid ? "Rifa" : "Sorteio grátis";
+            const available = r.totalNumbers - r._count.entries;
+            return (
+              <Link
+                key={r.id}
+                href={`/sorteio/${r.id}`}
+                className="flex items-center gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 hover:bg-amber-100 transition"
+              >
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-amber-200 text-amber-700">
+                  <Gift className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="inline-flex items-center rounded-full bg-amber-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                      🎟️ {label}
+                    </span>
+                    {isPaid && (
+                      <span className="text-[11px] font-semibold text-amber-900">
+                        {priceFmt} / número
+                      </span>
+                    )}
+                  </div>
+                  <p className="font-serif text-base font-semibold text-amber-900 mt-1">
+                    {r.name}
                   </p>
-                )}
-                <p className="text-[11px] text-amber-700 mt-0.5">
-                  {r._count.entries} inscrito(s) · até{" "}
-                  {new Intl.DateTimeFormat("pt-BR", {
-                    day: "2-digit",
-                    month: "2-digit",
-                  }).format(r.closesAt)}
-                </p>
-              </div>
-              <span className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white">
-                Participar →
-              </span>
-            </Link>
-          ))}
+                  {r.prizeDescription && (
+                    <p className="text-xs text-amber-800 line-clamp-1">
+                      🎁 {r.prizeDescription}
+                    </p>
+                  )}
+                  <p className="text-[11px] text-amber-700 mt-0.5">
+                    {available} de {r.totalNumbers}{" "}
+                    {available === 1 ? "número disponível" : "números disponíveis"}{" "}
+                    · até{" "}
+                    {new Intl.DateTimeFormat("pt-BR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                    }).format(r.closesAt)}
+                  </p>
+                </div>
+                <span className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white whitespace-nowrap">
+                  {isPaid ? "Comprar números →" : "Participar →"}
+                </span>
+              </Link>
+            );
+          })}
         </section>
       )}
 

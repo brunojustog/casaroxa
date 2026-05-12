@@ -13,10 +13,13 @@ const bodySchema = z.object({
   cpfCnpj: z.string().optional(),
 });
 
+import { isValidCpfOrCnpj } from "@/lib/cpf-cnpj";
+
 function sanitizeCpfCnpj(raw: string | undefined): string | null {
   if (!raw) return null;
   const digits = raw.replace(/\D/g, "");
   if (digits.length !== 11 && digits.length !== 14) return null;
+  if (!isValidCpfOrCnpj(digits)) return null;
   return digits;
 }
 
