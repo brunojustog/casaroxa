@@ -46,6 +46,8 @@ function isAsaasCpfError(msg: string): boolean {
 }
 
 const DEFAULT_TTL_HOURS = 24;
+/** Asaas exige R$ 5,00 mínimo por cobrança (PIX ou cartão). */
+const ASAAS_MIN_VALUE_CENTS = 500;
 
 export class NeedCpfError extends BusinessError {
   constructor() {
@@ -228,6 +230,11 @@ async function initiateSalePayment(input: {
   if (value <= 0) {
     throw new BusinessError("Valor do pedido inválido pra cobrança online.");
   }
+  if (value * 100 < ASAAS_MIN_VALUE_CENTS) {
+    throw new BusinessError(
+      "Valor mínimo de cobrança é R$ 5,00 (regra do banco).",
+    );
+  }
 
   const { asaasCustomerId } = await getOrCreateAsaasCustomer(
     sale.customerId,
@@ -323,6 +330,13 @@ async function initiateRafflePayment(input: {
   }
   if (entries.some((e) => e.confirmed)) {
     throw new BusinessError("Algum número já foi confirmado.");
+  }
+
+  // Asaas exige R$ 5 mínimo. Avisa cliente quantos números precisa.
+  if (input.valueCents < ASAAS_MIN_VALUE_CENTS) {
+    throw new BusinessError(
+      `Valor mínimo de cobrança é R$ 5,00 (regra do banco). Selecione mais números pra completar.`,
+    );
   }
 
   // Se TODOS já têm o mesmo payment vinculado, retorna idempotente.

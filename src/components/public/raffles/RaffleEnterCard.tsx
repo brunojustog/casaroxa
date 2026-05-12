@@ -40,6 +40,13 @@ export function RaffleEnterCard({
   const [state, setState] = useState<NumbersState | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const isPaid = ticketPriceCents > 0;
+  // Asaas exige R$ 5 mínimo. Pra ticket abaixo disso, cliente precisa
+  // comprar múltiplos números pra atingir o mínimo.
+  const minNumbersForPayment =
+    isPaid && ticketPriceCents < 500
+      ? Math.ceil(500 / ticketPriceCents)
+      : 1;
+  const needsMore = isPaid && selected.size < minNumbersForPayment;
 
   const priceFormatted = new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -196,10 +203,18 @@ export function RaffleEnterCard({
         </p>
       )}
 
+      {needsMore && selected.size > 0 && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          O banco exige R$ 5,00 mínimo por cobrança. Selecione pelo menos{" "}
+          <strong>{minNumbersForPayment} números</strong> pra continuar (você
+          selecionou {selected.size}).
+        </p>
+      )}
+
       <button
         type="button"
         onClick={submit}
-        disabled={pending || selected.size === 0}
+        disabled={pending || selected.size === 0 || needsMore}
         className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-5 py-3 text-base font-semibold text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${
           isPaid ? "bg-roxa-700 hover:bg-roxa-800" : "bg-amber-500 hover:bg-amber-600"
         }`}
