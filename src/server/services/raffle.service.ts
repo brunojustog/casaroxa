@@ -348,6 +348,19 @@ export async function reserveRaffleNumbersForPurchase(
   raffleName: string;
 }> {
   return prisma.$transaction(async (tx) => {
+    // Limpa entries pendentes "órfãs" do próprio cliente nessa rifa
+    // (confirmed=false e sem OnlinePayment vinculado). São tentativas
+    // anteriores que falharam antes de gerar PIX. Sem isso o cliente
+    // ficaria preso achando que os números antigos estão "vendidos".
+    await tx.raffleEntry.deleteMany({
+      where: {
+        raffleId,
+        customerId,
+        confirmed: false,
+        onlinePaymentId: null,
+      },
+    });
+
     const { raffleName, ticketPriceCents } = await validatePurchase(
       raffleId,
       customerId,

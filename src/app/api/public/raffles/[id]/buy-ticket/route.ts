@@ -8,6 +8,7 @@ import {
 } from "@/server/services/payment.service";
 import { BusinessError } from "@/server/auth-helpers";
 import { isValidCpfOrCnpj } from "@/lib/cpf-cnpj";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Cliente identificado escolhe N números numa rifa paga, gera 1 PIX no
@@ -57,8 +58,9 @@ export async function POST(
     cpfCnpj = digits;
   }
 
+  let reserved: Awaited<ReturnType<typeof reserveRaffleNumbersForPurchase>> | null = null;
   try {
-    const reserved = await reserveRaffleNumbersForPurchase(
+    reserved = await reserveRaffleNumbersForPurchase(
       raffleId,
       customer.id,
       parsed.data.numbers,
@@ -79,6 +81,14 @@ export async function POST(
       ...payment,
     });
   } catch (e) {
+    // Rollback: se reservou mas falhou em criar o payment, libera os
+    // números. NEED_CPF é exceção — entries ficam reservadas pra que o
+    // cliente volte com CPF e complete (validade = TTL do payment).
+    if (reserved && !(e instanceof NeedCpfError)) {
+      await prisma.raffleEntry.deleteMany({
+        where: { id: { in: reserved.entryIds }, confirmed: false },
+      }).catch(() => {});
+    }
     if (e instanceof NeedCpfError) {
       return NextResponse.json(
         { ok: false, code: "NEED_CPF", error: e.message },

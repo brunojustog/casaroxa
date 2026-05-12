@@ -259,13 +259,36 @@ export function RaffleEnterCard({
       <OtpLoginDialog
         open={otpOpen}
         onClose={() => setOtpOpen(false)}
-        onSuccess={() => {
+        onSuccess={async () => {
           setOtpOpen(false);
-          // Após autenticar, refresh pra trazer authenticated=true do server,
-          // OU já submete agora (que vai checar via prop atualizada no próximo render).
-          router.refresh();
-          // Pequeno delay pra prop atualizar antes do submit
-          setTimeout(() => submit(), 100);
+          const numbers = Array.from(selected);
+          // Pra rifa paga, redireciona direto pra página de pagamento
+          // via window.location pra que o SSR enxergue o cookie novo. Pra
+          // rifa grátis, faz a chamada de inscrição diretamente (não
+          // depende da prop `authenticated`, que ainda é stale aqui).
+          if (numbers.length === 0) {
+            window.location.reload();
+            return;
+          }
+          if (isPaid) {
+            window.location.href = `/sorteio/${raffleId}/pagamento?numbers=${numbers.join(",")}`;
+            return;
+          }
+          try {
+            const res = await fetch(`/api/public/raffles/${raffleId}/enter`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ numbers }),
+            });
+            const data = await res.json();
+            if (!data.ok) {
+              setError(data.error ?? "Erro ao inscrever.");
+              return;
+            }
+            window.location.reload();
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Erro de rede.");
+          }
         }}
       />
     </div>
