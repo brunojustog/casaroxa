@@ -27,13 +27,12 @@ export default async function PublicRafflePage({
   const raffle = await getRaffleForPublic(id);
   if (!raffle) notFound();
 
-  // Se cliente identificado, busca a entry dele (se já entrou)
+  // Se cliente identificado, busca a entry confirmada dele (entry pendente
+  // de pagamento não vale)
   const customer = await getAuthedCustomer();
   const myEntry = customer
-    ? await prisma.raffleEntry.findUnique({
-        where: {
-          raffleId_customerId: { raffleId: id, customerId: customer.id },
-        },
+    ? await prisma.raffleEntry.findFirst({
+        where: { raffleId: id, customerId: customer.id, confirmed: true },
         select: { number: true },
       })
     : null;
@@ -126,6 +125,7 @@ export default async function PublicRafflePage({
       {isOpen && (
         <RaffleEnterCard
           raffleId={raffle.id}
+          ticketPriceCents={raffle.ticketPriceCents}
           alreadyEntered={Boolean(myEntry)}
           myNumber={myEntry?.number ?? null}
           authenticated={Boolean(customer)}

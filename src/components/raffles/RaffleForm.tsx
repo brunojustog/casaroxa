@@ -30,6 +30,7 @@ export type RaffleFormDefaults = Partial<{
   opensAt: Date;
   closesAt: Date;
   drawAt: Date | null;
+  ticketPriceCents: number;
   status: RaffleStatus;
 }>;
 
@@ -63,6 +64,7 @@ export function RaffleForm({
       opensAt: toLocalInput(defaultValues?.opensAt ?? now),
       closesAt: toLocalInput(defaultValues?.closesAt ?? inDays(7)),
       drawAt: toLocalInput(defaultValues?.drawAt ?? inDays(8)),
+      ticketPriceCents: defaultValues?.ticketPriceCents ?? 0,
       status: defaultValues?.status ?? "DRAFT",
     } as unknown as RaffleFormData,
   });
@@ -133,6 +135,31 @@ export function RaffleForm({
           <Input type="datetime-local" {...form.register("drawAt")} />
         </Field>
       </div>
+
+      <Field
+        label="Valor do ticket (R$)"
+        hint="0 = sorteio gratuito (entrada direta). >0 = exige pagamento PIX antes de confirmar a inscrição."
+        error={errors.ticketPriceCents?.message}
+      >
+        <Input
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="0,00"
+          {...form.register("ticketPriceCents", {
+            setValueAs: (v: unknown) => {
+              if (v === "" || v === null || v === undefined) return 0;
+              const n = typeof v === "number" ? v : Number(String(v).replace(",", "."));
+              return Math.round((isFinite(n) ? n : 0) * 100);
+            },
+          })}
+          defaultValue={
+            defaultValues?.ticketPriceCents
+              ? (defaultValues.ticketPriceCents / 100).toFixed(2)
+              : "0"
+          }
+        />
+      </Field>
 
       <Field
         label="Status"

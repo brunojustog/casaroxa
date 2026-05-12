@@ -6,12 +6,18 @@ import {
 import { BusinessError } from "@/server/auth-helpers";
 import { z } from "zod";
 
-const bodySchema = z.object({
-  saleId: z.string().min(1),
-  billingType: z.enum(["PIX", "CREDIT_CARD"]),
-  /** Só dígitos. Validado abaixo (11 = CPF, 14 = CNPJ). */
-  cpfCnpj: z.string().optional(),
-});
+const bodySchema = z
+  .object({
+    saleId: z.string().min(1).optional(),
+    raffleEntryId: z.string().min(1).optional(),
+    billingType: z.enum(["PIX", "CREDIT_CARD"]),
+    cpfCnpj: z.string().optional(),
+  })
+  .refine(
+    (v) =>
+      (v.saleId && !v.raffleEntryId) || (!v.saleId && v.raffleEntryId),
+    { message: "Informe saleId OU raffleEntryId (não os dois)." },
+  );
 
 function sanitizeCpfCnpj(raw: string | undefined): string | null {
   if (!raw) return null;
@@ -43,11 +49,17 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await initiateOnlinePayment(
-      parsed.data.saleId,
-      parsed.data.billingType,
-      cpfCnpj,
-    );
+    const result = parsed.data.saleId
+      ? await initiateOnlinePayment({
+          saleId: parsed.data.saleId,
+          billingType: parsed.data.billingType,
+          cpfCnpj,
+        })
+      : await initiateOnlinePayment({
+          raffleEntryId: parsed.data.raffleEntryId!,
+          billingType: parsed.data.billingType,
+          cpfCnpj,
+        });
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
     if (e instanceof NeedCpfError) {

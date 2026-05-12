@@ -2,18 +2,21 @@
  * Orquestração de pagamento online (Asaas) — entre o checkout público
  * da Casa Roxa e o gateway.
  *
- * Fluxo principal:
- *   1. Cliente termina checkout escolhendo PIX/Cartão online.
- *   2. initiateOnlinePayment(saleId, billingType):
+ * Suporta dois tipos de "subject" pra cobrança:
+ *  - Sale (pedido do cardápio) — PIX ou CREDIT_CARD
+ *  - RaffleEntry (ticket de sorteio pago) — só PIX
+ *
+ * Fluxo:
+ *   1. Cliente termina checkout ou compra ticket de rifa.
+ *   2. initiateOnlinePayment({saleId|raffleEntryId, billingType}):
  *      - garante que o Customer da Casa Roxa tem asaasCustomerId (cria se não)
- *      - cria Payment no Asaas com vencimento +N horas (Settings.asaasPaymentTtlHours)
- *      - se PIX: pega QR code + payload e salva
- *      - se CREDIT_CARD: usa invoiceUrl (checkout transparente do Asaas)
+ *      - cria Payment no Asaas com vencimento +N horas
+ *      - PIX: pega QR code + payload; CREDIT_CARD: usa invoiceUrl
  *      - cria OnlinePayment local com status PENDING
  *   3. Cliente paga.
- *   4. Asaas dispara webhook → handlePaymentWebhook atualiza status e,
- *      se virou RECEIVED/CONFIRMED, marca Sale como CONCLUIDA + dispara
- *      WhatsApp pro cliente.
+ *   4. Asaas dispara webhook → handlePaymentWebhook atualiza status:
+ *      - Sale: marca CONCLUIDA + WhatsApp "pagamento recebido"
+ *      - RaffleEntry: marca confirmed=true + WhatsApp com número
  */
 import {
   OnlinePaymentBillingType,
@@ -32,13 +35,13 @@ import {
   updateAsaasCustomer,
 } from "./asaas.service";
 import { sendText } from "./whatsapp.service";
+import {
+  confirmRaffleEntryFromPayment,
+  releasePendingRaffleEntry,
+} from "./raffle.service";
 
 const DEFAULT_TTL_HOURS = 24;
 
-/**
- * Erro especial — sinaliza pra UI pedir CPF do cliente antes de prosseguir.
- * Asaas exige CPF/CNPJ pra criar cobrança PIX/cartão (obrigação fiscal).
- */
 export class NeedCpfError extends BusinessError {
   constructor() {
     super("Precisamos do seu CPF pra emitir a cobrança. Informe abaixo.");
@@ -63,13 +66,11 @@ async function getOrCreateAsaasCustomer(
   });
   if (!customer) throw new BusinessError("Cliente não encontrado.");
 
-  // CPF é obrigatório pra Asaas — sempre exige ANTES de criar/usar customer.
   const cpfCnpj = cpfCnpjOverride ?? customer.cpfCnpj;
   if (!cpfCnpj) {
     throw new NeedCpfError();
   }
 
-  // Salva CPF no Customer local pra próximas cobranças (se veio override novo)
   if (cpfCnpjOverride && cpfCnpjOverride !== customer.cpfCnpj) {
     await prisma.customer.update({
       where: { id: customer.id },
@@ -77,11 +78,8 @@ async function getOrCreateAsaasCustomer(
     });
   }
 
-  // Já existe no Asaas? Garante que o CPF está sincronizado lá
-  // (cobre o caso de customer criado por versão antiga, sem CPF).
   if (customer.asaasCustomerId) {
     if (!customer.cpfCnpj) {
-      // CPF é novo — sincroniza no Asaas
       const updated = await updateAsaasCustomer(customer.asaasCustomerId, {
         cpfCnpj,
       });
@@ -115,29 +113,27 @@ async function getOrCreateAsaasCustomer(
 }
 
 export type InitiateOnlinePaymentResult = {
-  paymentId: string; // OnlinePayment.id
+  paymentId: string;
   billingType: OnlinePaymentBillingType;
   status: OnlinePaymentStatus;
-  /** Só PIX */
   pixPayload?: string | null;
   pixQrCodeBase64?: string | null;
-  /** Só CREDIT_CARD (e fallback de PIX): URL do checkout do Asaas */
   invoiceUrl?: string | null;
   value: number;
   dueDate: Date;
 };
 
+type InitiateInput = {
+  billingType: OnlinePaymentBillingType;
+  cpfCnpj?: string;
+} & ({ saleId: string; raffleEntryId?: never } | { saleId?: never; raffleEntryId: string });
+
 /**
- * Inicia (ou retorna existente) o OnlinePayment de uma Sale. Idempotente —
- * chamar 2x retorna o mesmo registro.
- *
- * Asaas exige CPF/CNPJ do cliente. Se ainda não tem cadastrado e nada veio
- * em `cpfCnpj`, lança `NeedCpfError` pra UI pedir.
+ * Inicia (ou retorna existente) o OnlinePayment de uma Sale ou RaffleEntry.
+ * Idempotente — chamar 2x retorna o mesmo registro.
  */
 export async function initiateOnlinePayment(
-  saleId: string,
-  billingType: OnlinePaymentBillingType,
-  cpfCnpj?: string,
+  input: InitiateInput,
 ): Promise<InitiateOnlinePaymentResult> {
   if (!isAsaasConfigured()) {
     throw new BusinessError(
@@ -145,26 +141,12 @@ export async function initiateOnlinePayment(
     );
   }
 
-  const sale = await prisma.sale.findUnique({
-    where: { id: saleId },
-    select: {
-      id: true,
-      number: true,
-      status: true,
-      totalRevenue: true,
-      couponDiscount: true,
-      customerId: true,
-      onlinePayment: true,
-    },
-  });
-  if (!sale) throw new BusinessError("Pedido não encontrado.");
-  if (sale.status === SaleStatus.CANCELADA) {
-    throw new BusinessError("Pedido cancelado — não pode pagar.");
-  }
+  // Resolve o "subject" — extrai customerId, valor, descrição, idempotência.
+  const subject = await resolveSubject(input);
 
-  // Já tem payment? Retorna o existente (idempotente).
-  if (sale.onlinePayment) {
-    const p = sale.onlinePayment;
+  // Já tem payment associado? Retorna idempotente.
+  if (subject.existingPayment) {
+    const p = subject.existingPayment;
     return {
       paymentId: p.id,
       billingType: p.billingType,
@@ -177,24 +159,11 @@ export async function initiateOnlinePayment(
     };
   }
 
-  if (!sale.customerId) {
-    throw new BusinessError(
-      "Pedido sem cliente identificado. Identifique-se pelo WhatsApp primeiro.",
-    );
-  }
-
-  const value =
-    Number(sale.totalRevenue) - Number(sale.couponDiscount);
-  if (value <= 0) {
-    throw new BusinessError("Valor do pedido inválido pra cobrança online.");
-  }
-
   const { asaasCustomerId } = await getOrCreateAsaasCustomer(
-    sale.customerId,
-    cpfCnpj,
+    subject.customerId,
+    input.cpfCnpj,
   );
 
-  // TTL — busca settings
   const settings = await prisma.settings.findUnique({
     where: { id: 1 },
     select: { asaasPaymentTtlHours: true },
@@ -202,39 +171,37 @@ export async function initiateOnlinePayment(
   const ttlHours = settings?.asaasPaymentTtlHours ?? DEFAULT_TTL_HOURS;
   const dueDate = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
 
-  // Cria payment no Asaas
   const asaasResult = await createAsaasPayment({
     customerId: asaasCustomerId,
-    billingType: billingType === "CREDIT_CARD" ? "CREDIT_CARD" : "PIX",
-    value,
+    billingType: input.billingType === "CREDIT_CARD" ? "CREDIT_CARD" : "PIX",
+    value: subject.value,
     dueDate,
-    description: `Casa Roxa — Pedido #${sale.number}`,
-    externalReference: sale.id,
+    description: subject.description,
+    externalReference: subject.externalReference,
   });
   if (!asaasResult.ok) {
     throw new BusinessError(`Falha no Asaas: ${asaasResult.error}`);
   }
   const asaasPayment = asaasResult.payment;
 
-  // Se PIX, busca QR code
   let pixPayload: string | null = null;
   let pixQrCodeBase64: string | null = null;
-  if (billingType === "PIX") {
+  if (input.billingType === "PIX") {
     const qr = await getAsaasPixQrCode(asaasPayment.id);
     if (qr.ok) {
       pixPayload = qr.qr.payload;
       pixQrCodeBase64 = qr.qr.encodedImage;
     }
-    // Falha ao pegar QR não é fatal — invoiceUrl serve como fallback.
   }
 
   const created = await prisma.onlinePayment.create({
     data: {
-      saleId: sale.id,
+      saleId: input.saleId ?? null,
+      raffleEntryId: input.raffleEntryId ?? null,
       asaasPaymentId: asaasPayment.id,
       asaasCustomerId,
-      billingType,
-      value,
+      billingType: input.billingType,
+      value: subject.value,
       status: mapAsaasStatus(asaasPayment.status),
       invoiceUrl: asaasPayment.invoiceUrl ?? null,
       pixPayload,
@@ -255,26 +222,90 @@ export async function initiateOnlinePayment(
   };
 }
 
-// ---------- Status / consulta ----------
+type ResolvedSubject = {
+  customerId: string;
+  value: number;
+  description: string;
+  externalReference: string;
+  existingPayment: Awaited<ReturnType<typeof prisma.onlinePayment.findFirst>> | null;
+};
+
+async function resolveSubject(input: InitiateInput): Promise<ResolvedSubject> {
+  if (input.saleId) {
+    const sale = await prisma.sale.findUnique({
+      where: { id: input.saleId },
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        totalRevenue: true,
+        couponDiscount: true,
+        customerId: true,
+        onlinePayment: true,
+      },
+    });
+    if (!sale) throw new BusinessError("Pedido não encontrado.");
+    if (sale.status === SaleStatus.CANCELADA) {
+      throw new BusinessError("Pedido cancelado — não pode pagar.");
+    }
+    if (!sale.customerId) {
+      throw new BusinessError(
+        "Pedido sem cliente identificado. Identifique-se pelo WhatsApp primeiro.",
+      );
+    }
+    const value = Number(sale.totalRevenue) - Number(sale.couponDiscount);
+    if (value <= 0) {
+      throw new BusinessError("Valor do pedido inválido pra cobrança online.");
+    }
+    return {
+      customerId: sale.customerId,
+      value,
+      description: `Casa Roxa — Pedido #${sale.number}`,
+      externalReference: sale.id,
+      existingPayment: sale.onlinePayment,
+    };
+  }
+
+  // raffleEntryId
+  const entry = await prisma.raffleEntry.findUnique({
+    where: { id: input.raffleEntryId! },
+    include: {
+      raffle: true,
+      onlinePayment: true,
+    },
+  });
+  if (!entry) throw new BusinessError("Inscrição de sorteio não encontrada.");
+  if (entry.confirmed) {
+    throw new BusinessError("Esta inscrição já foi confirmada.");
+  }
+  if (entry.raffle.ticketPriceCents <= 0) {
+    throw new BusinessError("Este sorteio é gratuito — não tem cobrança.");
+  }
+  return {
+    customerId: entry.customerId,
+    value: entry.raffle.ticketPriceCents / 100,
+    description: `Casa Roxa — Sorteio "${entry.raffle.name}" (nº ${entry.number})`,
+    externalReference: entry.id,
+    existingPayment: entry.onlinePayment,
+  };
+}
+
+// ---------- Consulta ----------
 
 export async function getOnlinePaymentBySaleId(saleId: string) {
-  return prisma.onlinePayment.findUnique({
-    where: { saleId },
-  });
+  return prisma.onlinePayment.findUnique({ where: { saleId } });
+}
+
+export async function getOnlinePaymentByRaffleEntryId(raffleEntryId: string) {
+  return prisma.onlinePayment.findUnique({ where: { raffleEntryId } });
+}
+
+export async function getOnlinePaymentById(paymentId: string) {
+  return prisma.onlinePayment.findUnique({ where: { id: paymentId } });
 }
 
 // ---------- Webhook handler ----------
 
-/**
- * Processa um evento de webhook do Asaas. Idempotente — se status não
- * mudou, não dispara side effects de novo. Eventos comuns:
- *   PAYMENT_CREATED      — ignorado (já criamos local antes do webhook)
- *   PAYMENT_RECEIVED     — PIX caiu (instantâneo) ou cartão autorizado
- *   PAYMENT_CONFIRMED    — confirmado em conta (cartão depois de receber)
- *   PAYMENT_OVERDUE      — venceu sem pagar
- *   PAYMENT_REFUNDED     — estornado
- *   PAYMENT_DELETED      — cancelado
- */
 export async function handlePaymentWebhook(payload: {
   event: string;
   payment?: { id: string; status: string; value?: number };
@@ -286,20 +317,30 @@ export async function handlePaymentWebhook(payload: {
 
   const local = await prisma.onlinePayment.findUnique({
     where: { asaasPaymentId },
-    include: { sale: { include: { customer: true } } },
+    include: {
+      sale: { include: { customer: true } },
+      raffleEntry: {
+        include: {
+          customer: true,
+          raffle: { select: { name: true } },
+        },
+      },
+    },
   });
   if (!local) {
-    // Pode ser uma cobrança criada fora do nosso sistema — ignora.
     return { processed: false, reason: "Payment não encontrado localmente" };
   }
 
   const newStatus = mapAsaasStatus(payload.payment?.status ?? "");
+  const wasReceived =
+    local.status === "RECEIVED" || local.status === "CONFIRMED";
   const isReceivedNow =
-    (newStatus === "RECEIVED" || newStatus === "CONFIRMED") &&
-    local.status !== "RECEIVED" &&
-    local.status !== "CONFIRMED";
+    (newStatus === "RECEIVED" || newStatus === "CONFIRMED") && !wasReceived;
+  const isExpiredNow =
+    (newStatus === "OVERDUE" || newStatus === "CANCELLED") &&
+    local.status !== "OVERDUE" &&
+    local.status !== "CANCELLED";
 
-  // Atualiza estado local sempre (mesmo se não mudou — atualiza lastEventRaw)
   await prisma.onlinePayment.update({
     where: { id: local.id },
     data: {
@@ -309,31 +350,33 @@ export async function handlePaymentWebhook(payload: {
     },
   });
 
-  // Marca Sale como CONCLUIDA quando pagamento entra
   if (isReceivedNow) {
-    if (local.sale.status === SaleStatus.ABERTA) {
-      await prisma.sale.update({
-        where: { id: local.saleId },
-        data: {
-          status: SaleStatus.CONCLUIDA,
-          closedAt: new Date(),
-        },
-      });
+    if (local.sale) {
+      if (local.sale.status === SaleStatus.ABERTA) {
+        await prisma.sale.update({
+          where: { id: local.sale.id },
+          data: {
+            status: SaleStatus.CONCLUIDA,
+            closedAt: new Date(),
+          },
+        });
+      }
+      if (local.sale.customer?.phone) {
+        sendText({
+          phone: local.sale.customer.phone,
+          message: `✅ *Pagamento recebido!*\n\nPedido #${local.sale.number} — pagamento confirmado pela Casa Roxa. Já estamos preparando seu pedido. 🍗`,
+          event: "PAYMENT_RECEIVED",
+          toggleField: "whatsappNotifyPaymentReceived",
+          customerId: local.sale.customerId,
+          saleId: local.sale.id,
+        }).catch((e) => console.error("[payment-webhook] whatsapp:", e));
+      }
+    } else if (local.raffleEntry) {
+      await confirmRaffleEntryFromPayment(local.raffleEntry.id);
     }
-
-    // Dispara WhatsApp pro cliente avisando que recebemos
-    if (local.sale.customer?.phone) {
-      sendText({
-        phone: local.sale.customer.phone,
-        message: `✅ *Pagamento recebido!*\n\nPedido #${local.sale.number} — pagamento confirmado pela Casa Roxa. Já estamos preparando seu pedido. 🍗`,
-        event: "PAYMENT_RECEIVED",
-        toggleField: "whatsappNotifyPaymentReceived",
-        customerId: local.sale.customerId,
-        saleId: local.saleId,
-      }).catch((e) =>
-        console.error("[payment-webhook] whatsapp:", e),
-      );
-    }
+  } else if (isExpiredNow && local.raffleEntry && !local.raffleEntry.confirmed) {
+    // Pagamento de rifa expirou sem pagar — libera o número.
+    await releasePendingRaffleEntry(local.raffleEntry.id);
   }
 
   return { processed: true };

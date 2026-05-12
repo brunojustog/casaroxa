@@ -798,6 +798,9 @@ model Raffle {
   closesAt         DateTime
   /// Data prevista do sorteio (informativa pro cliente — sorteio é manual).
   drawAt           DateTime?
+  /// Preço por ticket em centavos. 0 = rifa gratuita (entry imediata).
+  /// >0 = exige pagamento PIX antes de confirmar a entry.
+  ticketPriceCents Int          @default(0)
   status           RaffleStatus @default(DRAFT)
 
   /// Ganhador (entry sorteada). FK opcional preenchida ao sortear.
@@ -823,11 +826,16 @@ model RaffleEntry {
   /// comunicar "número 47 ganhou" e permite sortear via Math.random()
   /// uniforme entre 1 e total.
   number     Int
+  /// false enquanto aguarda pagamento PIX (rifa paga). Listagens/sorteio
+  /// filtram só confirmadas. Entries pendentes expiradas são limpas via
+  /// cleanup (vinculadas a OnlinePayment.dueDate).
+  confirmed  Boolean  @default(true)
   createdAt  DateTime @default(now())
 
-  raffle   Raffle   @relation(fields: [raffleId], references: [id], onDelete: Cascade)
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  wonAt    Raffle?  @relation("RaffleWinner")
+  raffle        Raffle         @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  wonAt         Raffle?        @relation("RaffleWinner")
+  onlinePayment OnlinePayment?
 
   /// 1 cliente = 1 entrada por sorteio.
   @@unique([raffleId, customerId])
@@ -1177,7 +1185,11 @@ enum OnlinePaymentStatus {
 
 model OnlinePayment {
   id              String                   @id @default(cuid())
-  saleId          String                   @unique
+  /// Polimórfico: pagamento ou de venda (saleId) ou de entrada de sorteio
+  /// (raffleEntryId). Exatamente um dos dois é preenchido. Validação no
+  /// service — Prisma não suporta CHECK constraints declarativos.
+  saleId          String?                  @unique
+  raffleEntryId   String?                  @unique
   /// ID do payment no Asaas (formato pay_xxxxx).
   asaasPaymentId  String                   @unique
   /// ID do customer no Asaas que originou esse payment.
@@ -1198,7 +1210,8 @@ model OnlinePayment {
   createdAt       DateTime                 @default(now())
   updatedAt       DateTime                 @updatedAt
 
-  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  sale        Sale?        @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  raffleEntry RaffleEntry? @relation(fields: [raffleEntryId], references: [id], onDelete: Cascade)
 
   @@index([status, createdAt])
 }

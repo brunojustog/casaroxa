@@ -224,6 +224,7 @@ export default async function SorteioDetailPage({
                     opensAt: raffle.opensAt,
                     closesAt: raffle.closesAt,
                     drawAt: raffle.drawAt,
+                    ticketPriceCents: raffle.ticketPriceCents,
                     status: raffle.status,
                   }}
                 />

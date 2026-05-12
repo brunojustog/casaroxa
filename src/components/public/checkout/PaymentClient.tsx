@@ -12,9 +12,14 @@ import {
   Loader2,
   QrCode,
   RefreshCw,
+  Trophy,
 } from "lucide-react";
 
 type Method = "PIX" | "CREDIT_CARD";
+
+type Subject =
+  | { kind: "sale"; saleId: string; initialMethod: Method }
+  | { kind: "raffle"; raffleId: string; raffleName: string };
 
 type InitiateResponse =
   | {
@@ -34,29 +39,36 @@ type InitiateResponse =
       invoiceUrl: string | null;
       value: number;
       dueDate: string;
+      raffleEntryId?: string;
     }
   | { ok: false; error: string; code?: "NEED_CPF" };
 
 type StatusResponse =
   | {
       ok: true;
-      status: InitiateResponse extends { ok: true; status: infer S } ? S : never;
+      status:
+        | "PENDING"
+        | "RECEIVED"
+        | "CONFIRMED"
+        | "OVERDUE"
+        | "REFUNDED"
+        | "FAILED"
+        | "CANCELLED";
       saleStatus: string | null;
       saleNumber: number | null;
+      raffleConfirmed: boolean | null;
+      raffleNumber: number | null;
       paidAt: string | null;
     }
   | { ok: false; error: string };
 
 const POLL_INTERVAL_MS = 4000;
 
-export function PaymentClient({
-  saleId,
-  initialMethod,
-}: {
-  saleId: string;
-  initialMethod: Method;
-}) {
-  const [method, setMethod] = useState<Method>(initialMethod);
+export function PaymentClient({ subject }: { subject: Subject }) {
+  const isSale = subject.kind === "sale";
+  const [method, setMethod] = useState<Method>(
+    isSale ? subject.initialMethod : "PIX",
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [needCpf, setNeedCpf] = useState(false);
@@ -64,6 +76,7 @@ export function PaymentClient({
     null,
   );
   const [paid, setPaid] = useState(false);
+  const [raffleNumber, setRaffleNumber] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const popupRef = useRef<Window | null>(null);
@@ -90,7 +103,6 @@ export function PaymentClient({
     win.focus();
   }, []);
 
-  // Detecta se cliente fechou o popup sem pagar (pra mostrar "abrir de novo")
   useEffect(() => {
     if (!popupOpen) return;
     const t = setInterval(() => {
@@ -102,7 +114,6 @@ export function PaymentClient({
     return () => clearInterval(t);
   }, [popupOpen]);
 
-  // Quando pagamento confirma, fecha popup automaticamente
   useEffect(() => {
     if (paid && popupRef.current && !popupRef.current.closed) {
       popupRef.current.close();
@@ -117,15 +128,24 @@ export function PaymentClient({
       setError(null);
       setData(null);
       try {
-        const res = await fetch("/api/public/payments/initiate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            saleId,
-            billingType: m,
-            ...(cpfCnpj ? { cpfCnpj } : {}),
-          }),
-        });
+        let res: Response;
+        if (subject.kind === "sale") {
+          res = await fetch("/api/public/payments/initiate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              saleId: subject.saleId,
+              billingType: m,
+              ...(cpfCnpj ? { cpfCnpj } : {}),
+            }),
+          });
+        } else {
+          res = await fetch(`/api/public/raffles/${subject.raffleId}/buy-ticket`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(cpfCnpj ? { cpfCnpj } : {}),
+          });
+        }
         const json = (await res.json()) as InitiateResponse;
         if (!json.ok) {
           if (json.code === "NEED_CPF") {
@@ -147,39 +167,40 @@ export function PaymentClient({
         setLoading(false);
       }
     },
-    [saleId],
+    [subject],
   );
 
-  // Inicia ao montar e quando troca de método
   useEffect(() => {
     void initiate(method);
   }, [method, initiate]);
 
-  // Polling de status
   useEffect(() => {
     if (paid || !data) return;
     pollTimer.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/public/payments/${saleId}/status`, {
-          cache: "no-store",
-        });
+        const res = await fetch(
+          `/api/public/payments/by-id/${data.paymentId}/status`,
+          { cache: "no-store" },
+        );
         const json = (await res.json()) as StatusResponse;
         if (!json.ok) return;
         if (
           json.status === "RECEIVED" ||
           json.status === "CONFIRMED" ||
-          json.saleStatus === "CONCLUIDA"
+          json.saleStatus === "CONCLUIDA" ||
+          json.raffleConfirmed === true
         ) {
           setPaid(true);
+          if (json.raffleNumber) setRaffleNumber(json.raffleNumber);
         }
       } catch {
-        /* ignora — tenta de novo no próximo tick */
+        /* ignora */
       }
     }, POLL_INTERVAL_MS);
     return () => {
       if (pollTimer.current) clearInterval(pollTimer.current);
     };
-  }, [saleId, data, paid]);
+  }, [data, paid]);
 
   const copyPix = useCallback(async () => {
     if (!data?.pixPayload) return;
@@ -188,11 +209,42 @@ export function PaymentClient({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      /* navegadores antigos — silencioso */
+      /* */
     }
   }, [data]);
 
   if (paid) {
+    if (subject.kind === "raffle") {
+      return (
+        <div className="space-y-5">
+          <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
+            <Trophy className="mx-auto h-14 w-14 text-amber-500" />
+            <h2 className="mt-3 font-serif text-2xl font-bold text-green-900">
+              Você está no sorteio!
+            </h2>
+            {raffleNumber && (
+              <p className="mt-3 text-sm text-green-800">
+                Seu número da sorte:
+              </p>
+            )}
+            {raffleNumber && (
+              <p className="mt-1 font-serif text-5xl font-bold text-roxa-900">
+                {raffleNumber}
+              </p>
+            )}
+            <p className="mt-3 text-sm text-green-800">
+              Boa sorte! Vamos avisar pelo WhatsApp na hora do sorteio.
+            </p>
+          </div>
+          <Link
+            href={`/sorteio/${subject.raffleId}`}
+            className="flex items-center justify-center gap-2 rounded-md bg-roxa-700 px-6 py-3 text-base font-semibold text-white hover:bg-roxa-800"
+          >
+            Voltar pro sorteio <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      );
+    }
     return (
       <div className="space-y-5">
         <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
@@ -205,7 +257,7 @@ export function PaymentClient({
           </p>
         </div>
         <Link
-          href={`/pedido/${saleId}`}
+          href={`/pedido/${subject.saleId}`}
           className="flex items-center justify-center gap-2 rounded-md bg-roxa-700 px-6 py-3 text-base font-semibold text-white hover:bg-roxa-800"
         >
           Acompanhar pedido <ArrowRight className="h-4 w-4" />
@@ -214,9 +266,22 @@ export function PaymentClient({
     );
   }
 
+  const followLinkHref =
+    subject.kind === "sale"
+      ? `/pedido/${subject.saleId}`
+      : `/sorteio/${subject.raffleId}`;
+  const followLinkLabel =
+    subject.kind === "sale" ? "acompanhar o pedido" : "ver o sorteio";
+
   return (
     <div className="space-y-5">
-      <MethodSwitcher current={method} onChange={setMethod} disabled={loading} />
+      {isSale && (
+        <MethodSwitcher
+          current={method}
+          onChange={setMethod}
+          disabled={loading}
+        />
+      )}
 
       {loading && (
         <div className="rounded-xl border border-roxa-100 bg-white p-8 text-center">
@@ -264,12 +329,12 @@ export function PaymentClient({
       <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
         Está demorando? Você pode{" "}
         <Link
-          href={`/pedido/${saleId}`}
+          href={followLinkHref}
           className="font-medium text-roxa-700 hover:underline"
         >
-          acompanhar o pedido
-        </Link>{" "}
-        e combinar o pagamento pelo WhatsApp com a Casa Roxa.
+          {followLinkLabel}
+        </Link>
+        .
       </div>
     </div>
   );

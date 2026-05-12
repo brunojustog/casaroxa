@@ -53,7 +53,7 @@ export default async function CheckoutPaymentPage({
         </p>
       </header>
 
-      <PaymentClient saleId={saleId} initialMethod={initialMethod} />
+      <PaymentClient subject={{ kind: "sale", saleId, initialMethod }} />
     </div>
   );
 }

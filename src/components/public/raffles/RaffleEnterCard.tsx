@@ -2,23 +2,26 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, MessageCircle, Sparkles } from "lucide-react";
+import { CheckCircle2, MessageCircle, Sparkles, QrCode } from "lucide-react";
 import { OtpLoginDialog } from "@/components/public/auth/OtpLoginDialog";
 
 /**
  * Card pra cliente público participar de um sorteio:
- *   - Se já entrou: mostra número da entrada.
- *   - Se autenticado mas ainda não entrou: botão "Quero participar".
+ *   - Se já entrou (confirmado): mostra número da entrada.
+ *   - Se sorteio pago: botão "Pagar R$ X via PIX" → redireciona pra pagamento.
+ *   - Se gratuito + autenticado: botão "Quero participar".
  *   - Se não autenticado: botão "Entrar pelo WhatsApp" → OTP → entra.
  */
 export function RaffleEnterCard({
   raffleId,
+  ticketPriceCents,
   alreadyEntered,
   myNumber,
   authenticated,
   customerName,
 }: {
   raffleId: string;
+  ticketPriceCents: number;
   alreadyEntered: boolean;
   myNumber: number | null;
   authenticated: boolean;
@@ -29,9 +32,24 @@ export function RaffleEnterCard({
   const [pending, startTransition] = useTransition();
   const [justEntered, setJustEntered] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const isPaid = ticketPriceCents > 0;
+  const priceFormatted = new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(ticketPriceCents / 100);
 
   async function enter() {
     setError(null);
+    // Pago: redireciona pra página de pagamento PIX. A entry pendente é
+    // criada no servidor lá (atomicamente com o payment).
+    if (isPaid) {
+      if (!authenticated) {
+        setOtpOpen(true);
+        return;
+      }
+      router.push(`/sorteio/${raffleId}/pagamento`);
+      return;
+    }
     startTransition(async () => {
       const res = await fetch(`/api/public/raffles/${raffleId}/enter`, {
         method: "POST",
@@ -77,24 +95,35 @@ export function RaffleEnterCard({
       {authenticated ? (
         <>
           <p className="text-sm text-slate-700">
-            Olá <strong>{customerName?.split(/\s+/)[0]}</strong>! Clique abaixo
-            pra participar do sorteio com 1 entrada.
+            Olá <strong>{customerName?.split(/\s+/)[0]}</strong>!{" "}
+            {isPaid
+              ? `Garanta seu número da sorte por ${priceFormatted} via PIX.`
+              : "Clique abaixo pra participar do sorteio com 1 entrada."}
           </p>
           <button
             type="button"
             onClick={enter}
             disabled={pending}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-amber-500 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-amber-600 disabled:opacity-50"
+            className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-5 py-3 text-base font-semibold text-white shadow-sm disabled:opacity-50 ${
+              isPaid
+                ? "bg-roxa-700 hover:bg-roxa-800"
+                : "bg-amber-500 hover:bg-amber-600"
+            }`}
           >
-            <Sparkles className="h-5 w-5" />
-            {pending ? "Entrando…" : "Quero participar!"}
+            {isPaid ? <QrCode className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
+            {pending
+              ? "Entrando…"
+              : isPaid
+                ? `Pagar ${priceFormatted} via PIX`
+                : "Quero participar!"}
           </button>
         </>
       ) : (
         <>
           <p className="text-sm text-slate-700">
-            Identifique-se pelo WhatsApp pra entrar no sorteio (1 entrada por
-            pessoa). Você recebe um código de 6 dígitos pra confirmar.
+            {isPaid
+              ? `O ticket custa ${priceFormatted}. Identifique-se pelo WhatsApp pra pagar e garantir seu número.`
+              : "Identifique-se pelo WhatsApp pra entrar no sorteio (1 entrada por pessoa). Você recebe um código de 6 dígitos pra confirmar."}
           </p>
           <button
             type="button"
@@ -103,7 +132,7 @@ export function RaffleEnterCard({
             className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-green-600 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-green-700 disabled:opacity-50"
           >
             <MessageCircle className="h-5 w-5" />
-            Entrar pelo WhatsApp e participar
+            Entrar pelo WhatsApp{isPaid ? " e pagar" : " e participar"}
           </button>
         </>
       )}
