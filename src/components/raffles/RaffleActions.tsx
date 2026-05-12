@@ -1,27 +1,30 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Lock, Sparkles, Trash2, Unlock, XCircle } from "lucide-react";
 import { RaffleStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import {
   deleteRaffleAction,
-  drawRaffleAction,
   setRaffleStatusAction,
 } from "@/server/actions/raffles";
+import { RaffleDrawDialog } from "./RaffleDrawDialog";
 
 export function RaffleActions({
   raffleId,
   status,
   entryCount,
+  totalNumbers,
 }: {
   raffleId: string;
   status: RaffleStatus;
   entryCount: number;
+  totalNumbers: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [drawOpen, setDrawOpen] = useState(false);
 
   function changeStatus(next: RaffleStatus) {
     startTransition(async () => {
@@ -45,19 +48,7 @@ export function RaffleActions({
       )
     )
       return;
-    startTransition(async () => {
-      const res = await drawRaffleAction(raffleId);
-      if (!res.ok) {
-        window.alert(res.error);
-        return;
-      }
-      if (res.data) {
-        window.alert(
-          `🏆 Ganhador: #${res.data.winnerNumber} · ${res.data.customerName}\nTelefone: ${res.data.customerPhone}\n\nMensagem enviada pelo WhatsApp.`,
-        );
-      }
-      router.refresh();
-    });
+    setDrawOpen(true);
   }
 
   function remove() {
@@ -153,6 +144,14 @@ export function RaffleActions({
           ✓ Sorteio finalizado. Ganhador notificado via WhatsApp.
         </span>
       )}
+
+      <RaffleDrawDialog
+        open={drawOpen}
+        raffleId={raffleId}
+        totalNumbers={totalNumbers}
+        onClose={() => setDrawOpen(false)}
+        onDone={() => router.refresh()}
+      />
     </div>
   );
 }

@@ -482,6 +482,56 @@ export async function confirmRaffleEntriesFromPayment(paymentId: string) {
 }
 
 /**
+ * Comprovante público — agrega dados pra renderizar a página pública.
+ * Retorna null se paymentId não existe, não é de rifa, ou se a rifa
+ * do path não bate com a do payment (link adulterado).
+ */
+export async function getRaffleComprovante(
+  raffleId: string,
+  paymentId: string,
+) {
+  const payment = await prisma.onlinePayment.findUnique({
+    where: { id: paymentId },
+    select: {
+      id: true,
+      status: true,
+      value: true,
+      asaasPaymentId: true,
+      createdAt: true,
+      paidAt: true,
+      raffleId: true,
+      raffleEntries: {
+        select: { number: true, confirmed: true },
+        orderBy: { number: "asc" },
+      },
+      customer: { select: { name: true, phone: true } },
+      raffle: {
+        select: {
+          id: true,
+          name: true,
+          prizeDescription: true,
+          status: true,
+          drawAt: true,
+          drawnAt: true,
+          totalNumbers: true,
+          ticketPriceCents: true,
+          winnerEntry: {
+            select: {
+              number: true,
+              customer: { select: { name: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!payment) return null;
+  if (!payment.raffleId || payment.raffleId !== raffleId) return null;
+  if (!payment.raffle) return null;
+  return payment;
+}
+
+/**
  * Pagamento expirou/cancelou — libera os números pendentes.
  */
 export async function releasePendingRaffleEntries(paymentId: string) {

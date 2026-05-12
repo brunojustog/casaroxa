@@ -148,6 +148,7 @@ export default async function SorteioDetailPage({
         raffleId={raffle.id}
         status={raffle.status}
         entryCount={raffle._count.entries}
+        totalNumbers={raffle.totalNumbers}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
