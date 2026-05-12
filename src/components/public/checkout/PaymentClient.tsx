@@ -10,10 +10,12 @@ import {
   CreditCard,
   IdCard,
   Loader2,
+  MessageCircle,
   QrCode,
   RefreshCw,
   Trophy,
 } from "lucide-react";
+import { OtpLoginDialog } from "@/components/public/auth/OtpLoginDialog";
 
 type Method = "PIX" | "CREDIT_CARD";
 
@@ -41,7 +43,7 @@ type InitiateResponse =
       dueDate: string;
       raffleEntryId?: string;
     }
-  | { ok: false; error: string; code?: "NEED_CPF" };
+  | { ok: false; error: string; code?: "NEED_CPF"; needsAuth?: boolean };
 
 type StatusResponse =
   | {
@@ -81,6 +83,8 @@ export function PaymentClient({ subject }: { subject: Subject }) {
   const popupRef = useRef<Window | null>(null);
   const [popupOpen, setPopupOpen] = useState(false);
   const [popupBlocked, setPopupBlocked] = useState(false);
+  const [needsAuth, setNeedsAuth] = useState(false);
+  const [otpOpen, setOtpOpen] = useState(false);
 
   const openCardPopup = useCallback((url: string) => {
     setPopupBlocked(false);
@@ -150,16 +154,23 @@ export function PaymentClient({ subject }: { subject: Subject }) {
         }
         const json = (await res.json()) as InitiateResponse;
         if (!json.ok) {
+          if (json.needsAuth) {
+            setNeedsAuth(true);
+            setNeedCpf(false);
+            return;
+          }
           if (json.code === "NEED_CPF") {
             setNeedCpf(true);
+            setNeedsAuth(false);
           } else {
-            // Outro erro — limpa needCpf pra mostrar o erro real em vez do form
             setNeedCpf(false);
+            setNeedsAuth(false);
             setError(json.error);
           }
           return;
         }
         setNeedCpf(false);
+        setNeedsAuth(false);
         setData(json);
         if (json.status === "RECEIVED" || json.status === "CONFIRMED") {
           setPaid(true);
@@ -306,11 +317,46 @@ export function PaymentClient({ subject }: { subject: Subject }) {
         </div>
       )}
 
+      {!loading && needsAuth && (
+        <div className="space-y-3 rounded-xl border border-roxa-100 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <MessageCircle className="h-5 w-5 text-green-600" />
+            <h2 className="font-serif text-lg font-semibold text-roxa-900">
+              Identifique-se pelo WhatsApp
+            </h2>
+          </div>
+          <p className="text-sm text-slate-600">
+            Pra finalizar o pagamento, identifique-se com seu telefone via
+            WhatsApp. Você recebe um código de 6 dígitos.
+          </p>
+          <button
+            type="button"
+            onClick={() => setOtpOpen(true)}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-green-600 px-5 py-3 text-base font-semibold text-white hover:bg-green-700"
+          >
+            <MessageCircle className="h-5 w-5" />
+            Entrar pelo WhatsApp
+          </button>
+        </div>
+      )}
+
       {!loading && needCpf && (
         <CpfForm onSubmit={(cpf) => initiate(method, cpf)} />
       )}
 
-      {!loading && !needCpf && error && (
+      <OtpLoginDialog
+        open={otpOpen}
+        onClose={() => setOtpOpen(false)}
+        onSuccess={() => {
+          setOtpOpen(false);
+          // Após autenticar, retenta o initiate — agora o cookie está
+          // setado e o backend reconhece o cliente.
+          setNeedsAuth(false);
+          void initiate(method);
+        }}
+      />
+
+      {!loading && !needCpf && !needsAuth && error && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
           <div className="flex items-start gap-2">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
@@ -327,11 +373,11 @@ export function PaymentClient({ subject }: { subject: Subject }) {
         </div>
       )}
 
-      {!loading && !needCpf && !error && data && method === "PIX" && (
+      {!loading && !needCpf && !needsAuth && !error && data && method === "PIX" && (
         <PixBlock data={data} copyPix={copyPix} copied={copied} />
       )}
 
-      {!loading && !needCpf && !error && data && method === "CREDIT_CARD" && (
+      {!loading && !needCpf && !needsAuth && !error && data && method === "CREDIT_CARD" && (
         <CardBlock
           data={data}
           popupOpen={popupOpen}
