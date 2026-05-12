@@ -81,10 +81,12 @@ export async function POST(
       ...payment,
     });
   } catch (e) {
-    // Rollback: se reservou mas falhou em criar o payment, libera os
-    // números. NEED_CPF é exceção — entries ficam reservadas pra que o
-    // cliente volte com CPF e complete (validade = TTL do payment).
-    if (reserved && !(e instanceof NeedCpfError)) {
+    // Rollback SEMPRE: se reservou mas o payment não nasceu, libera os
+    // números. Inclui NEED_CPF — quando o cliente voltar com CPF, o
+    // reserveRaffleNumbersForPurchase cria as entries de novo (idempotente).
+    // Sem isso, qualquer falha (NEED_CPF, erro Asaas, etc) deixa números
+    // travados pra sempre.
+    if (reserved) {
       await prisma.raffleEntry.deleteMany({
         where: { id: { in: reserved.entryIds }, confirmed: false },
       }).catch(() => {});
