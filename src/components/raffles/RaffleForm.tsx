@@ -31,6 +31,8 @@ export type RaffleFormDefaults = Partial<{
   closesAt: Date;
   drawAt: Date | null;
   ticketPriceCents: number;
+  totalNumbers: number;
+  maxTicketsPerCustomer: number | null;
   status: RaffleStatus;
 }>;
 
@@ -65,6 +67,8 @@ export function RaffleForm({
       closesAt: toLocalInput(defaultValues?.closesAt ?? inDays(7)),
       drawAt: toLocalInput(defaultValues?.drawAt ?? inDays(8)),
       ticketPriceCents: defaultValues?.ticketPriceCents ?? 0,
+      totalNumbers: defaultValues?.totalNumbers ?? 100,
+      maxTicketsPerCustomer: defaultValues?.maxTicketsPerCustomer ?? null,
       status: defaultValues?.status ?? "DRAFT",
     } as unknown as RaffleFormData,
   });
@@ -136,30 +140,65 @@ export function RaffleForm({
         </Field>
       </div>
 
-      <Field
-        label="Valor do ticket (R$)"
-        hint="0 = sorteio gratuito (entrada direta). >0 = exige pagamento PIX antes de confirmar a inscrição."
-        error={errors.ticketPriceCents?.message}
-      >
-        <Input
-          type="number"
-          min="0"
-          step="0.01"
-          placeholder="0,00"
-          {...form.register("ticketPriceCents", {
-            setValueAs: (v: unknown) => {
-              if (v === "" || v === null || v === undefined) return 0;
-              const n = typeof v === "number" ? v : Number(String(v).replace(",", "."));
-              return Math.round((isFinite(n) ? n : 0) * 100);
-            },
-          })}
-          defaultValue={
-            defaultValues?.ticketPriceCents
-              ? (defaultValues.ticketPriceCents / 100).toFixed(2)
-              : "0"
-          }
-        />
-      </Field>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <Field
+          label="Total de números"
+          required
+          hint="Tamanho do pool (1..N)"
+          error={errors.totalNumbers?.message}
+        >
+          <Input
+            type="number"
+            min="1"
+            max="10000"
+            step="1"
+            {...form.register("totalNumbers", { valueAsNumber: true })}
+          />
+        </Field>
+        <Field
+          label="Limite por cliente"
+          hint="Vazio = sem limite"
+          error={errors.maxTicketsPerCustomer?.message}
+        >
+          <Input
+            type="number"
+            min="1"
+            step="1"
+            placeholder="Sem limite"
+            {...form.register("maxTicketsPerCustomer", {
+              setValueAs: (v: unknown) => {
+                if (v === "" || v === null || v === undefined) return null;
+                const n = Number(v);
+                return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+              },
+            })}
+          />
+        </Field>
+        <Field
+          label="Valor por número (R$)"
+          hint="0 = gratuito"
+          error={errors.ticketPriceCents?.message}
+        >
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="0,00"
+            {...form.register("ticketPriceCents", {
+              setValueAs: (v: unknown) => {
+                if (v === "" || v === null || v === undefined) return 0;
+                const n = typeof v === "number" ? v : Number(String(v).replace(",", "."));
+                return Math.round((isFinite(n) ? n : 0) * 100);
+              },
+            })}
+            defaultValue={
+              defaultValues?.ticketPriceCents
+                ? (defaultValues.ticketPriceCents / 100).toFixed(2)
+                : "0"
+            }
+          />
+        </Field>
+      </div>
 
       <Field
         label="Status"

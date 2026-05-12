@@ -19,7 +19,7 @@ type Method = "PIX" | "CREDIT_CARD";
 
 type Subject =
   | { kind: "sale"; saleId: string; initialMethod: Method }
-  | { kind: "raffle"; raffleId: string; raffleName: string };
+  | { kind: "raffle"; raffleId: string; raffleName: string; numbers: number[] };
 
 type InitiateResponse =
   | {
@@ -57,7 +57,6 @@ type StatusResponse =
       saleStatus: string | null;
       saleNumber: number | null;
       raffleConfirmed: boolean | null;
-      raffleNumber: number | null;
       paidAt: string | null;
     }
   | { ok: false; error: string };
@@ -76,7 +75,7 @@ export function PaymentClient({ subject }: { subject: Subject }) {
     null,
   );
   const [paid, setPaid] = useState(false);
-  const [raffleNumber, setRaffleNumber] = useState<number | null>(null);
+  const [confirmedPaymentId, setConfirmedPaymentId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const popupRef = useRef<Window | null>(null);
@@ -143,7 +142,10 @@ export function PaymentClient({ subject }: { subject: Subject }) {
           res = await fetch(`/api/public/raffles/${subject.raffleId}/buy-ticket`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(cpfCnpj ? { cpfCnpj } : {}),
+            body: JSON.stringify({
+              numbers: subject.numbers,
+              ...(cpfCnpj ? { cpfCnpj } : {}),
+            }),
           });
         }
         const json = (await res.json()) as InitiateResponse;
@@ -151,6 +153,8 @@ export function PaymentClient({ subject }: { subject: Subject }) {
           if (json.code === "NEED_CPF") {
             setNeedCpf(true);
           } else {
+            // Outro erro — limpa needCpf pra mostrar o erro real em vez do form
+            setNeedCpf(false);
             setError(json.error);
           }
           return;
@@ -191,7 +195,7 @@ export function PaymentClient({ subject }: { subject: Subject }) {
           json.raffleConfirmed === true
         ) {
           setPaid(true);
-          if (json.raffleNumber) setRaffleNumber(json.raffleNumber);
+          if (data?.paymentId) setConfirmedPaymentId(data.paymentId);
         }
       } catch {
         /* ignora */
@@ -215,6 +219,10 @@ export function PaymentClient({ subject }: { subject: Subject }) {
 
   if (paid) {
     if (subject.kind === "raffle") {
+      const sortedNumbers = subject.numbers.slice().sort((a, b) => a - b);
+      const comprovanteHref = confirmedPaymentId
+        ? `/sorteio/${subject.raffleId}/comprovante/${confirmedPaymentId}`
+        : null;
       return (
         <div className="space-y-5">
           <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
@@ -222,25 +230,31 @@ export function PaymentClient({ subject }: { subject: Subject }) {
             <h2 className="mt-3 font-serif text-2xl font-bold text-green-900">
               Você está no sorteio!
             </h2>
-            {raffleNumber && (
-              <p className="mt-3 text-sm text-green-800">
-                Seu número da sorte:
-              </p>
-            )}
-            {raffleNumber && (
-              <p className="mt-1 font-serif text-5xl font-bold text-roxa-900">
-                {raffleNumber}
-              </p>
-            )}
+            <p className="mt-3 text-sm text-green-800">
+              {sortedNumbers.length === 1
+                ? "Seu número da sorte:"
+                : "Seus números da sorte:"}
+            </p>
+            <p className="mt-1 font-serif text-3xl font-bold text-roxa-900 break-words">
+              {sortedNumbers.join(" · ")}
+            </p>
             <p className="mt-3 text-sm text-green-800">
               Boa sorte! Vamos avisar pelo WhatsApp na hora do sorteio.
             </p>
           </div>
+          {comprovanteHref && (
+            <Link
+              href={comprovanteHref}
+              className="flex items-center justify-center gap-2 rounded-md bg-roxa-700 px-6 py-3 text-base font-semibold text-white hover:bg-roxa-800"
+            >
+              Ver comprovante <ArrowRight className="h-4 w-4" />
+            </Link>
+          )}
           <Link
             href={`/sorteio/${subject.raffleId}`}
-            className="flex items-center justify-center gap-2 rounded-md bg-roxa-700 px-6 py-3 text-base font-semibold text-white hover:bg-roxa-800"
+            className="text-center text-sm text-slate-600 hover:underline block"
           >
-            Voltar pro sorteio <ArrowRight className="h-4 w-4" />
+            Voltar pro sorteio
           </Link>
         </div>
       );

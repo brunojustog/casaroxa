@@ -1,58 +1,124 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, MessageCircle, Sparkles, QrCode } from "lucide-react";
+import {
+  CheckCircle2,
+  MessageCircle,
+  QrCode,
+  Sparkles,
+  RefreshCw,
+} from "lucide-react";
 import { OtpLoginDialog } from "@/components/public/auth/OtpLoginDialog";
 
-/**
- * Card pra cliente público participar de um sorteio:
- *   - Se já entrou (confirmado): mostra número da entrada.
- *   - Se sorteio pago: botão "Pagar R$ X via PIX" → redireciona pra pagamento.
- *   - Se gratuito + autenticado: botão "Quero participar".
- *   - Se não autenticado: botão "Entrar pelo WhatsApp" → OTP → entra.
- */
+type NumbersState = {
+  totalNumbers: number;
+  taken: number[];
+  mine: number[];
+  minePending: number[];
+};
+
 export function RaffleEnterCard({
   raffleId,
   ticketPriceCents,
-  alreadyEntered,
-  myNumber,
+  totalNumbers,
+  maxTicketsPerCustomer,
   authenticated,
   customerName,
 }: {
   raffleId: string;
   ticketPriceCents: number;
-  alreadyEntered: boolean;
-  myNumber: number | null;
+  totalNumbers: number;
+  maxTicketsPerCustomer: number | null;
   authenticated: boolean;
   customerName: string | null;
 }) {
   const router = useRouter();
   const [otpOpen, setOtpOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [justEntered, setJustEntered] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<NumbersState | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
   const isPaid = ticketPriceCents > 0;
+
   const priceFormatted = new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
   }).format(ticketPriceCents / 100);
 
-  async function enter() {
-    setError(null);
-    // Pago: redireciona pra página de pagamento PIX. A entry pendente é
-    // criada no servidor lá (atomicamente com o payment).
-    if (isPaid) {
-      if (!authenticated) {
-        setOtpOpen(true);
+  const totalSelectedFormatted = new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format((selected.size * ticketPriceCents) / 100);
+
+  const loadState = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/public/raffles/${raffleId}/numbers`, {
+        cache: "no-store",
+      });
+      const j = await r.json();
+      if (j.ok) {
+        setState({
+          totalNumbers: j.totalNumbers,
+          taken: j.taken,
+          mine: j.mine,
+          minePending: j.minePending,
+        });
+        setSelected(new Set());
+      }
+    } catch {
+      /* ignora */
+    }
+  }, [raffleId]);
+
+  useEffect(() => {
+    void loadState();
+  }, [loadState]);
+
+  const takenSet = new Set(state?.taken ?? []);
+  const mineSet = new Set(state?.mine ?? []);
+
+  const toggle = (n: number) => {
+    if (takenSet.has(n)) return;
+    const next = new Set(selected);
+    if (next.has(n)) {
+      next.delete(n);
+    } else {
+      if (
+        maxTicketsPerCustomer !== null &&
+        next.size >= maxTicketsPerCustomer
+      ) {
+        setError(`Limite de ${maxTicketsPerCustomer} número(s) por cliente.`);
         return;
       }
-      router.push(`/sorteio/${raffleId}/pagamento`);
+      next.add(n);
+      setError(null);
+    }
+    setSelected(next);
+  };
+
+  async function submit() {
+    if (!authenticated) {
+      setOtpOpen(true);
+      return;
+    }
+    if (selected.size === 0) {
+      setError("Escolha pelo menos 1 número.");
+      return;
+    }
+    setError(null);
+    const numbers = Array.from(selected);
+    if (isPaid) {
+      // Vai pra tela de pagamento com a lista selecionada (state via query string)
+      const qs = numbers.join(",");
+      router.push(`/sorteio/${raffleId}/pagamento?numbers=${qs}`);
       return;
     }
     startTransition(async () => {
       const res = await fetch(`/api/public/raffles/${raffleId}/enter`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ numbers }),
       });
       const data = await res.json();
       if (!data.ok) {
@@ -63,78 +129,125 @@ export function RaffleEnterCard({
         setError(data.error ?? "Não foi possível entrar.");
         return;
       }
-      setJustEntered(data.number);
+      await loadState();
       router.refresh();
     });
   }
 
-  // Cliente já tem entry (do banco) ou acabou de entrar
-  const enteredNumber = myNumber ?? justEntered;
-  if (alreadyEntered || enteredNumber !== null) {
+  if (!state) {
     return (
-      <div className="rounded-xl border-2 border-green-300 bg-green-50 p-5 text-center space-y-2">
-        <CheckCircle2 className="mx-auto h-12 w-12 text-green-600" />
-        <p className="font-serif text-xl font-bold text-green-900">
-          Você está concorrendo!
-        </p>
-        <p className="text-sm text-green-800">
-          Seu número da sorte é{" "}
-          <span className="font-mono text-2xl font-bold text-amber-700">
-            #{enteredNumber}
-          </span>
-        </p>
-        <p className="text-xs text-green-700">
-          Boa sorte! Te avisamos pelo WhatsApp se ganhar 🍀
-        </p>
+      <div className="rounded-xl border border-roxa-100 bg-white p-6 text-center text-sm text-slate-500">
+        Carregando grade…
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-roxa-200 bg-roxa-50/50 p-5 space-y-3">
-      {authenticated ? (
-        <>
-          <p className="text-sm text-slate-700">
-            Olá <strong>{customerName?.split(/\s+/)[0]}</strong>!{" "}
-            {isPaid
-              ? `Garanta seu número da sorte por ${priceFormatted} via PIX.`
-              : "Clique abaixo pra participar do sorteio com 1 entrada."}
+    <div className="rounded-xl border border-roxa-200 bg-roxa-50/50 p-5 space-y-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <h3 className="font-serif text-lg font-semibold text-roxa-900">
+          Escolha seus números
+        </h3>
+        <button
+          type="button"
+          onClick={loadState}
+          className="text-xs text-roxa-700 hover:underline inline-flex items-center gap-1"
+        >
+          <RefreshCw className="h-3 w-3" /> atualizar
+        </button>
+      </div>
+
+      <NumberGrid
+        total={totalNumbers}
+        taken={takenSet}
+        mine={mineSet}
+        selected={selected}
+        onToggle={toggle}
+      />
+
+      <Legend />
+
+      <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm">
+        {selected.size === 0 ? (
+          <p className="text-slate-500">
+            Nenhum número escolhido. Toque na grade pra selecionar.
           </p>
-          <button
-            type="button"
-            onClick={enter}
-            disabled={pending}
-            className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-5 py-3 text-base font-semibold text-white shadow-sm disabled:opacity-50 ${
-              isPaid
-                ? "bg-roxa-700 hover:bg-roxa-800"
-                : "bg-amber-500 hover:bg-amber-600"
-            }`}
-          >
-            {isPaid ? <QrCode className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
-            {pending
-              ? "Entrando…"
-              : isPaid
-                ? `Pagar ${priceFormatted} via PIX`
-                : "Quero participar!"}
-          </button>
-        </>
-      ) : (
-        <>
-          <p className="text-sm text-slate-700">
-            {isPaid
-              ? `O ticket custa ${priceFormatted}. Identifique-se pelo WhatsApp pra pagar e garantir seu número.`
-              : "Identifique-se pelo WhatsApp pra entrar no sorteio (1 entrada por pessoa). Você recebe um código de 6 dígitos pra confirmar."}
+        ) : (
+          <p>
+            <strong>{selected.size}</strong>{" "}
+            {selected.size === 1 ? "número" : "números"}{" "}
+            ({Array.from(selected).sort((a, b) => a - b).join(", ")})
+            {isPaid && (
+              <>
+                {" · "}
+                Total: <strong>{totalSelectedFormatted}</strong>
+              </>
+            )}
           </p>
-          <button
-            type="button"
-            onClick={() => setOtpOpen(true)}
-            disabled={pending}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-green-600 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-green-700 disabled:opacity-50"
-          >
+        )}
+      </div>
+
+      {customerName && (
+        <p className="text-xs text-slate-600">
+          Olá <strong>{customerName.split(/\s+/)[0]}</strong>!
+          {isPaid
+            ? ` ${priceFormatted} por número, pagamento via PIX.`
+            : " Inscrição gratuita."}
+        </p>
+      )}
+
+      <button
+        type="button"
+        onClick={submit}
+        disabled={pending || selected.size === 0}
+        className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-5 py-3 text-base font-semibold text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${
+          isPaid ? "bg-roxa-700 hover:bg-roxa-800" : "bg-amber-500 hover:bg-amber-600"
+        }`}
+      >
+        {!authenticated ? (
+          <>
             <MessageCircle className="h-5 w-5" />
-            Entrar pelo WhatsApp{isPaid ? " e pagar" : " e participar"}
-          </button>
-        </>
+            Entrar pelo WhatsApp
+            {selected.size > 0 ? ` (${selected.size} nº)` : ""}
+          </>
+        ) : isPaid ? (
+          <>
+            <QrCode className="h-5 w-5" />
+            {pending
+              ? "Gerando PIX…"
+              : `Pagar ${totalSelectedFormatted} via PIX`}
+          </>
+        ) : (
+          <>
+            <Sparkles className="h-5 w-5" />
+            {pending ? "Inscrevendo…" : "Confirmar inscrição"}
+          </>
+        )}
+      </button>
+
+      {state.mine.length > 0 && (
+        <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-900">
+          <CheckCircle2 className="inline h-3 w-3 mr-1" />
+          {state.mine.length === state.minePending.length ? (
+            <>Seus números pendentes de pagamento: {state.mine.sort((a, b) => a - b).join(", ")}</>
+          ) : (
+            <>
+              Seus números confirmados:{" "}
+              <strong>
+                {state.mine
+                  .filter((n) => !state.minePending.includes(n))
+                  .sort((a, b) => a - b)
+                  .join(", ")}
+              </strong>
+              {state.minePending.length > 0 && (
+                <>
+                  {" "}
+                  · Pendentes: {state.minePending.sort((a, b) => a - b).join(", ")}
+                </>
+              )}
+            </>
+          )}
+        </div>
       )}
 
       {error && (
@@ -148,15 +261,79 @@ export function RaffleEnterCard({
         onClose={() => setOtpOpen(false)}
         onSuccess={() => {
           setOtpOpen(false);
-          // Após login: paga vai direto pra tela de pagamento, grátis chama
-          // a API de inscrição (que agora encontra o cookie de sessão).
-          if (isPaid) {
-            router.push(`/sorteio/${raffleId}/pagamento`);
-          } else {
-            enter();
-          }
+          // Após autenticar, refresh pra trazer authenticated=true do server,
+          // OU já submete agora (que vai checar via prop atualizada no próximo render).
+          router.refresh();
+          // Pequeno delay pra prop atualizar antes do submit
+          setTimeout(() => submit(), 100);
         }}
       />
+    </div>
+  );
+}
+
+function NumberGrid({
+  total,
+  taken,
+  mine,
+  selected,
+  onToggle,
+}: {
+  total: number;
+  taken: Set<number>;
+  mine: Set<number>;
+  selected: Set<number>;
+  onToggle: (n: number) => void;
+}) {
+  const numbers = Array.from({ length: total }, (_, i) => i + 1);
+  return (
+    <div className="grid grid-cols-10 gap-1.5 max-h-96 overflow-y-auto p-1 rounded-md bg-white border border-slate-200">
+      {numbers.map((n) => {
+        const isTaken = taken.has(n);
+        const isMine = mine.has(n);
+        const isSel = selected.has(n);
+        const cls = isMine
+          ? "bg-green-200 text-green-900 cursor-not-allowed"
+          : isTaken
+            ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+            : isSel
+              ? "bg-roxa-700 text-white"
+              : "bg-white border border-slate-300 text-slate-700 hover:border-roxa-500 hover:bg-roxa-50";
+        return (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onToggle(n)}
+            disabled={isTaken && !isSel}
+            className={`aspect-square rounded text-[11px] font-mono font-semibold ${cls}`}
+          >
+            {n}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function Legend() {
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600">
+      <span className="inline-flex items-center gap-1">
+        <span className="h-3 w-3 rounded border border-slate-300 bg-white" />
+        Livre
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="h-3 w-3 rounded bg-roxa-700" />
+        Selecionado
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="h-3 w-3 rounded bg-slate-200" />
+        Vendido
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="h-3 w-3 rounded bg-green-200" />
+        Seu
+      </span>
     </div>
   );
 }

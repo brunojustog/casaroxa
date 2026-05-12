@@ -1,22 +1,20 @@
 /**
- * Orquestração de pagamento online (Asaas) — entre o checkout público
- * da Casa Roxa e o gateway.
+ * Orquestração de pagamento online (Asaas).
  *
- * Suporta dois tipos de "subject" pra cobrança:
- *  - Sale (pedido do cardápio) — PIX ou CREDIT_CARD
- *  - RaffleEntry (ticket de sorteio pago) — só PIX
+ * Subjects suportados:
+ *  - Sale (pedido) — PIX ou CREDIT_CARD
+ *  - "Rifa cesta"  — N RaffleEntries reservadas de uma vez (1 PIX só)
  *
- * Fluxo:
- *   1. Cliente termina checkout ou compra ticket de rifa.
- *   2. initiateOnlinePayment({saleId|raffleEntryId, billingType}):
- *      - garante que o Customer da Casa Roxa tem asaasCustomerId (cria se não)
- *      - cria Payment no Asaas com vencimento +N horas
- *      - PIX: pega QR code + payload; CREDIT_CARD: usa invoiceUrl
- *      - cria OnlinePayment local com status PENDING
- *   3. Cliente paga.
- *   4. Asaas dispara webhook → handlePaymentWebhook atualiza status:
- *      - Sale: marca CONCLUIDA + WhatsApp "pagamento recebido"
- *      - RaffleEntry: marca confirmed=true + WhatsApp com número
+ * Fluxo de rifa:
+ *   1. raffle.service.reserveRaffleNumbersForPurchase cria N entries
+ *      confirmed=false retornando entryIds + totalCents.
+ *   2. payment.service.initiateOnlinePayment({ raffleEntryIds, raffleId,
+ *      customerId, valueCents }) cria 1 OnlinePayment + linka as entries
+ *      via RaffleEntry.onlinePaymentId.
+ *   3. Webhook PAYMENT_RECEIVED → confirmRaffleEntriesFromPayment marca
+ *      todas confirmed=true + WhatsApp.
+ *   4. Webhook OVERDUE/CANCELLED → releasePendingRaffleEntries deleta as
+ *      pendentes (libera os números).
  */
 import {
   OnlinePaymentBillingType,
@@ -36,8 +34,8 @@ import {
 } from "./asaas.service";
 import { sendText } from "./whatsapp.service";
 import {
-  confirmRaffleEntryFromPayment,
-  releasePendingRaffleEntry,
+  confirmRaffleEntriesFromPayment,
+  releasePendingRaffleEntries,
 } from "./raffle.service";
 
 const DEFAULT_TTL_HOURS = 24;
@@ -79,15 +77,17 @@ async function getOrCreateAsaasCustomer(
   }
 
   if (customer.asaasCustomerId) {
-    if (!customer.cpfCnpj) {
-      const updated = await updateAsaasCustomer(customer.asaasCustomerId, {
-        cpfCnpj,
-      });
-      if (!updated.ok) {
-        throw new BusinessError(
-          `Falha ao atualizar cliente no Asaas: ${updated.error}`,
-        );
-      }
+    // Sincroniza dados que podem ter mudado (CPF, phone com DDI corrigido,
+    // email). Cobre customers criados em versões com phone errado etc.
+    const updated = await updateAsaasCustomer(customer.asaasCustomerId, {
+      cpfCnpj,
+      phone: customer.phone,
+      email: customer.email,
+    });
+    if (!updated.ok) {
+      throw new BusinessError(
+        `Falha ao atualizar cliente no Asaas: ${updated.error}`,
+      );
     }
     return { asaasCustomerId: customer.asaasCustomerId };
   }
@@ -123,15 +123,23 @@ export type InitiateOnlinePaymentResult = {
   dueDate: Date;
 };
 
-type InitiateInput = {
-  billingType: OnlinePaymentBillingType;
-  cpfCnpj?: string;
-} & ({ saleId: string; raffleEntryId?: never } | { saleId?: never; raffleEntryId: string });
+type InitiateInput =
+  | {
+      kind: "sale";
+      saleId: string;
+      billingType: OnlinePaymentBillingType;
+      cpfCnpj?: string;
+    }
+  | {
+      kind: "raffle";
+      raffleId: string;
+      customerId: string;
+      entryIds: string[];
+      valueCents: number;
+      description: string;
+      cpfCnpj?: string;
+    };
 
-/**
- * Inicia (ou retorna existente) o OnlinePayment de uma Sale ou RaffleEntry.
- * Idempotente — chamar 2x retorna o mesmo registro.
- */
 export async function initiateOnlinePayment(
   input: InitiateInput,
 ): Promise<InitiateOnlinePaymentResult> {
@@ -140,13 +148,35 @@ export async function initiateOnlinePayment(
       "Pagamento online não configurado. Avise o administrador da Casa Roxa.",
     );
   }
+  if (input.kind === "sale") {
+    return initiateSalePayment(input);
+  }
+  return initiateRafflePayment(input);
+}
 
-  // Resolve o "subject" — extrai customerId, valor, descrição, idempotência.
-  const subject = await resolveSubject(input);
-
-  // Já tem payment associado? Retorna idempotente.
-  if (subject.existingPayment) {
-    const p = subject.existingPayment;
+async function initiateSalePayment(input: {
+  saleId: string;
+  billingType: OnlinePaymentBillingType;
+  cpfCnpj?: string;
+}): Promise<InitiateOnlinePaymentResult> {
+  const sale = await prisma.sale.findUnique({
+    where: { id: input.saleId },
+    select: {
+      id: true,
+      number: true,
+      status: true,
+      totalRevenue: true,
+      couponDiscount: true,
+      customerId: true,
+      onlinePayment: true,
+    },
+  });
+  if (!sale) throw new BusinessError("Pedido não encontrado.");
+  if (sale.status === SaleStatus.CANCELADA) {
+    throw new BusinessError("Pedido cancelado — não pode pagar.");
+  }
+  if (sale.onlinePayment) {
+    const p = sale.onlinePayment;
     return {
       paymentId: p.id,
       billingType: p.billingType,
@@ -158,9 +188,18 @@ export async function initiateOnlinePayment(
       dueDate: p.dueDate,
     };
   }
+  if (!sale.customerId) {
+    throw new BusinessError(
+      "Pedido sem cliente identificado. Identifique-se pelo WhatsApp primeiro.",
+    );
+  }
+  const value = Number(sale.totalRevenue) - Number(sale.couponDiscount);
+  if (value <= 0) {
+    throw new BusinessError("Valor do pedido inválido pra cobrança online.");
+  }
 
   const { asaasCustomerId } = await getOrCreateAsaasCustomer(
-    subject.customerId,
+    sale.customerId,
     input.cpfCnpj,
   );
 
@@ -174,10 +213,10 @@ export async function initiateOnlinePayment(
   const asaasResult = await createAsaasPayment({
     customerId: asaasCustomerId,
     billingType: input.billingType === "CREDIT_CARD" ? "CREDIT_CARD" : "PIX",
-    value: subject.value,
+    value,
     dueDate,
-    description: subject.description,
-    externalReference: subject.externalReference,
+    description: `Casa Roxa — Pedido #${sale.number}`,
+    externalReference: sale.id,
   });
   if (!asaasResult.ok) {
     throw new BusinessError(`Falha no Asaas: ${asaasResult.error}`);
@@ -196,12 +235,12 @@ export async function initiateOnlinePayment(
 
   const created = await prisma.onlinePayment.create({
     data: {
-      saleId: input.saleId ?? null,
-      raffleEntryId: input.raffleEntryId ?? null,
+      saleId: sale.id,
+      customerId: sale.customerId,
       asaasPaymentId: asaasPayment.id,
       asaasCustomerId,
       billingType: input.billingType,
-      value: subject.value,
+      value,
       status: mapAsaasStatus(asaasPayment.status),
       invoiceUrl: asaasPayment.invoiceUrl ?? null,
       pixPayload,
@@ -222,71 +261,127 @@ export async function initiateOnlinePayment(
   };
 }
 
-type ResolvedSubject = {
+async function initiateRafflePayment(input: {
+  raffleId: string;
   customerId: string;
-  value: number;
+  entryIds: string[];
+  valueCents: number;
   description: string;
-  externalReference: string;
-  existingPayment: Awaited<ReturnType<typeof prisma.onlinePayment.findFirst>> | null;
-};
-
-async function resolveSubject(input: InitiateInput): Promise<ResolvedSubject> {
-  if (input.saleId) {
-    const sale = await prisma.sale.findUnique({
-      where: { id: input.saleId },
-      select: {
-        id: true,
-        number: true,
-        status: true,
-        totalRevenue: true,
-        couponDiscount: true,
-        customerId: true,
-        onlinePayment: true,
-      },
-    });
-    if (!sale) throw new BusinessError("Pedido não encontrado.");
-    if (sale.status === SaleStatus.CANCELADA) {
-      throw new BusinessError("Pedido cancelado — não pode pagar.");
-    }
-    if (!sale.customerId) {
-      throw new BusinessError(
-        "Pedido sem cliente identificado. Identifique-se pelo WhatsApp primeiro.",
-      );
-    }
-    const value = Number(sale.totalRevenue) - Number(sale.couponDiscount);
-    if (value <= 0) {
-      throw new BusinessError("Valor do pedido inválido pra cobrança online.");
-    }
-    return {
-      customerId: sale.customerId,
-      value,
-      description: `Casa Roxa — Pedido #${sale.number}`,
-      externalReference: sale.id,
-      existingPayment: sale.onlinePayment,
-    };
-  }
-
-  // raffleEntryId
-  const entry = await prisma.raffleEntry.findUnique({
-    where: { id: input.raffleEntryId! },
-    include: {
-      raffle: true,
-      onlinePayment: true,
+  cpfCnpj?: string;
+}): Promise<InitiateOnlinePaymentResult> {
+  // Rifa = sempre PIX. Recupera a "cesta" pra confirmar consistência.
+  const entries = await prisma.raffleEntry.findMany({
+    where: { id: { in: input.entryIds } },
+    select: {
+      id: true,
+      number: true,
+      confirmed: true,
+      raffleId: true,
+      customerId: true,
+      onlinePaymentId: true,
     },
   });
-  if (!entry) throw new BusinessError("Inscrição de sorteio não encontrada.");
-  if (entry.confirmed) {
-    throw new BusinessError("Esta inscrição já foi confirmada.");
+  if (entries.length !== input.entryIds.length) {
+    throw new BusinessError("Algum número da cesta não existe mais.");
   }
-  if (entry.raffle.ticketPriceCents <= 0) {
-    throw new BusinessError("Este sorteio é gratuito — não tem cobrança.");
+  if (entries.some((e) => e.raffleId !== input.raffleId)) {
+    throw new BusinessError("Cesta tem números de rifas diferentes.");
   }
+  if (entries.some((e) => e.customerId !== input.customerId)) {
+    throw new BusinessError("Cesta tem números de clientes diferentes.");
+  }
+  if (entries.some((e) => e.confirmed)) {
+    throw new BusinessError("Algum número já foi confirmado.");
+  }
+
+  // Se TODOS já têm o mesmo payment vinculado, retorna idempotente.
+  const allPaymentIds = new Set(entries.map((e) => e.onlinePaymentId));
+  if (allPaymentIds.size === 1 && entries[0].onlinePaymentId) {
+    const existing = await prisma.onlinePayment.findUnique({
+      where: { id: entries[0].onlinePaymentId },
+    });
+    if (existing) {
+      return {
+        paymentId: existing.id,
+        billingType: existing.billingType,
+        status: existing.status,
+        pixPayload: existing.pixPayload,
+        pixQrCodeBase64: existing.pixQrCodeBase64,
+        invoiceUrl: existing.invoiceUrl,
+        value: Number(existing.value),
+        dueDate: existing.dueDate,
+      };
+    }
+  }
+
+  const value = input.valueCents / 100;
+
+  const { asaasCustomerId } = await getOrCreateAsaasCustomer(
+    input.customerId,
+    input.cpfCnpj,
+  );
+
+  const settings = await prisma.settings.findUnique({
+    where: { id: 1 },
+    select: { asaasPaymentTtlHours: true },
+  });
+  const ttlHours = settings?.asaasPaymentTtlHours ?? DEFAULT_TTL_HOURS;
+  const dueDate = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
+
+  const asaasResult = await createAsaasPayment({
+    customerId: asaasCustomerId,
+    billingType: "PIX",
+    value,
+    dueDate,
+    description: input.description,
+    externalReference: `raffle:${input.raffleId}`,
+  });
+  if (!asaasResult.ok) {
+    throw new BusinessError(`Falha no Asaas: ${asaasResult.error}`);
+  }
+  const asaasPayment = asaasResult.payment;
+
+  let pixPayload: string | null = null;
+  let pixQrCodeBase64: string | null = null;
+  const qr = await getAsaasPixQrCode(asaasPayment.id);
+  if (qr.ok) {
+    pixPayload = qr.qr.payload;
+    pixQrCodeBase64 = qr.qr.encodedImage;
+  }
+
+  // Cria payment e vincula entries dentro de transação
+  const created = await prisma.$transaction(async (tx) => {
+    const p = await tx.onlinePayment.create({
+      data: {
+        raffleId: input.raffleId,
+        customerId: input.customerId,
+        asaasPaymentId: asaasPayment.id,
+        asaasCustomerId,
+        billingType: "PIX",
+        value,
+        status: mapAsaasStatus(asaasPayment.status),
+        invoiceUrl: asaasPayment.invoiceUrl ?? null,
+        pixPayload,
+        pixQrCodeBase64,
+        dueDate,
+      },
+    });
+    await tx.raffleEntry.updateMany({
+      where: { id: { in: input.entryIds } },
+      data: { onlinePaymentId: p.id },
+    });
+    return p;
+  });
+
   return {
-    customerId: entry.customerId,
-    value: entry.raffle.ticketPriceCents / 100,
-    description: `Casa Roxa — Sorteio "${entry.raffle.name}" (nº ${entry.number})`,
-    externalReference: entry.id,
-    existingPayment: entry.onlinePayment,
+    paymentId: created.id,
+    billingType: created.billingType,
+    status: created.status,
+    pixPayload: created.pixPayload,
+    pixQrCodeBase64: created.pixQrCodeBase64,
+    invoiceUrl: created.invoiceUrl,
+    value: Number(created.value),
+    dueDate: created.dueDate,
   };
 }
 
@@ -294,10 +389,6 @@ async function resolveSubject(input: InitiateInput): Promise<ResolvedSubject> {
 
 export async function getOnlinePaymentBySaleId(saleId: string) {
   return prisma.onlinePayment.findUnique({ where: { saleId } });
-}
-
-export async function getOnlinePaymentByRaffleEntryId(raffleEntryId: string) {
-  return prisma.onlinePayment.findUnique({ where: { raffleEntryId } });
 }
 
 export async function getOnlinePaymentById(paymentId: string) {
@@ -319,12 +410,7 @@ export async function handlePaymentWebhook(payload: {
     where: { asaasPaymentId },
     include: {
       sale: { include: { customer: true } },
-      raffleEntry: {
-        include: {
-          customer: true,
-          raffle: { select: { name: true } },
-        },
-      },
+      raffleEntries: { select: { id: true, confirmed: true } },
     },
   });
   if (!local) {
@@ -371,12 +457,11 @@ export async function handlePaymentWebhook(payload: {
           saleId: local.sale.id,
         }).catch((e) => console.error("[payment-webhook] whatsapp:", e));
       }
-    } else if (local.raffleEntry) {
-      await confirmRaffleEntryFromPayment(local.raffleEntry.id);
+    } else if (local.raffleId && local.raffleEntries.length > 0) {
+      await confirmRaffleEntriesFromPayment(local.id);
     }
-  } else if (isExpiredNow && local.raffleEntry && !local.raffleEntry.confirmed) {
-    // Pagamento de rifa expirou sem pagar — libera o número.
-    await releasePendingRaffleEntry(local.raffleEntry.id);
+  } else if (isExpiredNow && local.raffleId) {
+    await releasePendingRaffleEntries(local.id);
   }
 
   return { processed: true };

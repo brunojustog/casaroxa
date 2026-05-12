@@ -1,10 +1,8 @@
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Calendar, Gift, Trophy, Users } from "lucide-react";
 import { getRaffleForPublic } from "@/server/services/raffle.service";
 import { getAuthedCustomer } from "@/server/services/customer-session.service";
-import { prisma } from "@/lib/prisma";
 import { RaffleEnterCard } from "@/components/public/raffles/RaffleEnterCard";
 
 export const dynamic = "force-dynamic";
@@ -27,15 +25,9 @@ export default async function PublicRafflePage({
   const raffle = await getRaffleForPublic(id);
   if (!raffle) notFound();
 
-  // Se cliente identificado, busca a entry confirmada dele (entry pendente
-  // de pagamento não vale)
+  // O componente da grade busca o estado completo (taken/mine/minePending)
+  // via /api/public/raffles/[id]/numbers no client.
   const customer = await getAuthedCustomer();
-  const myEntry = customer
-    ? await prisma.raffleEntry.findFirst({
-        where: { raffleId: id, customerId: customer.id, confirmed: true },
-        select: { number: true },
-      })
-    : null;
 
   const now = new Date();
   const isOpen =
@@ -126,8 +118,8 @@ export default async function PublicRafflePage({
         <RaffleEnterCard
           raffleId={raffle.id}
           ticketPriceCents={raffle.ticketPriceCents}
-          alreadyEntered={Boolean(myEntry)}
-          myNumber={myEntry?.number ?? null}
+          totalNumbers={raffle.totalNumbers}
+          maxTicketsPerCustomer={raffle.maxTicketsPerCustomer}
           authenticated={Boolean(customer)}
           customerName={customer?.name ?? null}
         />

@@ -2,11 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 /**
- * Polling de status — versão polimórfica (paymentId direto). Aceita payment
- * de Sale ou de RaffleEntry e retorna o que a UI precisa pra parar polling:
- *   - status do OnlinePayment normalizado
- *   - se Sale: status da Sale (CONCLUIDA = pago)
- *   - se RaffleEntry: confirmed + número (entry virou número da sorte)
+ * Polling de status — versão polimórfica (paymentId direto).
+ *   - Sale: status da Sale (CONCLUIDA = pago)
+ *   - Rifa: ao menos uma entry confirmed = pagamento entrou
  */
 export async function GET(
   _req: Request,
@@ -17,7 +15,7 @@ export async function GET(
     where: { id: paymentId },
     include: {
       sale: { select: { status: true, number: true } },
-      raffleEntry: { select: { confirmed: true, number: true } },
+      raffleEntries: { select: { confirmed: true } },
     },
   });
   if (!payment) {
@@ -26,13 +24,15 @@ export async function GET(
       { status: 404 },
     );
   }
+  const raffleConfirmed =
+    payment.raffleEntries.length > 0 &&
+    payment.raffleEntries.every((e) => e.confirmed);
   return NextResponse.json({
     ok: true,
     status: payment.status,
     saleStatus: payment.sale?.status ?? null,
     saleNumber: payment.sale?.number ?? null,
-    raffleConfirmed: payment.raffleEntry?.confirmed ?? null,
-    raffleNumber: payment.raffleEntry?.number ?? null,
+    raffleConfirmed: payment.raffleEntries.length > 0 ? raffleConfirmed : null,
     paidAt: payment.paidAt?.toISOString() ?? null,
   });
 }

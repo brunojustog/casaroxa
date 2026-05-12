@@ -1,16 +1,18 @@
 /**
- * Sorteios / rifas.
+ * Sorteios / rifas (modelo de rifa com pool fechado de números).
  *
- * Modelo de operação:
- *   - ADMIN cria Raffle com nome, prêmio (descritivo), opensAt, closesAt.
- *   - Status: DRAFT → OPEN (cliente já consegue entrar) → CLOSED →
- *     DRAWN (sorteado).
- *   - Cliente identificado (via OTP) clica "Participar". 1 entrada por
- *     pessoa, com número sequencial (1, 2, 3...) que serve pra
- *     sortear via Math.floor(Math.random() * total) + 1.
- *   - ADMIN clica "Sortear" na data; sistema escolhe entry aleatória,
- *     marca winnerEntryId, status=DRAWN, e dispara WhatsApp pro ganhador
- *     com o prêmio descritivo (entrega manual depois).
+ * Como funciona:
+ *   - ADMIN cria Raffle com: nome, prêmio, opensAt, closesAt, totalNumbers
+ *     (ex.: 100), ticketPriceCents (0=grátis | >0=paga PIX) e
+ *     maxTicketsPerCustomer (null=sem limite).
+ *   - Cliente identificado (via OTP) escolhe N números livres na grade
+ *     (1..totalNumbers). Pagamento:
+ *       grátis: confirma direto (cria N RaffleEntries com confirmed=true)
+ *       paga:   reserva (confirmed=false) + cria 1 OnlinePayment com o
+ *               valor = N × ticketPriceCents, e quando webhook confirma
+ *               marca as N entries como confirmed=true.
+ *   - Sorteio (manual no admin): escolhe entre RaffleEntries confirmadas.
+ *     Animação cliente-side; servidor já sabe o vencedor.
  */
 import { Prisma, RaffleStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -31,7 +33,6 @@ export async function listRaffles(filters: RaffleListFilters) {
     where,
     orderBy: { createdAt: "desc" },
     include: {
-      // Admin vê total de inscritos confirmados (não conta pendentes de pagamento)
       _count: { select: { entries: { where: { confirmed: true } } } },
       winnerEntry: {
         include: { customer: { select: { id: true, name: true, phone: true } } },
@@ -61,7 +62,6 @@ export async function getRaffleById(id: string) {
   });
 }
 
-/** Lista pública (sem expor dados dos inscritos). */
 export async function listOpenRaffles() {
   const now = new Date();
   return prisma.raffle.findMany({
@@ -80,12 +80,12 @@ export async function listOpenRaffles() {
       closesAt: true,
       drawAt: true,
       ticketPriceCents: true,
+      totalNumbers: true,
       _count: { select: { entries: { where: { confirmed: true } } } },
     },
   });
 }
 
-/** Dados públicos de UM sorteio (sem listar inscritos). */
 export async function getRaffleForPublic(id: string) {
   return prisma.raffle.findFirst({
     where: { id },
@@ -100,6 +100,8 @@ export async function getRaffleForPublic(id: string) {
       status: true,
       drawnAt: true,
       ticketPriceCents: true,
+      totalNumbers: true,
+      maxTicketsPerCustomer: true,
       _count: { select: { entries: { where: { confirmed: true } } } },
       winnerEntry: {
         select: {
@@ -111,7 +113,45 @@ export async function getRaffleForPublic(id: string) {
   });
 }
 
-/** Sorteios em que o cliente entrou (pra /meus-pedidos) — só confirmados. */
+/**
+ * Estado da grade pública: lista todos os números 1..totalNumbers com:
+ *   - taken: Set dos números já vendidos/reservados (ambos: confirmed=true
+ *     e confirmed=false enquanto não expira o payment)
+ *   - mine: Set dos números do próprio cliente (se logado)
+ */
+export async function getRaffleNumbersState(
+  raffleId: string,
+  customerId: string | null,
+) {
+  const raffle = await prisma.raffle.findUnique({
+    where: { id: raffleId },
+    select: { totalNumbers: true },
+  });
+  if (!raffle) throw new BusinessError("Sorteio não encontrado.");
+
+  const entries = await prisma.raffleEntry.findMany({
+    where: { raffleId },
+    select: { number: true, customerId: true, confirmed: true },
+  });
+
+  const taken = new Set<number>();
+  const mine = new Set<number>();
+  const minePending = new Set<number>();
+  for (const e of entries) {
+    taken.add(e.number);
+    if (customerId && e.customerId === customerId) {
+      mine.add(e.number);
+      if (!e.confirmed) minePending.add(e.number);
+    }
+  }
+  return {
+    totalNumbers: raffle.totalNumbers,
+    taken: Array.from(taken),
+    mine: Array.from(mine),
+    minePending: Array.from(minePending),
+  };
+}
+
 export async function listRafflesForCustomer(customerId: string) {
   return prisma.raffleEntry.findMany({
     where: { customerId, confirmed: true },
@@ -145,6 +185,8 @@ export async function createRaffle(input: RaffleFormData) {
       closesAt: input.closesAt,
       drawAt: input.drawAt,
       ticketPriceCents: input.ticketPriceCents,
+      totalNumbers: input.totalNumbers,
+      maxTicketsPerCustomer: input.maxTicketsPerCustomer,
       status: input.status,
     },
   });
@@ -162,14 +204,18 @@ export async function updateRaffle(id: string, input: RaffleFormData) {
   if (current.status === "CANCELLED") {
     throw new BusinessError("Sorteio cancelado.");
   }
-  // Mudar preço depois que já tem inscritos é injusto — trava.
-  if (
-    current._count.entries > 0 &&
-    current.ticketPriceCents !== input.ticketPriceCents
-  ) {
-    throw new BusinessError(
-      "Já existem inscritos — não dá pra mudar o preço do ticket. Cancele e crie um novo sorteio.",
-    );
+  // Mudar preço/total/limite depois de ter inscritos é injusto.
+  if (current._count.entries > 0) {
+    if (current.ticketPriceCents !== input.ticketPriceCents) {
+      throw new BusinessError(
+        "Já há inscritos — não dá pra mudar o preço. Cancele e crie uma nova rifa.",
+      );
+    }
+    if (current.totalNumbers !== input.totalNumbers) {
+      throw new BusinessError(
+        "Já há inscritos — não dá pra mudar o total de números.",
+      );
+    }
   }
   return prisma.raffle.update({
     where: { id },
@@ -181,6 +227,8 @@ export async function updateRaffle(id: string, input: RaffleFormData) {
       closesAt: input.closesAt,
       drawAt: input.drawAt,
       ticketPriceCents: input.ticketPriceCents,
+      totalNumbers: input.totalNumbers,
+      maxTicketsPerCustomer: input.maxTicketsPerCustomer,
       status: input.status,
     },
   });
@@ -202,92 +250,231 @@ export async function deleteRaffle(id: string) {
   });
   if (!r) throw new BusinessError("Sorteio não encontrado.");
   if (r.status === "DRAWN") {
-    throw new BusinessError("Sorteio já realizado — não pode ser excluído. Use CANCELLED.");
+    throw new BusinessError("Sorteio já realizado — não pode ser excluído.");
   }
   if (r._count.entries > 0) {
     throw new BusinessError(
-      `Este sorteio já tem ${r._count.entries} inscrito(s). Marque como cancelado em vez de excluir.`,
+      `Este sorteio já tem ${r._count.entries} inscrito(s). Cancele em vez de excluir.`,
     );
   }
   await prisma.raffle.delete({ where: { id } });
 }
 
-// ---------- Inscrição (público, via OTP) ----------
+// ---------- Reserva / confirmação ----------
 
-export type EnterRaffleResult =
-  | { ok: true; number: number; alreadyEntered: false }
-  | { ok: true; number: number; alreadyEntered: true }
-  | { ok: false; error: string };
-
-export async function enterRaffle(
+/**
+ * Pré-checa antes de criar entries. Validações comuns a grátis e paga:
+ *  - rifa OPEN dentro da janela
+ *  - todos os números no range 1..totalNumbers
+ *  - nenhum dos números já tomado
+ *  - cliente respeitando maxTicketsPerCustomer
+ */
+async function validatePurchase(
   raffleId: string,
   customerId: string,
-): Promise<EnterRaffleResult> {
-  const raffle = await prisma.raffle.findUnique({ where: { id: raffleId } });
-  if (!raffle) return { ok: false, error: "Sorteio não encontrado." };
-  if (raffle.status !== RaffleStatus.OPEN) {
-    return { ok: false, error: "Este sorteio não está aceitando inscrições." };
+  numbers: number[],
+  tx: Prisma.TransactionClient | typeof prisma = prisma,
+): Promise<{ raffleName: string; ticketPriceCents: number }> {
+  if (numbers.length === 0) {
+    throw new BusinessError("Escolha pelo menos 1 número.");
   }
-  if (raffle.ticketPriceCents > 0) {
-    return {
-      ok: false,
-      error: "Este sorteio é pago — use o fluxo de compra com PIX.",
-    };
+  const uniq = new Set(numbers);
+  if (uniq.size !== numbers.length) {
+    throw new BusinessError("Lista de números tem duplicatas.");
+  }
+
+  const raffle = await tx.raffle.findUnique({
+    where: { id: raffleId },
+  });
+  if (!raffle) throw new BusinessError("Sorteio não encontrado.");
+  if (raffle.status !== RaffleStatus.OPEN) {
+    throw new BusinessError("Este sorteio não está aceitando inscrições.");
   }
   const now = new Date();
   if (raffle.opensAt > now) {
-    return { ok: false, error: "Sorteio ainda não abriu pra inscrições." };
+    throw new BusinessError("Sorteio ainda não abriu pra inscrições.");
   }
   if (raffle.closesAt < now) {
-    return { ok: false, error: "Inscrições já encerraram." };
+    throw new BusinessError("Inscrições já encerraram.");
   }
 
-  // Idempotente: se cliente já entrou, retorna o número da entrada existente.
-  const existing = await prisma.raffleEntry.findUnique({
-    where: { raffleId_customerId: { raffleId, customerId } },
-  });
-  if (existing) {
-    return { ok: true, number: existing.number, alreadyEntered: true };
-  }
-
-  // Transação: count + create. Race-condition entre count e create é
-  // protegido pela @@unique(raffleId, number) — se 2 inserts simultâneos
-  // pegarem o mesmo "next", o segundo falha e retry pega next+1. Aqui só
-  // tento até 3 vezes (suficiente pra concurrency razoável).
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      const total = await prisma.raffleEntry.count({ where: { raffleId } });
-      const entry = await prisma.raffleEntry.create({
-        data: {
-          raffleId,
-          customerId,
-          number: total + 1,
-        },
-      });
-      return { ok: true, number: entry.number, alreadyEntered: false };
-    } catch (e) {
-      if (
-        e instanceof Prisma.PrismaClientKnownRequestError &&
-        e.code === "P2002"
-      ) {
-        // Conflito de número OU de (raffleId, customerId) — re-verifica o
-        // 2º caso (cliente entrou em paralelo) e desiste; senão tenta de novo.
-        const existingNow = await prisma.raffleEntry.findUnique({
-          where: { raffleId_customerId: { raffleId, customerId } },
-        });
-        if (existingNow) {
-          return {
-            ok: true,
-            number: existingNow.number,
-            alreadyEntered: true,
-          };
-        }
-        continue;
-      }
-      throw e;
+  for (const n of numbers) {
+    if (!Number.isInteger(n) || n < 1 || n > raffle.totalNumbers) {
+      throw new BusinessError(
+        `Número ${n} fora do intervalo (1..${raffle.totalNumbers}).`,
+      );
     }
   }
-  return { ok: false, error: "Tente de novo em alguns segundos." };
+
+  const taken = await tx.raffleEntry.findMany({
+    where: { raffleId, number: { in: numbers } },
+    select: { number: true },
+  });
+  if (taken.length > 0) {
+    const list = taken.map((t) => t.number).join(", ");
+    throw new BusinessError(`Números já vendidos: ${list}.`);
+  }
+
+  if (raffle.maxTicketsPerCustomer !== null) {
+    const mine = await tx.raffleEntry.count({
+      where: { raffleId, customerId },
+    });
+    if (mine + numbers.length > raffle.maxTicketsPerCustomer) {
+      throw new BusinessError(
+        `Limite de ${raffle.maxTicketsPerCustomer} número(s) por cliente.`,
+      );
+    }
+  }
+
+  return {
+    raffleName: raffle.name,
+    ticketPriceCents: raffle.ticketPriceCents,
+  };
+}
+
+/**
+ * Reserva N números pra cliente comprar (rifa paga). Cria N RaffleEntries
+ * com confirmed=false dentro de uma transação. Retorna IDs pra quem chamar
+ * criar o OnlinePayment vinculado.
+ */
+export async function reserveRaffleNumbersForPurchase(
+  raffleId: string,
+  customerId: string,
+  numbers: number[],
+): Promise<{
+  entryIds: string[];
+  numbers: number[];
+  totalCents: number;
+  raffleName: string;
+}> {
+  return prisma.$transaction(async (tx) => {
+    const { raffleName, ticketPriceCents } = await validatePurchase(
+      raffleId,
+      customerId,
+      numbers,
+      tx,
+    );
+    if (ticketPriceCents <= 0) {
+      throw new BusinessError(
+        "Este sorteio é gratuito — use a inscrição normal.",
+      );
+    }
+
+    const entries = await Promise.all(
+      numbers.map((number) =>
+        tx.raffleEntry.create({
+          data: {
+            raffleId,
+            customerId,
+            number,
+            confirmed: false,
+          },
+        }),
+      ),
+    );
+
+    return {
+      entryIds: entries.map((e) => e.id),
+      numbers: entries.map((e) => e.number),
+      totalCents: ticketPriceCents * numbers.length,
+      raffleName,
+    };
+  });
+}
+
+/**
+ * Inscrição gratuita: cria N entries confirmadas direto (rifa gratuita).
+ */
+export async function enterRaffleFree(
+  raffleId: string,
+  customerId: string,
+  numbers: number[],
+): Promise<{ entries: { id: string; number: number }[]; raffleName: string }> {
+  return prisma.$transaction(async (tx) => {
+    const { raffleName, ticketPriceCents } = await validatePurchase(
+      raffleId,
+      customerId,
+      numbers,
+      tx,
+    );
+    if (ticketPriceCents > 0) {
+      throw new BusinessError(
+        "Este sorteio é pago — use o fluxo de compra com PIX.",
+      );
+    }
+
+    const created = await Promise.all(
+      numbers.map((number) =>
+        tx.raffleEntry.create({
+          data: {
+            raffleId,
+            customerId,
+            number,
+            confirmed: true,
+          },
+        }),
+      ),
+    );
+
+    return {
+      entries: created.map((e) => ({ id: e.id, number: e.number })),
+      raffleName,
+    };
+  });
+}
+
+/**
+ * Chamada pelo webhook quando o OnlinePayment de uma "cesta" de números
+ * confirma. Marca todas as entries vinculadas como confirmed=true e dispara
+ * WhatsApp com a lista de números.
+ */
+export async function confirmRaffleEntriesFromPayment(paymentId: string) {
+  const payment = await prisma.onlinePayment.findUnique({
+    where: { id: paymentId },
+    include: {
+      raffleEntries: {
+        include: {
+          customer: { select: { id: true, name: true, phone: true } },
+          raffle: { select: { id: true, name: true, prizeDescription: true } },
+        },
+      },
+    },
+  });
+  if (!payment) return;
+  const pending = payment.raffleEntries.filter((e) => !e.confirmed);
+  if (pending.length === 0) return;
+
+  await prisma.raffleEntry.updateMany({
+    where: { onlinePaymentId: payment.id, confirmed: false },
+    data: { confirmed: true },
+  });
+
+  const first = pending[0];
+  const customer = first.customer;
+  const raffle = first.raffle;
+  const numbers = pending
+    .map((e) => e.number)
+    .sort((a, b) => a - b)
+    .join(", ");
+  const message = `🎟️ *Você está no sorteio!*\n\nSorteio: *${raffle.name}*${raffle.prizeDescription ? `\nPrêmio: ${raffle.prizeDescription}` : ""}\n\nSeus números da sorte: *${numbers}*\n\nVer comprovante: https://casaroxa.com.br/sorteio/${raffle.id}/comprovante/${payment.id}\n\nBoa sorte! 🍀`;
+  sendText({
+    phone: customer.phone,
+    message,
+    event: "RAFFLE_WIN",
+    bypassToggles: true,
+    customerId: customer.id,
+  }).catch((e) =>
+    console.error("[confirmRaffleEntriesFromPayment] whatsapp:", e),
+  );
+}
+
+/**
+ * Pagamento expirou/cancelou — libera os números pendentes.
+ */
+export async function releasePendingRaffleEntries(paymentId: string) {
+  await prisma.raffleEntry.deleteMany({
+    where: { onlinePaymentId: paymentId, confirmed: false },
+  });
 }
 
 // ---------- Sortear ----------
@@ -318,11 +505,11 @@ export async function drawRaffle(
       throw new BusinessError("Sorteio cancelado — não pode sortear.");
     }
     if (raffle._count.entries === 0) {
-      throw new BusinessError("Nenhum inscrito confirmado ainda. Não dá pra sortear vazio.");
+      throw new BusinessError(
+        "Nenhum inscrito confirmado ainda. Não dá pra sortear vazio.",
+      );
     }
 
-    // Sorteio uniforme entre as entries confirmadas. Como números podem ter
-    // "buracos" (entry paga que expirou foi deletada), pego em ordem e indexo.
     const confirmedEntries = await tx.raffleEntry.findMany({
       where: { raffleId, confirmed: true },
       orderBy: { number: "asc" },
@@ -354,11 +541,7 @@ export async function drawRaffle(
     };
   });
 
-  // Fora da transação: dispara WhatsApp pro ganhador. Bypass dos toggles
-  // (notificação de prêmio é parte do produto, não opcional). Se a config
-  // de WhatsApp tiver desligada, vai logar como SKIPPED e admin é quem
-  // contata na mão.
-  const message = `🎉 *Parabéns, ${result.customerName}!*\n\nVocê é o ganhador do sorteio *${result.raffleName}* da Casa Roxa!\n\n${result.prizeDescription ? `🎁 Prêmio: ${result.prizeDescription}\n\n` : ""}Em breve entraremos em contato pra combinar a entrega.`;
+  const message = `🎉 *Parabéns, ${result.customerName}!*\n\nVocê é o ganhador do sorteio *${result.raffleName}* da Casa Roxa!\n\nNúmero sorteado: *${result.winnerNumber}*${result.prizeDescription ? `\n\n🎁 Prêmio: ${result.prizeDescription}` : ""}\n\nEm breve entraremos em contato pra combinar a entrega.`;
 
   sendText({
     phone: result.customerPhone,
@@ -374,133 +557,4 @@ export async function drawRaffle(
     customerName: result.customerName,
     customerPhone: result.customerPhone,
   };
-}
-
-// ---------- Compra de ticket (rifa paga via PIX) ----------
-
-/**
- * Reserva uma entry pendente pra cliente comprar via PIX. Idempotente —
- * se cliente já tem entry pendente nessa rifa, retorna a mesma. Se já tem
- * entry confirmada, lança BusinessError.
- *
- * Retorna o `raffleEntryId` — quem chama (route handler) usa ele junto a
- * `initiateOnlinePayment({ raffleEntryId })` pra criar/recuperar o
- * OnlinePayment do Asaas.
- */
-export async function reserveRaffleEntryForPurchase(
-  raffleId: string,
-  customerId: string,
-): Promise<{ raffleEntryId: string; ticketPriceCents: number; raffleName: string }> {
-  const raffle = await prisma.raffle.findUnique({ where: { id: raffleId } });
-  if (!raffle) throw new BusinessError("Sorteio não encontrado.");
-  if (raffle.status !== RaffleStatus.OPEN) {
-    throw new BusinessError("Este sorteio não está aceitando inscrições.");
-  }
-  if (raffle.ticketPriceCents <= 0) {
-    throw new BusinessError("Este sorteio é gratuito — use a inscrição normal.");
-  }
-  const now = new Date();
-  if (raffle.opensAt > now) {
-    throw new BusinessError("Sorteio ainda não abriu pra inscrições.");
-  }
-  if (raffle.closesAt < now) {
-    throw new BusinessError("Inscrições já encerraram.");
-  }
-
-  // Já tem entry? Pode ser confirmada (erro) ou pendente (idempotente).
-  const existing = await prisma.raffleEntry.findUnique({
-    where: { raffleId_customerId: { raffleId, customerId } },
-  });
-  if (existing) {
-    if (existing.confirmed) {
-      throw new BusinessError("Você já está participando deste sorteio.");
-    }
-    return {
-      raffleEntryId: existing.id,
-      ticketPriceCents: raffle.ticketPriceCents,
-      raffleName: raffle.name,
-    };
-  }
-
-  // Cria entry pendente com número sequencial. Mesma estratégia de retry
-  // contra race-condition em (raffleId, number).
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      const total = await prisma.raffleEntry.count({ where: { raffleId } });
-      const entry = await prisma.raffleEntry.create({
-        data: {
-          raffleId,
-          customerId,
-          number: total + 1,
-          confirmed: false,
-        },
-      });
-      return {
-        raffleEntryId: entry.id,
-        ticketPriceCents: raffle.ticketPriceCents,
-        raffleName: raffle.name,
-      };
-    } catch (e) {
-      if (
-        e instanceof Prisma.PrismaClientKnownRequestError &&
-        e.code === "P2002"
-      ) {
-        const existingNow = await prisma.raffleEntry.findUnique({
-          where: { raffleId_customerId: { raffleId, customerId } },
-        });
-        if (existingNow) {
-          if (existingNow.confirmed) {
-            throw new BusinessError("Você já está participando deste sorteio.");
-          }
-          return {
-            raffleEntryId: existingNow.id,
-            ticketPriceCents: raffle.ticketPriceCents,
-            raffleName: raffle.name,
-          };
-        }
-        continue;
-      }
-      throw e;
-    }
-  }
-  throw new BusinessError("Tente de novo em alguns segundos.");
-}
-
-/**
- * Chamada pelo webhook quando o OnlinePayment de uma entry confirma.
- * Marca a entry como confirmada e dispara WhatsApp com o número.
- */
-export async function confirmRaffleEntryFromPayment(raffleEntryId: string) {
-  const entry = await prisma.raffleEntry.findUnique({
-    where: { id: raffleEntryId },
-    include: {
-      customer: { select: { id: true, name: true, phone: true } },
-      raffle: { select: { id: true, name: true, prizeDescription: true } },
-    },
-  });
-  if (!entry) return;
-  if (entry.confirmed) return; // idempotente
-
-  await prisma.raffleEntry.update({
-    where: { id: entry.id },
-    data: { confirmed: true },
-  });
-
-  const message = `🎟️ *Você está no sorteio!*\n\nSorteio: *${entry.raffle.name}*${entry.raffle.prizeDescription ? `\nPrêmio: ${entry.raffle.prizeDescription}` : ""}\n\nSeu número da sorte: *${entry.number}*\n\nBoa sorte! 🍀`;
-  sendText({
-    phone: entry.customer.phone,
-    message,
-    event: "RAFFLE_WIN",
-    bypassToggles: true,
-    customerId: entry.customer.id,
-  }).catch((e) => console.error("[confirmRaffleEntryFromPayment] whatsapp:", e));
-}
-
-/** Pagamento expirou/cancelou — libera a entry pendente. */
-export async function releasePendingRaffleEntry(raffleEntryId: string) {
-  const entry = await prisma.raffleEntry.findUnique({
-    where: { id: raffleEntryId },
-  });
-  if (!entry || entry.confirmed) return;
-  await prisma.raffleEntry.delete({ where: { id: entry.id } });
 }

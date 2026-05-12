@@ -732,6 +732,7 @@ model Customer {
   loyaltyTransactions  LoyaltyTransaction[]
   sessions             CustomerSession[]
   raffleEntries        RaffleEntry[]
+  onlinePayments       OnlinePayment[]
 
   @@index([active, name])
   @@index([birthday])
@@ -798,9 +799,15 @@ model Raffle {
   closesAt         DateTime
   /// Data prevista do sorteio (informativa pro cliente — sorteio é manual).
   drawAt           DateTime?
-  /// Preço por ticket em centavos. 0 = rifa gratuita (entry imediata).
-  /// >0 = exige pagamento PIX antes de confirmar a entry.
+  /// Preço por número em centavos. 0 = rifa gratuita.
+  /// >0 = exige pagamento PIX antes de confirmar.
   ticketPriceCents Int          @default(0)
+  /// Quantidade total de números do pool (1 a totalNumbers). Quando todos
+  /// forem vendidos/reservados, a rifa esgota.
+  totalNumbers     Int          @default(100)
+  /// Limite de números por cliente. null = sem limite (típico em rifa paga).
+  /// Pra rifa gratuita o admin geralmente coloca 1 (1 pessoa = 1 número).
+  maxTicketsPerCustomer Int?
   status           RaffleStatus @default(DRAFT)
 
   /// Ganhador (entry sorteada). FK opcional preenchida ao sortear.
@@ -811,36 +818,39 @@ model Raffle {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  entries     RaffleEntry[]
-  winnerEntry RaffleEntry?  @relation("RaffleWinner", fields: [winnerEntryId], references: [id])
-  drawnBy     User?         @relation("RaffleDrawnBy", fields: [drawnById], references: [id])
+  entries        RaffleEntry[]
+  winnerEntry    RaffleEntry?    @relation("RaffleWinner", fields: [winnerEntryId], references: [id])
+  drawnBy        User?           @relation("RaffleDrawnBy", fields: [drawnById], references: [id])
+  onlinePayments OnlinePayment[]
 
   @@index([status, closesAt])
 }
 
 model RaffleEntry {
-  id         String   @id @default(cuid())
-  raffleId   String
-  customerId String
-  /// Número sequencial da entrada dentro do sorteio (1, 2, 3...). Facilita
-  /// comunicar "número 47 ganhou" e permite sortear via Math.random()
-  /// uniforme entre 1 e total.
-  number     Int
+  id              String   @id @default(cuid())
+  raffleId        String
+  customerId      String
+  /// Número escolhido pelo cliente dentro do pool da rifa (1..totalNumbers).
+  /// @@unique([raffleId, number]) garante que não há dois clientes com o
+  /// mesmo número na mesma rifa.
+  number          Int
   /// false enquanto aguarda pagamento PIX (rifa paga). Listagens/sorteio
-  /// filtram só confirmadas. Entries pendentes expiradas são limpas via
-  /// cleanup (vinculadas a OnlinePayment.dueDate).
-  confirmed  Boolean  @default(true)
-  createdAt  DateTime @default(now())
+  /// filtram só confirmadas. Pendentes expiradas (payment OVERDUE/CANCELLED)
+  /// são deletadas pra liberar o número.
+  confirmed       Boolean  @default(true)
+  /// FK pro OnlinePayment quando rifa paga. Vários números comprados na
+  /// mesma "cesta" apontam pro mesmo pagamento (1 PIX → N entries).
+  onlinePaymentId String?
+  createdAt       DateTime @default(now())
 
   raffle        Raffle         @relation(fields: [raffleId], references: [id], onDelete: Cascade)
   customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  onlinePayment OnlinePayment? @relation(fields: [onlinePaymentId], references: [id], onDelete: SetNull)
   wonAt         Raffle?        @relation("RaffleWinner")
-  onlinePayment OnlinePayment?
 
-  /// 1 cliente = 1 entrada por sorteio.
-  @@unique([raffleId, customerId])
   @@unique([raffleId, number])
   @@index([customerId])
+  @@index([onlinePaymentId])
 }
 
 // ============================================================
@@ -1185,33 +1195,36 @@ enum OnlinePaymentStatus {
 
 model OnlinePayment {
   id              String                   @id @default(cuid())
-  /// Polimórfico: pagamento ou de venda (saleId) ou de entrada de sorteio
-  /// (raffleEntryId). Exatamente um dos dois é preenchido. Validação no
-  /// service — Prisma não suporta CHECK constraints declarativos.
+  /// Polimórfico: ou paga uma Sale (saleId) ou paga N RaffleEntries
+  /// (raffleId + entries vinculadas). Exatamente um dos dois é preenchido.
   saleId          String?                  @unique
-  raffleEntryId   String?                  @unique
+  /// FK pra Raffle quando o pagamento é de números de rifa. Os números
+  /// específicos comprados nesse PIX ficam em RaffleEntry.onlinePaymentId.
+  raffleId        String?
   /// ID do payment no Asaas (formato pay_xxxxx).
   asaasPaymentId  String                   @unique
   /// ID do customer no Asaas que originou esse payment.
   asaasCustomerId String
+  /// ID do customer da Casa Roxa (sempre preenchido).
+  customerId      String
   billingType     OnlinePaymentBillingType
   value           Decimal                  @db.Decimal(14, 2)
   status          OnlinePaymentStatus      @default(PENDING)
-  /// URL pública do checkout transparente Asaas (cliente paga lá).
   invoiceUrl      String?
-  /// Chave PIX copia-cola (preenchida só pra billingType=PIX).
   pixPayload      String?
-  /// QR code PIX (base64 do PNG, preenchido só pra PIX).
   pixQrCodeBase64 String?                  @db.Text
   dueDate         DateTime
   paidAt          DateTime?
-  /// Último evento bruto do webhook (debug).
   lastEventRaw    Json?
   createdAt       DateTime                 @default(now())
   updatedAt       DateTime                 @updatedAt
 
-  sale        Sale?        @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  raffleEntry RaffleEntry? @relation(fields: [raffleEntryId], references: [id], onDelete: Cascade)
+  sale          Sale?          @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  raffle        Raffle?        @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  customer      Customer       @relation(fields: [customerId], references: [id])
+  raffleEntries RaffleEntry[]
 
   @@index([status, createdAt])
+  @@index([raffleId])
+  @@index([customerId])
 }

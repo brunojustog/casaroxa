@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { getAuthedCustomer } from "@/server/services/customer-session.service";
-import { enterRaffle } from "@/server/services/raffle.service";
+import { enterRaffleFree } from "@/server/services/raffle.service";
+import { BusinessError } from "@/server/auth-helpers";
 
 /**
- * Cliente identificado (cookie de sessão pós-OTP) entra num sorteio aberto.
- * Idempotente: chamar de novo retorna o mesmo número da entrada.
+ * Inscrição GRATUITA em rifa (ticketPriceCents=0). Cliente envia os
+ * números escolhidos da grade; entries são criadas com confirmed=true direto.
  */
+const bodySchema = z.object({
+  numbers: z.array(z.number().int().min(1)).min(1).max(500),
+});
+
 export async function POST(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
   const customer = await getAuthedCustomer();
@@ -23,17 +29,32 @@ export async function POST(
   }
 
   const { id } = await ctx.params;
-  const result = await enterRaffle(id, customer.id);
-  if (!result.ok) {
+  const body = await req.json().catch(() => null);
+  const parsed = bodySchema.safeParse(body);
+  if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: result.error },
+      { ok: false, error: parsed.error.errors[0]?.message ?? "Dados inválidos." },
       { status: 400 },
     );
   }
 
-  return NextResponse.json({
-    ok: true,
-    number: result.number,
-    alreadyEntered: result.alreadyEntered,
-  });
+  try {
+    const result = await enterRaffleFree(id, customer.id, parsed.data.numbers);
+    return NextResponse.json({
+      ok: true,
+      numbers: result.entries.map((e) => e.number),
+    });
+  } catch (e) {
+    if (e instanceof BusinessError) {
+      return NextResponse.json(
+        { ok: false, error: e.message },
+        { status: 400 },
+      );
+    }
+    console.error("[raffles/enter]", e);
+    return NextResponse.json(
+      { ok: false, error: "Erro inesperado. Tente de novo." },
+      { status: 500 },
+    );
+  }
 }

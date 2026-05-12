@@ -87,6 +87,20 @@ export type AsaasCustomer = {
   mobilePhone?: string;
 };
 
+/**
+ * Asaas exige `mobilePhone` no formato brasileiro: só DDD + número (10
+ * ou 11 dígitos), SEM o DDI 55. Mandar com DDI (ex.: 5514997445729) faz
+ * o Asaas reclamar por email "número incorreto". Nosso Customer.phone é
+ * salvo com DDI 55 pra usar com a Wuzapi; aqui a gente remove.
+ */
+function toAsaasPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
+    return digits.slice(2);
+  }
+  return digits;
+}
+
 export async function createAsaasCustomer(input: {
   name: string;
   phone: string;
@@ -95,7 +109,7 @@ export async function createAsaasCustomer(input: {
 }): Promise<{ ok: true; customerId: string } | { ok: false; error: string }> {
   const r = await asaasCall<AsaasCustomer>("POST", "/v3/customers", {
     name: input.name,
-    mobilePhone: input.phone,
+    mobilePhone: toAsaasPhone(input.phone),
     email: input.email ?? undefined,
     cpfCnpj: input.cpfCnpj,
     // notificationDisabled: true → não dispara notificações próprias do Asaas
@@ -111,11 +125,12 @@ export async function createAsaasCustomer(input: {
  */
 export async function updateAsaasCustomer(
   asaasCustomerId: string,
-  patch: { cpfCnpj?: string; email?: string | null },
+  patch: { cpfCnpj?: string; email?: string | null; phone?: string },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const body: Record<string, unknown> = {};
   if (patch.cpfCnpj) body.cpfCnpj = patch.cpfCnpj;
   if (patch.email !== undefined) body.email = patch.email ?? undefined;
+  if (patch.phone) body.mobilePhone = toAsaasPhone(patch.phone);
   const r = await asaasCall<AsaasCustomer>(
     "POST",
     `/v3/customers/${asaasCustomerId}`,

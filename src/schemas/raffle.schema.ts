@@ -37,13 +37,27 @@ export const raffleFormSchema = z
     opensAt: requiredDate(),
     closesAt: requiredDate(),
     drawAt: optionalDate(),
-    /// Preço por ticket em centavos. 0 = rifa gratuita.
+    /// Preço por número em centavos. 0 = rifa gratuita.
     ticketPriceCents: z
       .number()
       .int()
       .min(0, "Valor não pode ser negativo")
       .max(100000, "Valor máximo R$ 1.000")
       .default(0),
+    /// Pool fechado: quantos números a rifa tem (1..N).
+    totalNumbers: z
+      .number()
+      .int()
+      .min(1, "Mínimo 1 número")
+      .max(10000, "Máximo 10.000 números")
+      .default(100),
+    /// Limite por cliente. null = sem limite.
+    maxTicketsPerCustomer: z
+      .number()
+      .int()
+      .min(1)
+      .nullable()
+      .default(null),
     status: z.nativeEnum(RaffleStatus).default("DRAFT"),
   })
   .superRefine((v, ctx) => {
