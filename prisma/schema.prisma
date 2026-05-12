@@ -733,6 +733,8 @@ model Customer {
   sessions             CustomerSession[]
   raffleEntries        RaffleEntry[]
   onlinePayments       OnlinePayment[]
+  referralsMade        RaffleReferral[] @relation("ReferrerReferrals")
+  referralsReceived    RaffleReferral[] @relation("ReferredReferrals")
 
   @@index([active, name])
   @@index([birthday])
@@ -814,6 +816,7 @@ model Raffle {
 
   prizes         RafflePrize[]
   entries        RaffleEntry[]
+  referrals      RaffleReferral[]
   drawnBy        User?           @relation("RaffleDrawnBy", fields: [drawnById], references: [id])
   onlinePayments OnlinePayment[]
 
@@ -842,6 +845,33 @@ model RafflePrize {
   @@index([raffleId])
 }
 
+/// Indicação: cliente A compartilha o link da rifa com cookie ref=A, e
+/// quando o cliente B se inscreve, A ganha 1 entry bônus. Funciona só
+/// pra rifa GRATUITA (em rifa paga seria injusto com quem pagou).
+/// 1 par (A,B) só rende 1 bônus por rifa (unique [raffleId, referredCustomerId]).
+model RaffleReferral {
+  id                   String   @id @default(cuid())
+  raffleId             String
+  /// Cliente que compartilhou (ganha o bônus).
+  referrerCustomerId   String
+  /// Cliente que entrou pelo link (não ganha nada por isso — só o A ganha).
+  referredCustomerId   String
+  /// A entry bônus criada pro A. Pode ser null se rifa esgotou números.
+  awardedEntryId       String?  @unique
+  createdAt            DateTime @default(now())
+
+  raffle             Raffle      @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  referrer           Customer    @relation("ReferrerReferrals", fields: [referrerCustomerId], references: [id], onDelete: Cascade)
+  referred           Customer    @relation("ReferredReferrals", fields: [referredCustomerId], references: [id], onDelete: Cascade)
+  awardedEntry       RaffleEntry? @relation("ReferralAward", fields: [awardedEntryId], references: [id], onDelete: SetNull)
+
+  /// Mesmo "amigo B" só conta 1x por rifa pra mesma rifa (evita farm
+  /// de bonus quando B clica em vários links).
+  @@unique([raffleId, referredCustomerId])
+  @@index([referrerCustomerId])
+  @@index([raffleId])
+}
+
 model RaffleEntry {
   id              String   @id @default(cuid())
   raffleId        String
@@ -865,6 +895,8 @@ model RaffleEntry {
   /// Prêmio que esta entry ganhou (se ganhou algum). Relação 1-1 com
   /// RafflePrize. Uma entry só ganha um prêmio (regra: 1 cliente = 1 prêmio).
   wonPrize      RafflePrize?   @relation("PrizeWinner")
+  /// Referral que premiou esta entry (se foi entry bônus de indicação).
+  referralAward RaffleReferral? @relation("ReferralAward")
 
   @@unique([raffleId, number])
   @@index([customerId])

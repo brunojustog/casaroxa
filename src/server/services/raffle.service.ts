@@ -461,12 +461,24 @@ export async function reserveRaffleNumbersForPurchase(
 
 /**
  * Inscrição gratuita: cria N entries confirmadas direto (rifa gratuita).
+ *
+ * Quando `referrerCustomerId` é passado E é diferente do próprio cliente,
+ * tenta dar 1 entry bônus pro referrer (regra de indicação). O bônus
+ * respeita o pool fechado (se não tem número livre, ignora) e é
+ * idempotente: 1 par (referrer, referred, raffle) só gera 1 bônus.
+ *
+ * Bonus do referral IGNORA maxTicketsPerCustomer (incentivo de indicação).
  */
 export async function enterRaffleFree(
   raffleId: string,
   customerId: string,
   numbers: number[],
-): Promise<{ entries: { id: string; number: number }[]; raffleName: string }> {
+  referrerCustomerId?: string | null,
+): Promise<{
+  entries: { id: string; number: number }[];
+  raffleName: string;
+  referralAwarded?: { referrerName: string; referrerPhone: string; number: number };
+}> {
   return prisma.$transaction(async (tx) => {
     const { raffleName, ticketPriceCents } = await validatePurchase(
       raffleId,
@@ -493,9 +505,81 @@ export async function enterRaffleFree(
       ),
     );
 
+    // Bônus de indicação (se aplicável)
+    let referralAwarded:
+      | { referrerName: string; referrerPhone: string; number: number }
+      | undefined;
+    if (referrerCustomerId && referrerCustomerId !== customerId) {
+      // Já existe referral pra esse par nesta rifa? Idempotente
+      const existing = await tx.raffleReferral.findUnique({
+        where: {
+          raffleId_referredCustomerId: {
+            raffleId,
+            referredCustomerId: customerId,
+          },
+        },
+      });
+      if (!existing) {
+        const referrer = await tx.customer.findUnique({
+          where: { id: referrerCustomerId },
+          select: { id: true, name: true, phone: true, active: true },
+        });
+        if (referrer && referrer.active) {
+          // Procura próximo número livre no pool
+          const raffleFull = await tx.raffle.findUnique({
+            where: { id: raffleId },
+            select: { totalNumbers: true },
+          });
+          const takenNumbers = await tx.raffleEntry.findMany({
+            where: { raffleId },
+            select: { number: true },
+          });
+          const taken = new Set(takenNumbers.map((t) => t.number));
+          let bonusNumber: number | null = null;
+          for (let n = 1; n <= (raffleFull?.totalNumbers ?? 0); n++) {
+            if (!taken.has(n)) {
+              bonusNumber = n;
+              break;
+            }
+          }
+
+          let bonusEntryId: string | null = null;
+          if (bonusNumber !== null) {
+            const bonusEntry = await tx.raffleEntry.create({
+              data: {
+                raffleId,
+                customerId: referrerCustomerId,
+                number: bonusNumber,
+                confirmed: true,
+              },
+            });
+            bonusEntryId = bonusEntry.id;
+            referralAwarded = {
+              referrerName: referrer.name,
+              referrerPhone: referrer.phone,
+              number: bonusNumber,
+            };
+          }
+
+          // Cria o registro do referral (com ou sem awardedEntryId — se
+          // pool esgotou, awardedEntryId fica null, mas o par fica
+          // bloqueado pra não tentar de novo).
+          await tx.raffleReferral.create({
+            data: {
+              raffleId,
+              referrerCustomerId,
+              referredCustomerId: customerId,
+              awardedEntryId: bonusEntryId,
+            },
+          });
+        }
+      }
+    }
+
     return {
       entries: created.map((e) => ({ id: e.id, number: e.number })),
       raffleName,
+      referralAwarded,
     };
   });
 }

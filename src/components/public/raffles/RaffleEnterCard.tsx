@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
+  Copy,
   MessageCircle,
   QrCode,
+  Share2,
   Sparkles,
   RefreshCw,
 } from "lucide-react";
@@ -20,17 +22,21 @@ type NumbersState = {
 
 export function RaffleEnterCard({
   raffleId,
+  raffleName,
   ticketPriceCents,
   totalNumbers,
   maxTicketsPerCustomer,
   authenticated,
+  customerId,
   customerName,
 }: {
   raffleId: string;
+  raffleName: string;
   ticketPriceCents: number;
   totalNumbers: number;
   maxTicketsPerCustomer: number | null;
   authenticated: boolean;
+  customerId: string | null;
   customerName: string | null;
 }) {
   const router = useRouter();
@@ -103,6 +109,40 @@ export function RaffleEnterCard({
     }
     setSelected(next);
   };
+
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
+
+  // Gera link de indicação (só faz sentido se logado + rifa grátis)
+  useEffect(() => {
+    if (!customerId || isPaid) {
+      setShareLink(null);
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const url = `${window.location.origin}/sorteio/${raffleId}?ref=${customerId}`;
+    setShareLink(url);
+  }, [customerId, raffleId, isPaid]);
+
+  async function share() {
+    if (!shareLink) return;
+    const text = `Tô participando do sorteio "${raffleName}" da Casa Roxa! Entra pelo meu link e a gente ganha um número de presente. 🍀`;
+    if (typeof navigator !== "undefined" && "share" in navigator) {
+      try {
+        await navigator.share({ title: raffleName, text, url: shareLink });
+        return;
+      } catch {
+        /* user cancelou — cai no fallback de copiar */
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(`${text}\n${shareLink}`);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      /* */
+    }
+  }
 
   async function submit() {
     if (!authenticated) {
@@ -262,6 +302,48 @@ export function RaffleEnterCard({
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* Compartilhar pra ganhar bônus (só rifa gratuita + autenticado) */}
+      {shareLink && state.mine.length > 0 && (
+        <div className="rounded-md border-2 border-dashed border-amber-300 bg-amber-50/60 px-3 py-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Share2 className="h-4 w-4 text-amber-700" />
+            <p className="text-sm font-semibold text-amber-900">
+              Indique e ganhe outro número
+            </p>
+          </div>
+          <p className="text-xs text-amber-800">
+            Compartilhe seu link. Quando um amigo se inscrever no sorteio pelo
+            seu link, <strong>você ganha um número extra</strong> automaticamente.
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={share}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              {shareCopied ? "Link copiado!" : "Compartilhar"}
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(shareLink);
+                  setShareCopied(true);
+                  setTimeout(() => setShareCopied(false), 2000);
+                } catch {
+                  /* */
+                }
+              }}
+              title="Só copiar o link"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       )}
 

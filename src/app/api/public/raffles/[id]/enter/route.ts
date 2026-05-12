@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { getAuthedCustomer } from "@/server/services/customer-session.service";
 import { enterRaffleFree } from "@/server/services/raffle.service";
 import { BusinessError } from "@/server/auth-helpers";
+import { sendText } from "@/server/services/whatsapp.service";
 
 /**
- * Inscrição GRATUITA em rifa (ticketPriceCents=0). Cliente envia os
- * números escolhidos da grade; entries são criadas com confirmed=true direto.
+ * Inscrição GRATUITA em rifa. Cliente envia os números escolhidos da
+ * grade. Lê cookie de referral pra premiar quem indicou.
  */
 const bodySchema = z.object({
   numbers: z.array(z.number().int().min(1)).min(1).max(500),
 });
+
+const REF_COOKIE = "casaroxa_ref";
 
 export async function POST(
   req: Request,
@@ -38,11 +42,47 @@ export async function POST(
     );
   }
 
+  // Lê cookie de referral — formato "raffleId:referrerId"
+  let referrerCustomerId: string | null = null;
+  const store = await cookies();
+  const refCookie = store.get(REF_COOKIE)?.value;
+  if (refCookie) {
+    const [cookieRaffleId, cookieRefId] = refCookie.split(":");
+    if (cookieRaffleId === id && cookieRefId && cookieRefId !== customer.id) {
+      referrerCustomerId = cookieRefId;
+    }
+  }
+
   try {
-    const result = await enterRaffleFree(id, customer.id, parsed.data.numbers);
+    const result = await enterRaffleFree(
+      id,
+      customer.id,
+      parsed.data.numbers,
+      referrerCustomerId,
+    );
+
+    // Limpa cookie de referral (já foi usado pra essa rifa)
+    if (referrerCustomerId) {
+      store.delete(REF_COOKIE);
+    }
+
+    // Dispara WhatsApp pro referrer (best-effort) avisando do bônus
+    if (result.referralAwarded) {
+      const r = result.referralAwarded;
+      sendText({
+        phone: r.referrerPhone,
+        message: `🎁 *Você ganhou um número bônus!*\n\nUma indicação sua acabou de entrar no sorteio *${result.raffleName}*. Como agradecimento, te demos o número *${r.number}* automaticamente.\n\nBoa sorte! 🍀`,
+        event: "RAFFLE_WIN",
+        bypassToggles: true,
+      }).catch((e) => console.error("[raffles/enter] referral whatsapp:", e));
+    }
+
     return NextResponse.json({
       ok: true,
       numbers: result.entries.map((e) => e.number),
+      referralAwarded: result.referralAwarded
+        ? { number: result.referralAwarded.number }
+        : null,
     });
   } catch (e) {
     if (e instanceof BusinessError) {

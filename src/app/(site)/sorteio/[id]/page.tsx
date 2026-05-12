@@ -4,6 +4,7 @@ import { Calendar, Gift, Trophy, Users } from "lucide-react";
 import { getRaffleForPublic } from "@/server/services/raffle.service";
 import { getAuthedCustomer } from "@/server/services/customer-session.service";
 import { RaffleEnterCard } from "@/components/public/raffles/RaffleEnterCard";
+import { ReferralTracker } from "@/components/public/raffles/ReferralTracker";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export default async function PublicRafflePage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 py-4">
+      <ReferralTracker raffleId={raffle.id} />
       <div className="rounded-xl border border-roxa-100 bg-white shadow-sm overflow-hidden">
         {raffle.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -163,10 +165,12 @@ export default async function PublicRafflePage({
       {isOpen && (
         <RaffleEnterCard
           raffleId={raffle.id}
+          raffleName={raffle.name}
           ticketPriceCents={raffle.ticketPriceCents}
           totalNumbers={raffle.totalNumbers}
           maxTicketsPerCustomer={raffle.maxTicketsPerCustomer}
           authenticated={Boolean(customer)}
+          customerId={customer?.id ?? null}
           customerName={customer?.name ?? null}
         />
       )}
