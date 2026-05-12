@@ -2,18 +2,21 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Trophy, X } from "lucide-react";
-import { drawRaffleAction } from "@/server/actions/raffles";
+import { drawNextPrizeAction } from "@/server/actions/raffles";
 
 type Result = {
+  prizePosition: number;
+  prizeDescription: string;
   winnerNumber: number;
   customerName: string;
   customerPhone: string;
+  isFinalPrize: boolean;
 };
 
 type Phase = "spinning" | "revealing" | "done" | "error";
 
 /**
- * Modal de sorteio com animação de roleta. Chama drawRaffleAction
+ * Modal de sorteio com animação de roleta. Chama drawNextPrizeAction
  * imediatamente ao abrir e roda animação enquanto espera. Quando o
  * servidor responde com o número, desacelera até parar nele.
  */
@@ -21,12 +24,14 @@ export function RaffleDrawDialog({
   open,
   raffleId,
   totalNumbers,
+  nextPrize,
   onClose,
   onDone,
 }: {
   open: boolean;
   raffleId: string;
   totalNumbers: number;
+  nextPrize: { position: number; description: string } | null;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -36,7 +41,6 @@ export function RaffleDrawDialog({
   const [error, setError] = useState<string | null>(null);
   const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset on open
   useEffect(() => {
     if (!open) return;
     setPhase("spinning");
@@ -44,8 +48,7 @@ export function RaffleDrawDialog({
     setResult(null);
     setError(null);
 
-    // Dispara o sorteio em paralelo à animação inicial
-    drawRaffleAction(raffleId)
+    drawNextPrizeAction(raffleId)
       .then((res) => {
         if (!res.ok) {
           setError(res.error);
@@ -54,7 +57,6 @@ export function RaffleDrawDialog({
         }
         if (res.data) {
           setResult(res.data);
-          // Pequeno delay pra dar sensação de "sorteando"
           setTimeout(() => setPhase("revealing"), 1200);
         }
       })
@@ -64,7 +66,6 @@ export function RaffleDrawDialog({
       });
   }, [open, raffleId, totalNumbers]);
 
-  // Animação spinning — números aleatórios rápidos
   useEffect(() => {
     if (!open || phase !== "spinning") return;
     let cancelled = false;
@@ -80,12 +81,10 @@ export function RaffleDrawDialog({
     };
   }, [open, phase, totalNumbers]);
 
-  // Animação revealing — desacelera até parar no número certo
   useEffect(() => {
     if (phase !== "revealing" || !result) return;
     let cancelled = false;
     const target = result.winnerNumber;
-    // Sequência de tempos crescentes (desaceleração)
     const delays = [80, 100, 130, 170, 220, 280, 360, 480, 640, 850];
     let step = 0;
     const tick = () => {
@@ -95,9 +94,7 @@ export function RaffleDrawDialog({
         setPhase("done");
         return;
       }
-      // Nas últimas iterações, "aproxima" do número alvo
       if (step >= delays.length - 3) {
-        // Vai chegando perto do target
         const offset = delays.length - 1 - step;
         const candidate =
           ((target - offset - 1 + totalNumbers) % totalNumbers) + 1;
@@ -119,6 +116,10 @@ export function RaffleDrawDialog({
 
   if (!open) return null;
 
+  const prizeBeingDrawn = result
+    ? { position: result.prizePosition, description: result.prizeDescription }
+    : nextPrize;
+
   return (
     <div
       className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4"
@@ -129,7 +130,9 @@ export function RaffleDrawDialog({
         <header className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
           <h3 className="font-serif text-lg font-semibold text-slate-900 inline-flex items-center gap-2">
             <Trophy className="h-5 w-5 text-amber-500" />
-            Sorteio em andamento
+            {prizeBeingDrawn
+              ? `Sorteio: ${prizeBeingDrawn.position}º lugar`
+              : "Sorteio em andamento"}
           </h3>
           {phase === "done" || phase === "error" ? (
             <button
@@ -147,6 +150,12 @@ export function RaffleDrawDialog({
         </header>
 
         <div className="p-8 text-center space-y-5">
+          {prizeBeingDrawn && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              🎁 <strong>{prizeBeingDrawn.description}</strong>
+            </div>
+          )}
+
           {phase === "error" ? (
             <div className="space-y-3">
               <p className="text-red-700 font-medium">Não foi possível sortear</p>
@@ -194,7 +203,9 @@ export function RaffleDrawDialog({
                     {maskPhone(result.customerPhone)}
                   </p>
                   <p className="text-xs text-slate-500 pt-2">
-                    Ganhador notificado por WhatsApp.
+                    {result.isFinalPrize
+                      ? "Foi o último prêmio! Sorteio concluído."
+                      : "Ganhador notificado por WhatsApp. Sortear o próximo prêmio quando quiser."}
                   </p>
                   <button
                     type="button"
@@ -204,7 +215,7 @@ export function RaffleDrawDialog({
                     }}
                     className="mt-3 inline-flex rounded-md bg-roxa-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-roxa-800"
                   >
-                    Fechar
+                    {result.isFinalPrize ? "Fechar" : "Fechar"}
                   </button>
                 </div>
               )}

@@ -49,10 +49,11 @@ export default async function ComprovantePage({
   const numbers = data.raffleEntries.map((e) => e.number);
   const paid = data.status === "RECEIVED" || data.status === "CONFIRMED";
   const isDrawn = raffle.status === "DRAWN";
-  const isWinner =
-    isDrawn &&
-    raffle.winnerEntry &&
-    numbers.includes(raffle.winnerEntry.number);
+  // Lista os prêmios em que esta cesta ganhou (entry.number bate com prize.winnerEntry.number)
+  const myWonPrizes = raffle.prizes
+    .filter((p) => p.winnerEntry && numbers.includes(p.winnerEntry.number))
+    .sort((a, b) => a.position - b.position);
+  const isWinner = myWonPrizes.length > 0;
 
   return (
     <div className="mx-auto max-w-md py-4 space-y-4">
@@ -97,24 +98,49 @@ export default async function ComprovantePage({
 
       {/* Ganhador */}
       {isWinner && (
-        <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-5 text-center">
-          <Trophy className="mx-auto h-12 w-12 text-amber-600" />
-          <p className="mt-2 font-serif text-xl font-bold text-amber-900">
-            🎉 Você ganhou!
-          </p>
-          <p className="text-sm text-amber-800">
-            Número sorteado: <strong>#{raffle.winnerEntry!.number}</strong>
-          </p>
+        <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-5 space-y-3">
+          <div className="text-center">
+            <Trophy className="mx-auto h-12 w-12 text-amber-600" />
+            <p className="mt-2 font-serif text-xl font-bold text-amber-900">
+              🎉 Você ganhou{myWonPrizes.length > 1 ? " prêmios" : "!"}
+            </p>
+          </div>
+          <ul className="space-y-1.5">
+            {myWonPrizes.map((p) => (
+              <li
+                key={p.id}
+                className="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm"
+              >
+                <p className="font-semibold text-amber-900">
+                  {p.position}º lugar — #{p.winnerEntry!.number}
+                </p>
+                <p className="text-xs text-slate-700">🎁 {p.description}</p>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
-      {isDrawn && !isWinner && raffle.winnerEntry && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-          <p className="text-sm text-slate-700">
-            Sorteio realizado. Número sorteado:{" "}
-            <strong className="font-mono">#{raffle.winnerEntry.number}</strong>{" "}
-            ({raffle.winnerEntry.customer.name.split(/\s+/)[0]})
+      {isDrawn && !isWinner && raffle.prizes.some((p) => p.winnerEntry) && (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 text-center">
+            Sorteio realizado
           </p>
+          <ul className="space-y-1 text-xs text-slate-700">
+            {raffle.prizes
+              .filter((p) => p.winnerEntry)
+              .sort((a, b) => a.position - b.position)
+              .map((p) => (
+                <li key={p.id} className="flex justify-between gap-2">
+                  <span>
+                    {p.position}º · #{p.winnerEntry!.number}
+                  </span>
+                  <span className="text-slate-500 truncate">
+                    {p.winnerEntry!.customer.name.split(/\s+/)[0]}
+                  </span>
+                </li>
+              ))}
+          </ul>
         </div>
       )}
 
@@ -126,10 +152,24 @@ export default async function ComprovantePage({
             {raffle.name}
           </h2>
         </div>
-        {raffle.prizeDescription && (
-          <p className="text-sm text-slate-700">
-            🎁 <strong>Prêmio:</strong> {raffle.prizeDescription}
-          </p>
+        {raffle.prizes.length > 0 && (
+          <div className="space-y-1 text-sm text-slate-700">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              {raffle.prizes.length === 1
+                ? "Prêmio"
+                : `${raffle.prizes.length} prêmios`}
+            </p>
+            <ul className="space-y-1">
+              {raffle.prizes.map((p) => (
+                <li key={p.id} className="text-sm">
+                  <span className="font-mono text-xs text-slate-500">
+                    {p.position}º
+                  </span>{" "}
+                  🎁 {p.description}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         {raffle.drawAt && !isDrawn && (
           <p className="text-xs text-slate-600 inline-flex items-center gap-1">
@@ -154,7 +194,9 @@ export default async function ComprovantePage({
         </p>
         <div className="flex flex-wrap gap-2">
           {numbers.map((n) => {
-            const winner = isWinner && raffle.winnerEntry?.number === n;
+            const winner = myWonPrizes.some(
+              (p) => p.winnerEntry?.number === n,
+            );
             return (
               <span
                 key={n}

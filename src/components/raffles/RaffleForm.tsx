@@ -3,9 +3,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Save } from "lucide-react";
+import { Plus, Save, Trash2, Trophy } from "lucide-react";
 import { RaffleStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,6 @@ type Mode = { type: "create" } | { type: "edit"; id: string };
 
 export type RaffleFormDefaults = Partial<{
   name: string;
-  prizeDescription: string | null;
   imageUrl: string | null;
   opensAt: Date;
   closesAt: Date;
@@ -33,6 +32,7 @@ export type RaffleFormDefaults = Partial<{
   ticketPriceCents: number;
   totalNumbers: number;
   maxTicketsPerCustomer: number | null;
+  prizes: Array<{ position: number; description: string }>;
   status: RaffleStatus;
 }>;
 
@@ -61,7 +61,6 @@ export function RaffleForm({
     resolver: zodResolver(raffleFormSchema),
     defaultValues: {
       name: defaultValues?.name ?? "",
-      prizeDescription: defaultValues?.prizeDescription ?? "",
       imageUrl: defaultValues?.imageUrl ?? "",
       opensAt: toLocalInput(defaultValues?.opensAt ?? now),
       closesAt: toLocalInput(defaultValues?.closesAt ?? inDays(7)),
@@ -69,9 +68,22 @@ export function RaffleForm({
       ticketPriceCents: defaultValues?.ticketPriceCents ?? 0,
       totalNumbers: defaultValues?.totalNumbers ?? 100,
       maxTicketsPerCustomer: defaultValues?.maxTicketsPerCustomer ?? null,
+      prizes: defaultValues?.prizes ?? [{ position: 1, description: "" }],
       status: defaultValues?.status ?? "DRAFT",
     } as unknown as RaffleFormData,
   });
+
+  const prizesArray = useFieldArray({
+    control: form.control,
+    name: "prizes",
+  });
+
+  function addPrize() {
+    const nextPos =
+      Math.max(0, ...prizesArray.fields.map((_, i) => form.getValues(`prizes.${i}.position`) ?? 0)) +
+      1;
+    prizesArray.append({ position: nextPos, description: "" });
+  }
 
   const errors = form.formState.errors;
 
@@ -104,16 +116,85 @@ export function RaffleForm({
         />
       </Field>
 
-      <Field
-        label="Descrição do prêmio"
-        hint="Texto livre — aparece na landing pública. Você entrega manualmente após o sorteio."
-      >
-        <Textarea
-          rows={3}
-          {...form.register("prizeDescription")}
-          placeholder="1 Combo Família com 4 acompanhamentos, à escolha do ganhador."
-        />
-      </Field>
+      <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <div className="flex items-center justify-between">
+          <h3 className="inline-flex items-center gap-2 font-medium text-slate-900">
+            <Trophy className="h-4 w-4 text-amber-500" />
+            Prêmios
+            <span className="text-xs text-slate-500">
+              ({prizesArray.fields.length} {prizesArray.fields.length === 1 ? "prêmio" : "prêmios"})
+            </span>
+          </h3>
+          <button
+            type="button"
+            onClick={addPrize}
+            className="inline-flex items-center gap-1 rounded-md bg-roxa-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-roxa-800"
+          >
+            <Plus className="h-3.5 w-3.5" /> Adicionar prêmio
+          </button>
+        </div>
+        <p className="text-xs text-slate-600">
+          Sorteio começa pelo prêmio com <strong>maior posição</strong> e termina
+          no <strong>1º lugar</strong> (suspense crescente). Cada cliente ganha
+          no máximo 1 prêmio.
+        </p>
+        {errors.prizes && typeof errors.prizes.message === "string" && (
+          <p className="text-xs text-red-600">{errors.prizes.message}</p>
+        )}
+
+        <div className="space-y-2">
+          {prizesArray.fields.map((f, i) => (
+            <div
+              key={f.id}
+              className="flex items-start gap-2 rounded-md border border-slate-200 bg-white p-2"
+            >
+              <div className="w-16 shrink-0">
+                <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">
+                  Posição
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={99}
+                  {...form.register(`prizes.${i}.position`, {
+                    valueAsNumber: true,
+                  })}
+                  className="text-center"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">
+                  Descrição
+                </label>
+                <Input
+                  {...form.register(`prizes.${i}.description`)}
+                  placeholder="Ex.: Combo Costela + Coca 2L"
+                />
+                {errors.prizes?.[i]?.description?.message && (
+                  <p className="mt-0.5 text-[11px] text-red-600">
+                    {errors.prizes[i]?.description?.message}
+                  </p>
+                )}
+                {errors.prizes?.[i]?.position?.message && (
+                  <p className="mt-0.5 text-[11px] text-red-600">
+                    {errors.prizes[i]?.position?.message}
+                  </p>
+                )}
+              </div>
+              {prizesArray.fields.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => prizesArray.remove(i)}
+                  className="mt-5 inline-flex items-center rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                  aria-label="Remover prêmio"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
 
       <Field label="URL da imagem (banner do prêmio)" hint="Opcional">
         <Input {...form.register("imageUrl")} placeholder="https://..." />

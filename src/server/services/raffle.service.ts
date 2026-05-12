@@ -33,9 +33,21 @@ export async function listRaffles(filters: RaffleListFilters) {
     where,
     orderBy: { createdAt: "desc" },
     include: {
-      _count: { select: { entries: { where: { confirmed: true } } } },
-      winnerEntry: {
-        include: { customer: { select: { id: true, name: true, phone: true } } },
+      _count: {
+        select: {
+          entries: { where: { confirmed: true } },
+          prizes: true,
+        },
+      },
+      prizes: {
+        orderBy: { position: "asc" },
+        include: {
+          winnerEntry: {
+            include: {
+              customer: { select: { id: true, name: true, phone: true } },
+            },
+          },
+        },
       },
     },
   });
@@ -55,8 +67,15 @@ export async function getRaffleById(id: string) {
           },
         },
       },
-      winnerEntry: {
-        include: { customer: { select: { id: true, name: true, phone: true } } },
+      prizes: {
+        orderBy: { position: "asc" },
+        include: {
+          winnerEntry: {
+            include: {
+              customer: { select: { id: true, name: true, phone: true } },
+            },
+          },
+        },
       },
     },
   });
@@ -74,7 +93,6 @@ export async function listOpenRaffles() {
     select: {
       id: true,
       name: true,
-      prizeDescription: true,
       imageUrl: true,
       opensAt: true,
       closesAt: true,
@@ -82,6 +100,10 @@ export async function listOpenRaffles() {
       ticketPriceCents: true,
       totalNumbers: true,
       _count: { select: { entries: { where: { confirmed: true } } } },
+      prizes: {
+        orderBy: { position: "asc" },
+        select: { id: true, position: true, description: true },
+      },
     },
   });
 }
@@ -92,7 +114,6 @@ export async function getRaffleForPublic(id: string) {
     select: {
       id: true,
       name: true,
-      prizeDescription: true,
       imageUrl: true,
       opensAt: true,
       closesAt: true,
@@ -103,10 +124,19 @@ export async function getRaffleForPublic(id: string) {
       totalNumbers: true,
       maxTicketsPerCustomer: true,
       _count: { select: { entries: { where: { confirmed: true } } } },
-      winnerEntry: {
+      prizes: {
+        orderBy: { position: "asc" },
         select: {
-          number: true,
-          customer: { select: { name: true } },
+          id: true,
+          position: true,
+          description: true,
+          drawnAt: true,
+          winnerEntry: {
+            select: {
+              number: true,
+              customer: { select: { name: true } },
+            },
+          },
         },
       },
     },
@@ -161,12 +191,19 @@ export async function listRafflesForCustomer(customerId: string) {
         select: {
           id: true,
           name: true,
-          prizeDescription: true,
           status: true,
           closesAt: true,
           drawAt: true,
           drawnAt: true,
-          winnerEntryId: true,
+          prizes: {
+            orderBy: { position: "asc" },
+            select: {
+              id: true,
+              position: true,
+              description: true,
+              winnerEntryId: true,
+            },
+          },
         },
       },
     },
@@ -179,7 +216,6 @@ export async function createRaffle(input: RaffleFormData) {
   return prisma.raffle.create({
     data: {
       name: input.name,
-      prizeDescription: input.prizeDescription,
       imageUrl: input.imageUrl,
       opensAt: input.opensAt,
       closesAt: input.closesAt,
@@ -188,14 +224,24 @@ export async function createRaffle(input: RaffleFormData) {
       totalNumbers: input.totalNumbers,
       maxTicketsPerCustomer: input.maxTicketsPerCustomer,
       status: input.status,
+      prizes: {
+        create: input.prizes.map((p) => ({
+          position: p.position,
+          description: p.description,
+        })),
+      },
     },
+    include: { prizes: { orderBy: { position: "asc" } } },
   });
 }
 
 export async function updateRaffle(id: string, input: RaffleFormData) {
   const current = await prisma.raffle.findUnique({
     where: { id },
-    include: { _count: { select: { entries: true } } },
+    include: {
+      _count: { select: { entries: true } },
+      prizes: { select: { id: true, position: true, drawnAt: true } },
+    },
   });
   if (!current) throw new BusinessError("Sorteio não encontrado.");
   if (current.status === "DRAWN") {
@@ -204,7 +250,6 @@ export async function updateRaffle(id: string, input: RaffleFormData) {
   if (current.status === "CANCELLED") {
     throw new BusinessError("Sorteio cancelado.");
   }
-  // Mudar preço/total/limite depois de ter inscritos é injusto.
   if (current._count.entries > 0) {
     if (current.ticketPriceCents !== input.ticketPriceCents) {
       throw new BusinessError(
@@ -217,20 +262,39 @@ export async function updateRaffle(id: string, input: RaffleFormData) {
       );
     }
   }
-  return prisma.raffle.update({
-    where: { id },
-    data: {
-      name: input.name,
-      prizeDescription: input.prizeDescription,
-      imageUrl: input.imageUrl,
-      opensAt: input.opensAt,
-      closesAt: input.closesAt,
-      drawAt: input.drawAt,
-      ticketPriceCents: input.ticketPriceCents,
-      totalNumbers: input.totalNumbers,
-      maxTicketsPerCustomer: input.maxTicketsPerCustomer,
-      status: input.status,
-    },
+  // Não dá pra deletar/alterar prêmios já sorteados
+  const alreadyDrawn = current.prizes.some((p) => p.drawnAt !== null);
+  if (alreadyDrawn) {
+    throw new BusinessError(
+      "Algum prêmio já foi sorteado — não dá pra editar a lista de prêmios.",
+    );
+  }
+
+  return prisma.$transaction(async (tx) => {
+    // Recria a lista de prêmios (delete all + create) — só seguro porque
+    // nenhum foi sorteado (validação acima).
+    await tx.rafflePrize.deleteMany({ where: { raffleId: id } });
+    return tx.raffle.update({
+      where: { id },
+      data: {
+        name: input.name,
+        imageUrl: input.imageUrl,
+        opensAt: input.opensAt,
+        closesAt: input.closesAt,
+        drawAt: input.drawAt,
+        ticketPriceCents: input.ticketPriceCents,
+        totalNumbers: input.totalNumbers,
+        maxTicketsPerCustomer: input.maxTicketsPerCustomer,
+        status: input.status,
+        prizes: {
+          create: input.prizes.map((p) => ({
+            position: p.position,
+            description: p.description,
+          })),
+        },
+      },
+      include: { prizes: { orderBy: { position: "asc" } } },
+    });
   });
 }
 
@@ -448,7 +512,16 @@ export async function confirmRaffleEntriesFromPayment(paymentId: string) {
       raffleEntries: {
         include: {
           customer: { select: { id: true, name: true, phone: true } },
-          raffle: { select: { id: true, name: true, prizeDescription: true } },
+          raffle: {
+            select: {
+              id: true,
+              name: true,
+              prizes: {
+                orderBy: { position: "asc" },
+                select: { position: true, description: true },
+              },
+            },
+          },
         },
       },
     },
@@ -469,7 +542,10 @@ export async function confirmRaffleEntriesFromPayment(paymentId: string) {
     .map((e) => e.number)
     .sort((a, b) => a - b)
     .join(", ");
-  const message = `🎟️ *Você está no sorteio!*\n\nSorteio: *${raffle.name}*${raffle.prizeDescription ? `\nPrêmio: ${raffle.prizeDescription}` : ""}\n\nSeus números da sorte: *${numbers}*\n\nVer comprovante: https://casaroxa.com.br/sorteio/${raffle.id}/comprovante/${payment.id}\n\nBoa sorte! 🍀`;
+  const prizesText = raffle.prizes
+    .map((p) => `  ${p.position}º — ${p.description}`)
+    .join("\n");
+  const message = `🎟️ *Você está no sorteio!*\n\nSorteio: *${raffle.name}*\n\nPrêmios:\n${prizesText}\n\nSeus números da sorte: *${numbers}*\n\nVer comprovante: https://casaroxa.com.br/sorteio/${raffle.id}/comprovante/${payment.id}\n\nBoa sorte! 🍀`;
   sendText({
     phone: customer.phone,
     message,
@@ -509,16 +585,24 @@ export async function getRaffleComprovante(
         select: {
           id: true,
           name: true,
-          prizeDescription: true,
           status: true,
           drawAt: true,
           drawnAt: true,
           totalNumbers: true,
           ticketPriceCents: true,
-          winnerEntry: {
+          prizes: {
+            orderBy: { position: "asc" },
             select: {
-              number: true,
-              customer: { select: { name: true } },
+              id: true,
+              position: true,
+              description: true,
+              drawnAt: true,
+              winnerEntry: {
+                select: {
+                  number: true,
+                  customer: { select: { name: true } },
+                },
+              },
             },
           },
         },
@@ -542,27 +626,40 @@ export async function releasePendingRaffleEntries(paymentId: string) {
 
 // ---------- Sortear ----------
 
-export type DrawRaffleResult = {
+export type DrawPrizeResult = {
+  prizeId: string;
+  prizePosition: number;
+  prizeDescription: string;
   winnerEntryId: string;
   winnerNumber: number;
   customerName: string;
   customerPhone: string;
+  /** true se este foi o último prêmio (raffle agora é DRAWN) */
+  isFinalPrize: boolean;
 };
 
-export async function drawRaffle(
+/**
+ * Sorteia o próximo prêmio (maior position ainda não sorteada — vai do
+ * "secundário" pro "principal" pra dar suspense). Cliente que já ganhou
+ * outro prêmio fica fora do sorteio.
+ *
+ * Quando todos os prêmios são sorteados, marca Raffle.status=DRAWN.
+ */
+export async function drawNextPrize(
   raffleId: string,
   drawnByUserId: string,
-): Promise<DrawRaffleResult> {
+): Promise<DrawPrizeResult> {
   const result = await prisma.$transaction(async (tx) => {
     const raffle = await tx.raffle.findUnique({
       where: { id: raffleId },
       include: {
         _count: { select: { entries: { where: { confirmed: true } } } },
+        prizes: { orderBy: { position: "asc" } },
       },
     });
     if (!raffle) throw new BusinessError("Sorteio não encontrado.");
     if (raffle.status === "DRAWN") {
-      throw new BusinessError("Sorteio já foi realizado.");
+      throw new BusinessError("Todos os prêmios já foram sorteados.");
     }
     if (raffle.status === "CANCELLED") {
       throw new BusinessError("Sorteio cancelado — não pode sortear.");
@@ -573,38 +670,73 @@ export async function drawRaffle(
       );
     }
 
-    const confirmedEntries = await tx.raffleEntry.findMany({
-      where: { raffleId, confirmed: true },
+    // Sorteia do maior position pro menor (último a sortear = 1º lugar)
+    const pendingPrizes = raffle.prizes
+      .filter((p) => !p.winnerEntryId)
+      .sort((a, b) => b.position - a.position);
+    if (pendingPrizes.length === 0) {
+      throw new BusinessError("Todos os prêmios já foram sorteados.");
+    }
+    const nextPrize = pendingPrizes[0];
+
+    // IDs de entries que já ganharam (não pode repetir vencedor)
+    const alreadyWonIds = raffle.prizes
+      .filter((p) => p.winnerEntryId)
+      .map((p) => p.winnerEntryId as string);
+
+    const eligibleEntries = await tx.raffleEntry.findMany({
+      where: {
+        raffleId,
+        confirmed: true,
+        id: { notIn: alreadyWonIds },
+      },
       orderBy: { number: "asc" },
       include: { customer: { select: { id: true, name: true, phone: true } } },
     });
-    const winnerIdx = Math.floor(Math.random() * confirmedEntries.length);
-    const winnerEntry = confirmedEntries[winnerIdx];
-    if (!winnerEntry) {
-      throw new BusinessError("Falha ao localizar entry sorteada.");
+    if (eligibleEntries.length === 0) {
+      throw new BusinessError(
+        "Não há mais inscritos elegíveis (todos já ganharam algum prêmio).",
+      );
     }
+    const winnerIdx = Math.floor(Math.random() * eligibleEntries.length);
+    const winnerEntry = eligibleEntries[winnerIdx];
 
-    await tx.raffle.update({
-      where: { id: raffleId },
-      data: {
-        status: "DRAWN",
-        winnerEntryId: winnerEntry.id,
-        drawnAt: new Date(),
-        drawnById: drawnByUserId,
-      },
+    const now = new Date();
+    await tx.rafflePrize.update({
+      where: { id: nextPrize.id },
+      data: { winnerEntryId: winnerEntry.id, drawnAt: now },
     });
 
+    const isFinal = pendingPrizes.length === 1;
+    if (isFinal) {
+      await tx.raffle.update({
+        where: { id: raffleId },
+        data: {
+          status: "DRAWN",
+          drawnAt: now,
+          drawnById: drawnByUserId,
+        },
+      });
+    }
+
     return {
+      prizeId: nextPrize.id,
+      prizePosition: nextPrize.position,
+      prizeDescription: nextPrize.description,
       winnerEntryId: winnerEntry.id,
       winnerNumber: winnerEntry.number,
       customerName: winnerEntry.customer.name,
       customerPhone: winnerEntry.customer.phone,
       raffleName: raffle.name,
-      prizeDescription: raffle.prizeDescription,
+      isFinalPrize: isFinal,
     };
   });
 
-  const message = `🎉 *Parabéns, ${result.customerName}!*\n\nVocê é o ganhador do sorteio *${result.raffleName}* da Casa Roxa!\n\nNúmero sorteado: *${result.winnerNumber}*${result.prizeDescription ? `\n\n🎁 Prêmio: ${result.prizeDescription}` : ""}\n\nEm breve entraremos em contato pra combinar a entrega.`;
+  const positionLabel =
+    result.prizePosition === 1
+      ? "1º lugar"
+      : `${result.prizePosition}º lugar`;
+  const message = `🎉 *Parabéns, ${result.customerName}!*\n\nVocê ganhou o *${positionLabel}* do sorteio *${result.raffleName}* da Casa Roxa!\n\n🎁 Prêmio: ${result.prizeDescription}\nNúmero sorteado: *${result.winnerNumber}*\n\nEm breve entraremos em contato pra combinar a entrega.`;
 
   sendText({
     phone: result.customerPhone,
@@ -612,12 +744,16 @@ export async function drawRaffle(
     event: "RAFFLE_WIN",
     bypassToggles: true,
     customerId: undefined,
-  }).catch((e) => console.error("[drawRaffle] whatsapp:", e));
+  }).catch((e) => console.error("[drawNextPrize] whatsapp:", e));
 
   return {
+    prizeId: result.prizeId,
+    prizePosition: result.prizePosition,
+    prizeDescription: result.prizeDescription,
     winnerEntryId: result.winnerEntryId,
     winnerNumber: result.winnerNumber,
     customerName: result.customerName,
     customerPhone: result.customerPhone,
+    isFinalPrize: result.isFinalPrize,
   };
 }

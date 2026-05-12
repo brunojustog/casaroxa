@@ -193,7 +193,10 @@ export default async function MyOrdersPage() {
           </h2>
           <ul className="divide-y divide-roxa-50 rounded-xl border border-roxa-100 bg-white shadow-sm">
             {raffleEntries.map((e) => {
-              const won = e.raffle.winnerEntryId === e.id;
+              const myPrize = e.raffle.prizes.find(
+                (p) => p.winnerEntryId === e.id,
+              );
+              const won = Boolean(myPrize);
               return (
                 <li key={e.id}>
                   <Link
@@ -230,9 +233,9 @@ export default async function MyOrdersPage() {
                             ? " · Aguardando sorteio"
                             : ""}
                       </p>
-                      {won && e.raffle.prizeDescription && (
+                      {won && myPrize && (
                         <p className="mt-1 text-xs font-medium text-amber-800">
-                          🎁 {e.raffle.prizeDescription}
+                          🏆 {myPrize.position}º lugar · 🎁 {myPrize.description}
                         </p>
                       )}
                     </div>

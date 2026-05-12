@@ -52,7 +52,7 @@ import {
   sendText as sendWhatsAppText,
 } from "@/server/services/whatsapp.service";
 import {
-  drawRaffle as drawRaffleService,
+  drawNextPrize as drawNextPrizeService,
 } from "@/server/services/raffle.service";
 import type { ToolDefinition } from "./tools";
 
@@ -1074,7 +1074,7 @@ const sendWhatsAppMessageTool: ToolDefinition = {
 const drawRaffleTool: ToolDefinition = {
   name: "draw_raffle",
   description:
-    "Sorteia o ganhador de um sorteio. DESTRUTIVO — uma vez sorteado, não pode reverter. SEMPRE peça confirmação explícita ao usuário antes de chamar, citando o nome do sorteio e o número de inscritos. Avisa o ganhador automaticamente por WhatsApp.",
+    "Sorteia o PRÓXIMO prêmio pendente de um sorteio (do maior position pro 1º lugar). DESTRUTIVO — uma vez sorteado, não pode reverter. SEMPRE peça confirmação explícita ao usuário antes de chamar, citando o nome do sorteio. Avisa o ganhador por WhatsApp. Se a rifa tem 4 prêmios, é preciso chamar 4 vezes (cada chamada sorteia 1).",
   readOnly: false,
   destructive: true,
   requiresRole: "ADMIN",
@@ -1083,14 +1083,19 @@ const drawRaffleTool: ToolDefinition = {
     if (!ctx.userId) return { ok: false, erro: "Sessão expirada." };
     if (!raffleId) return { ok: false, erro: "raffleId obrigatório." };
     try {
-      const r = await drawRaffleService(raffleId, ctx.userId);
+      const r = await drawNextPrizeService(raffleId, ctx.userId);
       return {
         ok: true,
+        premio: {
+          posicao: r.prizePosition,
+          descricao: r.prizeDescription,
+        },
         ganhador: {
           numero: r.winnerNumber,
           nome: r.customerName,
           telefone: r.customerPhone,
         },
+        ultimoPremio: r.isFinalPrize,
         observacao: "Mensagem de parabéns enviada pelo WhatsApp.",
       };
     } catch (e) {

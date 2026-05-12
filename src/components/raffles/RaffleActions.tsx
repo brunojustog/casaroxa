@@ -16,11 +16,17 @@ export function RaffleActions({
   status,
   entryCount,
   totalNumbers,
+  pendingPrizesCount,
+  nextPrize,
 }: {
   raffleId: string;
   status: RaffleStatus;
   entryCount: number;
   totalNumbers: number;
+  /** Quantos prêmios ainda não foram sorteados */
+  pendingPrizesCount: number;
+  /** Próximo prêmio a ser sorteado (maior position pendente) */
+  nextPrize: { position: number; description: string } | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -42,9 +48,14 @@ export function RaffleActions({
       window.alert("Sem inscritos ainda — não dá pra sortear.");
       return;
     }
+    if (!nextPrize) {
+      window.alert("Não há mais prêmios pendentes pra sortear.");
+      return;
+    }
     if (
       !window.confirm(
-        `Sortear agora? ${entryCount} inscrito(s). O ganhador será notificado por WhatsApp automaticamente.`,
+        `Sortear ${nextPrize.position}º lugar (${nextPrize.description})?\n\n` +
+          `Restam ${pendingPrizesCount} prêmio(s). O ganhador será notificado por WhatsApp.`,
       )
     )
       return;
@@ -100,7 +111,7 @@ export function RaffleActions({
         </Button>
       )}
 
-      {(status === "OPEN" || status === "CLOSED") && (
+      {(status === "OPEN" || status === "CLOSED") && pendingPrizesCount > 0 && (
         <Button
           type="button"
           size="sm"
@@ -109,7 +120,11 @@ export function RaffleActions({
           className="bg-amber-500 hover:bg-amber-600 focus:ring-amber-500"
         >
           <Sparkles className="h-3.5 w-3.5" />
-          {pending ? "Sorteando…" : "Sortear agora"}
+          {pending
+            ? "Sorteando…"
+            : nextPrize
+              ? `Sortear ${nextPrize.position}º lugar`
+              : "Sortear próximo"}
         </Button>
       )}
 
@@ -149,6 +164,7 @@ export function RaffleActions({
         open={drawOpen}
         raffleId={raffleId}
         totalNumbers={totalNumbers}
+        nextPrize={nextPrize}
         onClose={() => setDrawOpen(false)}
         onDone={() => router.refresh()}
       />

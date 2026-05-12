@@ -29,29 +29,37 @@ const optionalDate = () =>
       return Number.isNaN(d.getTime()) ? null : d;
     });
 
+export const rafflePrizeSchema = z.object({
+  position: z.number().int().min(1).max(99),
+  description: z.string().trim().min(1, "Descrição é obrigatória").max(500),
+});
+
+export type RafflePrizeInput = z.infer<typeof rafflePrizeSchema>;
+
 export const raffleFormSchema = z
   .object({
     name: z.string().trim().min(1, "Nome é obrigatório").max(120),
-    prizeDescription: optionalString(500),
     imageUrl: optionalString(500),
     opensAt: requiredDate(),
     closesAt: requiredDate(),
     drawAt: optionalDate(),
-    /// Preço por número em centavos. 0 = rifa gratuita.
+    /// Lista de prêmios. Mínimo 1.
+    prizes: z
+      .array(rafflePrizeSchema)
+      .min(1, "Pelo menos 1 prêmio")
+      .max(20, "Máximo 20 prêmios"),
     ticketPriceCents: z
       .number()
       .int()
       .min(0, "Valor não pode ser negativo")
       .max(100000, "Valor máximo R$ 1.000")
       .default(0),
-    /// Pool fechado: quantos números a rifa tem (1..N).
     totalNumbers: z
       .number()
       .int()
       .min(1, "Mínimo 1 número")
       .max(10000, "Máximo 10.000 números")
       .default(100),
-    /// Limite por cliente. null = sem limite.
     maxTicketsPerCustomer: z
       .number()
       .int()
@@ -68,6 +76,17 @@ export const raffleFormSchema = z
         message: "Data de encerramento precisa ser depois da abertura",
       });
     }
+    const positions = new Set<number>();
+    v.prizes.forEach((p, i) => {
+      if (positions.has(p.position)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["prizes", i, "position"],
+          message: "Posições não podem se repetir",
+        });
+      }
+      positions.add(p.position);
+    });
     if (v.drawAt && v.drawAt < v.closesAt) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

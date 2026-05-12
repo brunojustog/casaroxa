@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   THead,
@@ -87,7 +87,7 @@ export default async function SorteioDetailPage({
 
       <PageHeader
         title={raffle.name}
-        description={raffle.prizeDescription ?? "Sem descrição de prêmio"}
+        description={`${raffle.prizes.length} prêmio(s) · ${raffle.totalNumbers} números`}
         actions={<Badge tone={STATUS_TONE[raffle.status]}>{STATUS_LABEL[raffle.status]}</Badge>}
       />
 
@@ -122,26 +122,78 @@ export default async function SorteioDetailPage({
           <CardContent className="p-4">
             <p className="text-[11px] uppercase tracking-wider text-slate-500 inline-flex items-center gap-1">
               <Trophy className="h-3 w-3" />
-              {raffle.status === "DRAWN" ? "Ganhador" : "Sorteio em"}
+              Prêmios sorteados
             </p>
-            {raffle.winnerEntry ? (
-              <>
-                <p className="mt-1 text-sm font-semibold text-amber-700">
-                  #{raffle.winnerEntry.number} ·{" "}
-                  {raffle.winnerEntry.customer.name}
-                </p>
-                <p className="text-xs text-slate-500 tabular-nums">
-                  {fmtPhone(raffle.winnerEntry.customer.phone)}
-                </p>
-              </>
-            ) : (
-              <p className="mt-1 text-sm text-slate-700">
-                {raffle.drawAt ? fmtDateTime(raffle.drawAt) : "Data não definida"}
-              </p>
-            )}
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-roxa-900">
+              {raffle.prizes.filter((p) => p.winnerEntry).length}
+              <span className="text-base text-slate-400">
+                {" "}
+                / {raffle.prizes.length}
+              </span>
+            </p>
+            <p className="text-xs text-slate-500">
+              {raffle.drawAt ? fmtDateTime(raffle.drawAt) : "sem data prevista"}
+            </p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Lista de prêmios */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="inline-flex items-center gap-2 text-base">
+            <Trophy className="h-4 w-4 text-amber-500" />
+            Prêmios
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2">
+            {raffle.prizes.map((p) => {
+              const winner = p.winnerEntry;
+              const isDrawn = !!winner;
+              return (
+                <li
+                  key={p.id}
+                  className={`flex items-center gap-3 rounded-md border px-3 py-2 ${
+                    isDrawn
+                      ? "border-amber-200 bg-amber-50"
+                      : "border-slate-200 bg-slate-50"
+                  }`}
+                >
+                  <span
+                    className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                      isDrawn
+                        ? "bg-amber-500 text-white"
+                        : "bg-slate-300 text-slate-700"
+                    }`}
+                  >
+                    {p.position}º
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-900 truncate">
+                      {p.description}
+                    </p>
+                    {winner ? (
+                      <p className="text-xs text-amber-800">
+                        🏆 #{winner.number} ·{" "}
+                        <strong>{winner.customer.name}</strong> ·{" "}
+                        {fmtPhone(winner.customer.phone)}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-slate-500">Aguardando sorteio</p>
+                    )}
+                  </div>
+                  {isDrawn && p.drawnAt && (
+                    <span className="text-[10px] text-slate-500">
+                      {fmtDateTime(p.drawnAt)}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </CardContent>
+      </Card>
 
       {/* Ações de status */}
       <RaffleActions
@@ -149,6 +201,15 @@ export default async function SorteioDetailPage({
         status={raffle.status}
         entryCount={raffle._count.entries}
         totalNumbers={raffle.totalNumbers}
+        pendingPrizesCount={raffle.prizes.filter((p) => !p.winnerEntry).length}
+        nextPrize={(() => {
+          const pending = raffle.prizes
+            .filter((p) => !p.winnerEntry)
+            .sort((a, b) => b.position - a.position);
+          return pending[0]
+            ? { position: pending[0].position, description: pending[0].description }
+            : null;
+        })()}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -173,17 +234,17 @@ export default async function SorteioDetailPage({
                     </TR>
                   </THead>
                   <TBody>
-                    {raffle.entries.map((e) => (
+                    {raffle.entries.map((e) => {
+                      const wonPrize = raffle.prizes.find(
+                        (p) => p.winnerEntry?.number === e.number,
+                      );
+                      return (
                       <TR
                         key={e.id}
-                        className={
-                          raffle.winnerEntryId === e.id
-                            ? "bg-amber-50/70"
-                            : ""
-                        }
+                        className={wonPrize ? "bg-amber-50/70" : ""}
                       >
                         <TD className="text-center font-mono font-semibold text-amber-700">
-                          {raffle.winnerEntryId === e.id ? "🏆 " : ""}#{e.number}
+                          {wonPrize ? `🏆 ${wonPrize.position}º ` : ""}#{e.number}
                         </TD>
                         <TD className="font-medium text-slate-900">
                           <Link
@@ -200,7 +261,8 @@ export default async function SorteioDetailPage({
                           {fmtDateTime(e.createdAt)}
                         </TD>
                       </TR>
-                    ))}
+                      );
+                    })}
                   </TBody>
                 </Table>
               )}
@@ -220,7 +282,6 @@ export default async function SorteioDetailPage({
                   mode={{ type: "edit", id: raffle.id }}
                   defaultValues={{
                     name: raffle.name,
-                    prizeDescription: raffle.prizeDescription,
                     imageUrl: raffle.imageUrl,
                     opensAt: raffle.opensAt,
                     closesAt: raffle.closesAt,
@@ -228,6 +289,10 @@ export default async function SorteioDetailPage({
                     ticketPriceCents: raffle.ticketPriceCents,
                     totalNumbers: raffle.totalNumbers,
                     maxTicketsPerCustomer: raffle.maxTicketsPerCustomer,
+                    prizes: raffle.prizes.map((p) => ({
+                      position: p.position,
+                      description: p.description,
+                    })),
                     status: raffle.status,
                   }}
                 />

@@ -787,10 +787,8 @@ enum RaffleStatus {
 
 model Raffle {
   id   String @id @default(cuid())
-  /// Nome público do sorteio (ex.: "Combo Família — Maio/26").
+  /// Nome público do sorteio (ex.: "Rifa Dia das Mães").
   name String
-  /// Descrição livre do prêmio (ex.: "1 Combo Família com 4 acompanhamentos").
-  prizeDescription String?
   /// Imagem opcional pra divulgação na landing pública.
   imageUrl         String?
   /// Quando começa a aceitar inscrições.
@@ -800,30 +798,48 @@ model Raffle {
   /// Data prevista do sorteio (informativa pro cliente — sorteio é manual).
   drawAt           DateTime?
   /// Preço por número em centavos. 0 = rifa gratuita.
-  /// >0 = exige pagamento PIX antes de confirmar.
   ticketPriceCents Int          @default(0)
-  /// Quantidade total de números do pool (1 a totalNumbers). Quando todos
-  /// forem vendidos/reservados, a rifa esgota.
+  /// Quantidade total de números do pool.
   totalNumbers     Int          @default(100)
-  /// Limite de números por cliente. null = sem limite (típico em rifa paga).
-  /// Pra rifa gratuita o admin geralmente coloca 1 (1 pessoa = 1 número).
+  /// Limite de números por cliente. null = sem limite.
   maxTicketsPerCustomer Int?
   status           RaffleStatus @default(DRAFT)
-
-  /// Ganhador (entry sorteada). FK opcional preenchida ao sortear.
-  winnerEntryId String?      @unique
+  /// Quando o último prêmio foi sorteado (todos sorteados). Status DRAWN.
   drawnAt       DateTime?
+  /// Usuário que sorteou o último prêmio.
   drawnById     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  prizes         RafflePrize[]
   entries        RaffleEntry[]
-  winnerEntry    RaffleEntry?    @relation("RaffleWinner", fields: [winnerEntryId], references: [id])
   drawnBy        User?           @relation("RaffleDrawnBy", fields: [drawnById], references: [id])
   onlinePayments OnlinePayment[]
 
   @@index([status, closesAt])
+}
+
+/// Prêmio de uma rifa. Cada rifa pode ter N prêmios (ex.: dia das mães
+/// com 4 ganhadores). Sorteia do prêmio com MAIOR position pro de MENOR
+/// (padrão "suspense": último a sortear = prêmio principal = #1).
+model RafflePrize {
+  id            String   @id @default(cuid())
+  raffleId      String
+  /// Posição do prêmio. 1 = principal, 2 = segundo, etc. Sorteia decrescente.
+  position      Int
+  /// Descrição do prêmio (ex.: "Combo Costela Domingão + Coca Cola 2L").
+  description   String
+  /// Entry vencedora. Preenchido quando admin sorteia este prêmio.
+  winnerEntryId String?  @unique
+  drawnAt       DateTime?
+  createdAt     DateTime @default(now())
+
+  raffle      Raffle       @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  winnerEntry RaffleEntry? @relation("PrizeWinner", fields: [winnerEntryId], references: [id], onDelete: SetNull)
+
+  @@unique([raffleId, position])
+  @@index([raffleId])
 }
 
 model RaffleEntry {
@@ -846,7 +862,9 @@ model RaffleEntry {
   raffle        Raffle         @relation(fields: [raffleId], references: [id], onDelete: Cascade)
   customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
   onlinePayment OnlinePayment? @relation(fields: [onlinePaymentId], references: [id], onDelete: SetNull)
-  wonAt         Raffle?        @relation("RaffleWinner")
+  /// Prêmio que esta entry ganhou (se ganhou algum). Relação 1-1 com
+  /// RafflePrize. Uma entry só ganha um prêmio (regra: 1 cliente = 1 prêmio).
+  wonPrize      RafflePrize?   @relation("PrizeWinner")
 
   @@unique([raffleId, number])
   @@index([customerId])

@@ -727,27 +727,35 @@ const listRafflesTool: ToolDefinition = {
       take: Math.min(limit, 100),
       include: {
         _count: { select: { entries: true } },
-        winnerEntry: {
-          include: { customer: { select: { name: true, phone: true } } },
+        prizes: {
+          orderBy: { position: "asc" },
+          include: {
+            winnerEntry: {
+              include: { customer: { select: { name: true, phone: true } } },
+            },
+          },
         },
       },
     });
     return items.map((r) => ({
       id: r.id,
       nome: r.name,
-      premio: r.prizeDescription,
+      premios: r.prizes.map((p) => ({
+        posicao: p.position,
+        descricao: p.description,
+        ganhador: p.winnerEntry
+          ? {
+              numero: p.winnerEntry.number,
+              nome: p.winnerEntry.customer.name,
+              telefone: p.winnerEntry.customer.phone,
+            }
+          : null,
+      })),
       status: r.status,
       inscritos: r._count.entries,
       abreEm: r.opensAt.toISOString(),
       fechaEm: r.closesAt.toISOString(),
       sorteadoEm: r.drawnAt?.toISOString() ?? null,
-      ganhador: r.winnerEntry
-        ? {
-            numero: r.winnerEntry.number,
-            nome: r.winnerEntry.customer.name,
-            telefone: r.winnerEntry.customer.phone,
-          }
-        : null,
     }));
   },
 };

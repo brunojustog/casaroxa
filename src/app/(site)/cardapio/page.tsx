@@ -99,9 +99,11 @@ export default async function CardapioPage({
                   <p className="font-serif text-base font-semibold text-amber-900 mt-1">
                     {r.name}
                   </p>
-                  {r.prizeDescription && (
+                  {r.prizes.length > 0 && (
                     <p className="text-xs text-amber-800 line-clamp-1">
-                      🎁 {r.prizeDescription}
+                      🎁 {r.prizes.length === 1
+                        ? r.prizes[0].description
+                        : `${r.prizes.length} prêmios — 1º: ${r.prizes[0].description}`}
                     </p>
                   )}
                   <p className="text-[11px] text-amber-700 mt-0.5">

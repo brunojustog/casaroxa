@@ -56,10 +56,38 @@ export default async function PublicRafflePage({
           <h1 className="font-serif text-3xl font-bold text-roxa-900">
             {raffle.name}
           </h1>
-          {raffle.prizeDescription && (
-            <p className="text-base text-slate-700 leading-relaxed">
-              🎁 <strong>Prêmio:</strong> {raffle.prizeDescription}
-            </p>
+          {raffle.prizes.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                {raffle.prizes.length === 1
+                  ? "Prêmio"
+                  : `${raffle.prizes.length} prêmios`}
+              </p>
+              <ul className="space-y-1">
+                {raffle.prizes.map((p) => {
+                  const winner = p.winnerEntry;
+                  return (
+                    <li
+                      key={p.id}
+                      className="flex items-start gap-2 text-sm text-slate-700"
+                    >
+                      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[11px] font-bold text-amber-800">
+                        {p.position}
+                      </span>
+                      <span className="flex-1">
+                        🎁 {p.description}
+                        {winner && (
+                          <span className="ml-1 text-amber-700 font-medium">
+                            — #{winner.number} ·{" "}
+                            {winner.customer.name.split(/\s+/)[0]}
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           )}
 
           <div className="grid grid-cols-2 gap-3 pt-2 text-sm">
@@ -98,18 +126,36 @@ export default async function PublicRafflePage({
         </div>
       )}
 
-      {isDrawn && raffle.winnerEntry && (
-        <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-5 text-center space-y-2">
-          <Trophy className="mx-auto h-12 w-12 text-amber-600" />
-          <p className="font-serif text-2xl font-bold text-amber-900">
-            🎉 Sorteado!
-          </p>
-          <p className="text-base text-amber-900">
-            Número <strong className="font-mono">#{raffle.winnerEntry.number}</strong>{" "}
-            · <strong>{raffle.winnerEntry.customer.name.split(/\s+/)[0]}</strong>
-          </p>
-          <p className="text-xs text-amber-800">
-            Parabéns! O ganhador foi notificado pelo WhatsApp.
+      {isDrawn && raffle.prizes.some((p) => p.winnerEntry) && (
+        <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-5 space-y-3">
+          <div className="text-center">
+            <Trophy className="mx-auto h-12 w-12 text-amber-600" />
+            <p className="font-serif text-2xl font-bold text-amber-900">
+              🎉 Sorteio realizado!
+            </p>
+          </div>
+          <ul className="space-y-1.5">
+            {raffle.prizes
+              .filter((p) => p.winnerEntry)
+              .sort((a, b) => a.position - b.position)
+              .map((p) => (
+                <li
+                  key={p.id}
+                  className="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm"
+                >
+                  <span className="font-semibold text-amber-900">
+                    {p.position}º lugar
+                  </span>
+                  <span className="text-amber-800">
+                    {" "}— #{p.winnerEntry!.number} ·{" "}
+                    {p.winnerEntry!.customer.name.split(/\s+/)[0]}
+                  </span>
+                  <p className="text-xs text-slate-600">🎁 {p.description}</p>
+                </li>
+              ))}
+          </ul>
+          <p className="text-center text-xs text-amber-800">
+            Ganhadores notificados pelo WhatsApp.
           </p>
         </div>
       )}

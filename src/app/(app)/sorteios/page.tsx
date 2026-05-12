@@ -123,9 +123,10 @@ export default async function SorteiosPage({
                   >
                     {r.name}
                   </Link>
-                  {r.prizeDescription && (
+                  {r.prizes.length > 0 && (
                     <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
-                      🎁 {r.prizeDescription}
+                      🎁 {r.prizes.length} prêmio(s)
+                      {r.prizes[0] ? ` · 1º: ${r.prizes[0].description}` : ""}
                     </p>
                   )}
                 </TD>
@@ -142,14 +143,15 @@ export default async function SorteiosPage({
                   {r.drawAt ? fmtDate(r.drawAt) : r.drawnAt ? fmtDate(r.drawnAt) : "—"}
                 </TD>
                 <TD className="text-xs text-slate-700">
-                  {r.winnerEntry ? (
-                    <span>
-                      <span className="font-mono text-amber-700">#{r.winnerEntry.number}</span>{" "}
-                      {r.winnerEntry.customer.name}
-                    </span>
-                  ) : (
-                    <span className="text-slate-300">—</span>
-                  )}
+                  {(() => {
+                    const drawn = r.prizes.filter((p) => p.winnerEntry);
+                    if (drawn.length === 0) return <span className="text-slate-300">—</span>;
+                    return (
+                      <span>
+                        {drawn.length}/{r.prizes.length} sorteados
+                      </span>
+                    );
+                  })()}
                 </TD>
               </TR>
             ))}

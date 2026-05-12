@@ -6,7 +6,7 @@ import { raffleFormSchema } from "@/schemas/raffle.schema";
 import {
   createRaffle,
   deleteRaffle,
-  drawRaffle,
+  drawNextPrize,
   setRaffleStatus,
   updateRaffle,
 } from "@/server/services/raffle.service";
@@ -78,22 +78,28 @@ export async function deleteRaffleAction(id: string): Promise<ActionResult> {
   return result;
 }
 
-export async function drawRaffleAction(
+export async function drawNextPrizeAction(
   id: string,
 ): Promise<
   ActionResult<{
+    prizePosition: number;
+    prizeDescription: string;
     winnerNumber: number;
     customerName: string;
     customerPhone: string;
+    isFinalPrize: boolean;
   }>
 > {
   const result = await runAction(async () => {
     const user = await requireRole("ADMIN");
-    const r = await drawRaffle(id, user.id);
+    const r = await drawNextPrize(id, user.id);
     return {
+      prizePosition: r.prizePosition,
+      prizeDescription: r.prizeDescription,
       winnerNumber: r.winnerNumber,
       customerName: r.customerName,
       customerPhone: r.customerPhone,
+      isFinalPrize: r.isFinalPrize,
     };
   });
   if (result.ok) revalidateRaffles(id);
