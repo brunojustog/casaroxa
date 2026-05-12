@@ -67,7 +67,10 @@ export function RaffleForm({
       drawAt: toLocalInput(defaultValues?.drawAt ?? inDays(8)),
       ticketPriceCents: defaultValues?.ticketPriceCents ?? 0,
       totalNumbers: defaultValues?.totalNumbers ?? 100,
-      maxTicketsPerCustomer: defaultValues?.maxTicketsPerCustomer ?? null,
+      maxTicketsPerCustomer:
+        defaultValues?.maxTicketsPerCustomer ??
+        // Default sensato: rifa grátis com limite=1, paga sem limite.
+        ((defaultValues?.ticketPriceCents ?? 0) === 0 ? 1 : null),
       prizes: defaultValues?.prizes ?? [{ position: 1, description: "" }],
       status: defaultValues?.status ?? "DRAFT",
     } as unknown as RaffleFormData,
@@ -238,7 +241,7 @@ export function RaffleForm({
         </Field>
         <Field
           label="Limite por cliente"
-          hint="Vazio = sem limite"
+          hint="Obrigatório em sorteio grátis · vazio em rifa paga = sem limite"
           error={errors.maxTicketsPerCustomer?.message}
         >
           <Input

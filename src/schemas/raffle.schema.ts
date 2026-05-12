@@ -87,6 +87,16 @@ export const raffleFormSchema = z
       }
       positions.add(p.position);
     });
+    // Rifa gratuita: limite por cliente é obrigatório pra evitar que um
+    // só usuário pegue todos os números (e fure quem indicar amigo).
+    if (v.ticketPriceCents === 0 && v.maxTicketsPerCustomer === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["maxTicketsPerCustomer"],
+        message:
+          "Em sorteio gratuito, é preciso definir limite de números por cliente.",
+      });
+    }
     if (v.drawAt && v.drawAt < v.closesAt) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
