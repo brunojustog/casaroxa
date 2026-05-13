@@ -80,6 +80,7 @@ const ADMIN_PREFIXES = [
   "/clientes",
   "/sorteios",
   "/pre-vendas",
+  "/encomendas",
   "/api/auth",
   "/api/admin",
 ];

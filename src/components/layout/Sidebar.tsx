@@ -58,6 +58,7 @@ const NAV: NavSection[] = [
       { href: "/cupons",          label: "Cupons",          icon: Tag },
       { href: "/sorteios",        label: "Sorteios",        icon: Gift },
       { href: "/pre-vendas",      label: "Pré-vendas",      icon: CalendarDays },
+      { href: "/encomendas",      label: "Encomendas",      icon: ClipboardList },
     ],
   },
   {
