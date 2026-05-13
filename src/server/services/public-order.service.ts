@@ -13,6 +13,7 @@ import { whatsappLink } from "@/lib/whatsapp";
 import { applyCouponInTransaction } from "./coupon.service";
 import { upsertCustomerFromCheckout } from "./customer.service";
 import { sendPushToAllUsers } from "./push.service";
+import { reserveSalesEventItems } from "./sales-event.service";
 import type { PublicOrderData } from "@/schemas/public-order.schema";
 
 export type PublicOrderResult = {
@@ -144,7 +145,8 @@ export async function createPublicOrder(
         customerName: input.customerName,
         customerId,
         notes,
-        // caches preenchidos abaixo
+        salesEventId: input.salesEventId ?? null,
+        salesEventWindowId: input.salesEventWindowId ?? null,
       },
     });
 
@@ -160,6 +162,23 @@ export async function createPublicOrder(
           totalPrice: t.totalPrice.toFixed(2),
           totalCost: t.totalCost.toFixed(4),
         },
+      });
+    }
+
+    // Reserva da pré-venda (se aplicável). Falha aqui aborta toda a Sale.
+    if (input.salesEventId && input.salesEventWindowId) {
+      const { reservationExpiresAt } = await reserveSalesEventItems(tx, {
+        salesEventId: input.salesEventId,
+        salesEventWindowId: input.salesEventWindowId,
+        items: validatedItems.map((it) => ({
+          productId: it.kind === "PRODUTO" ? it.id : null,
+          comboId: it.kind === "COMBO" ? it.id : null,
+          quantity: it.quantity,
+        })),
+      });
+      await tx.sale.update({
+        where: { id: created.id },
+        data: { reservationExpiresAt },
       });
     }
 

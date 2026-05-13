@@ -617,6 +617,14 @@ export async function cancelSale(
       }
     }
 
+    // Libera reserva de pré-venda (se houver) — devolve disponibilidade
+    if (sale.salesEventId) {
+      const { releaseSalesEventReservation } = await import(
+        "./sales-event.service"
+      );
+      await releaseSalesEventReservation(tx, saleId);
+    }
+
     return tx.sale.update({
       where: { id: saleId },
       data: {

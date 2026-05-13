@@ -159,6 +159,18 @@ enum CouponType {
   FIXED // value em reais (ex.: 5 = R$ 5 off)
 }
 
+enum SalesEventStatus {
+  DRAFT // rascunho — não exposto no site
+  OPEN // aberto pra pedidos
+  CLOSED // encerrou inscrições (cozinha produzindo / entregando)
+  CANCELLED // cancelado
+}
+
+enum SalesEventWindowKind {
+  PICKUP // retirada na loja
+  DELIVERY // entrega
+}
+
 // ============================================================
 // AUTENTICAÇÃO
 // ============================================================
@@ -190,6 +202,7 @@ model User {
   inventoryItemsCounted  InventoryItem[]
   pushSubscriptions      PushSubscription[]
   rafflesDrawn           Raffle[]                 @relation("RaffleDrawnBy")
+  salesEventsCreated     SalesEvent[]             @relation("SalesEventCreatedBy")
 }
 
 // ============================================================
@@ -335,10 +348,11 @@ model Product {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
-  recipe       Recipe?
-  comboItems   ComboItem[]
-  priceHistory ProductPriceHistory[]
-  saleItems    SaleItem[]
+  recipe             Recipe?
+  comboItems         ComboItem[]
+  priceHistory       ProductPriceHistory[]
+  saleItems          SaleItem[]
+  salesEventProducts SalesEventProduct[]
 
   @@index([category, active])
   @@index([showInMenu, active])
@@ -437,7 +451,8 @@ model Combo {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
-  saleItems SaleItem[]
+  saleItems          SaleItem[]
+  salesEventProducts SalesEventProduct[]
 
   items ComboItem[]
 
@@ -527,17 +542,17 @@ model Settings {
   // ----- WhatsApp API (wuzapi) -----
   /// Master switch — se false, todas as notificações ficam desabilitadas
   /// independente dos toggles abaixo.
-  whatsappApiEnabled         Boolean @default(false)
+  whatsappApiEnabled            Boolean @default(false)
   /// Notifica cliente quando admin marca pedido como CONFIRMADO.
-  whatsappNotifyConfirmed    Boolean @default(false)
+  whatsappNotifyConfirmed       Boolean @default(false)
   /// Notifica cliente quando pedido vira PRONTO.
-  whatsappNotifyReady        Boolean @default(false)
+  whatsappNotifyReady           Boolean @default(false)
   /// Notifica cliente quando pedido vira SAIU_ENTREGA.
-  whatsappNotifyOnDelivery   Boolean @default(false)
+  whatsappNotifyOnDelivery      Boolean @default(false)
   /// Botão "WhatsApp" no card de aniversário envia direto via API.
-  whatsappNotifyBirthday     Boolean @default(false)
+  whatsappNotifyBirthday        Boolean @default(false)
   /// Avisa cliente quando bate 100 pts e ganha cupom de fidelidade.
-  whatsappNotifyLoyaltyRedeem Boolean @default(false)
+  whatsappNotifyLoyaltyRedeem   Boolean @default(false)
   /// Avisa cliente quando o pagamento online é confirmado.
   whatsappNotifyPaymentReceived Boolean @default(false)
 
@@ -545,10 +560,10 @@ model Settings {
   /// Master switch — se false, opções de pagamento online ficam ocultas
   /// no checkout. Mesmo desligado, payments existentes continuam acessíveis
   /// (cliente que iniciou pagamento pode finalizar).
-  asaasEnabled        Boolean @default(false)
+  asaasEnabled         Boolean @default(false)
   /// Quantas horas após a criação o cliente tem pra pagar (default 24h).
   /// Após isso o sistema marca como OVERDUE.
-  asaasPaymentTtlHours Int    @default(24)
+  asaasPaymentTtlHours Int     @default(24)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -669,20 +684,20 @@ model Inventory {
 }
 
 model InventoryItem {
-  id           String  @id @default(cuid())
-  inventoryId  String
-  ingredientId String
+  id               String    @id @default(cuid())
+  inventoryId      String
+  ingredientId     String
   /// Saldo do sistema no momento em que o item entrou na contagem (snapshot).
   /// Usado pra calcular a diferença ao fechar — não muda com novos movimentos.
-  expectedQuantity Decimal @db.Decimal(12, 4)
+  expectedQuantity Decimal   @db.Decimal(12, 4)
   /// O que o operador efetivamente contou. Null = ainda não contado.
-  countedQuantity  Decimal? @db.Decimal(12, 4)
+  countedQuantity  Decimal?  @db.Decimal(12, 4)
   /// Custo unit. no snapshot, pra registrar em PERDA/AJUSTE no fechamento.
-  unitCostSnapshot Decimal  @db.Decimal(12, 4)
+  unitCostSnapshot Decimal   @db.Decimal(12, 4)
   notes            String?
   countedAt        DateTime?
   countedById      String?
-  createdAt        DateTime @default(now())
+  createdAt        DateTime  @default(now())
 
   inventory  Inventory  @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
   ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
@@ -701,14 +716,14 @@ model InventoryItem {
 // ============================================================
 
 model Customer {
-  id    String  @id @default(cuid())
-  name  String
+  id                String    @id @default(cuid())
+  name              String
   /// Chave natural — usada pra reconhecer o mesmo cliente em pedidos
   /// repetidos no checkout público (upsert por telefone).
-  phone String  @unique
-  email String?
+  phone             String    @unique
+  email             String?
   /// Aniversário (opcional). Usado pra promoções automáticas no futuro.
-  birthday DateTime? @db.Date
+  birthday          DateTime? @db.Date
   /// Endereço padrão (opcional, alimenta o checkout pré-preenchido).
   address           String?
   addressNumber     String?
@@ -716,25 +731,25 @@ model Customer {
   neighborhood      String?
   reference         String?
   notes             String?
-  active            Boolean  @default(true)
+  active            Boolean   @default(true)
   /// Pontos atuais do cartão fidelidade. Acumula 1 ponto por R$ 1 gasto
   /// em vendas concluídas, e zera/decrementa quando vira cupom de resgate.
-  loyaltyPoints     Int     @default(0)
+  loyaltyPoints     Int       @default(0)
   /// ID do cliente no Asaas (cache pra não recriar a cada cobrança).
-  asaasCustomerId   String?  @unique
+  asaasCustomerId   String?   @unique
   /// CPF (11 dígitos) ou CNPJ (14). Só dígitos. Pedido só quando o cliente
   /// escolhe pagar online (Asaas exige).
   cpfCnpj           String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  sales                Sale[]
-  loyaltyTransactions  LoyaltyTransaction[]
-  sessions             CustomerSession[]
-  raffleEntries        RaffleEntry[]
-  onlinePayments       OnlinePayment[]
-  referralsMade        RaffleReferral[] @relation("ReferrerReferrals")
-  referralsReceived    RaffleReferral[] @relation("ReferredReferrals")
+  sales               Sale[]
+  loyaltyTransactions LoyaltyTransaction[]
+  sessions            CustomerSession[]
+  raffleEntries       RaffleEntry[]
+  onlinePayments      OnlinePayment[]
+  referralsMade       RaffleReferral[]     @relation("ReferrerReferrals")
+  referralsReceived   RaffleReferral[]     @relation("ReferredReferrals")
 
   @@index([active, name])
   @@index([birthday])
@@ -745,16 +760,16 @@ model Customer {
 // ============================================================
 
 model OtpChallenge {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   /// Telefone normalizado com DDI (ex.: 5511999999999).
   phone      String
   /// Hash bcrypt do código de 6 dígitos (nunca armazenado em texto).
   codeHash   String
   expiresAt  DateTime
-  attempts   Int      @default(0)
+  attempts   Int       @default(0)
   consumedAt DateTime?
   ip         String?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   @@index([phone, createdAt])
 }
@@ -788,28 +803,28 @@ enum RaffleStatus {
 }
 
 model Raffle {
-  id   String @id @default(cuid())
+  id                    String       @id @default(cuid())
   /// Nome público do sorteio (ex.: "Rifa Dia das Mães").
-  name String
+  name                  String
   /// Imagem opcional pra divulgação na landing pública.
-  imageUrl         String?
+  imageUrl              String?
   /// Quando começa a aceitar inscrições.
-  opensAt          DateTime
+  opensAt               DateTime
   /// Última data pra entrar.
-  closesAt         DateTime
+  closesAt              DateTime
   /// Data prevista do sorteio (informativa pro cliente — sorteio é manual).
-  drawAt           DateTime?
+  drawAt                DateTime?
   /// Preço por número em centavos. 0 = rifa gratuita.
-  ticketPriceCents Int          @default(0)
+  ticketPriceCents      Int          @default(0)
   /// Quantidade total de números do pool.
-  totalNumbers     Int          @default(100)
+  totalNumbers          Int          @default(100)
   /// Limite de números por cliente. null = sem limite.
   maxTicketsPerCustomer Int?
-  status           RaffleStatus @default(DRAFT)
+  status                RaffleStatus @default(DRAFT)
   /// Quando o último prêmio foi sorteado (todos sorteados). Status DRAWN.
-  drawnAt       DateTime?
+  drawnAt               DateTime?
   /// Usuário que sorteou o último prêmio.
-  drawnById     String?
+  drawnById             String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -817,7 +832,7 @@ model Raffle {
   prizes         RafflePrize[]
   entries        RaffleEntry[]
   referrals      RaffleReferral[]
-  drawnBy        User?           @relation("RaffleDrawnBy", fields: [drawnById], references: [id])
+  drawnBy        User?            @relation("RaffleDrawnBy", fields: [drawnById], references: [id])
   onlinePayments OnlinePayment[]
 
   @@index([status, closesAt])
@@ -827,16 +842,16 @@ model Raffle {
 /// com 4 ganhadores). Sorteia do prêmio com MAIOR position pro de MENOR
 /// (padrão "suspense": último a sortear = prêmio principal = #1).
 model RafflePrize {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   raffleId      String
   /// Posição do prêmio. 1 = principal, 2 = segundo, etc. Sorteia decrescente.
   position      Int
   /// Descrição do prêmio (ex.: "Combo Costela Domingão + Coca Cola 2L").
   description   String
   /// Entry vencedora. Preenchido quando admin sorteia este prêmio.
-  winnerEntryId String?  @unique
+  winnerEntryId String?   @unique
   drawnAt       DateTime?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
 
   raffle      Raffle       @relation(fields: [raffleId], references: [id], onDelete: Cascade)
   winnerEntry RaffleEntry? @relation("PrizeWinner", fields: [winnerEntryId], references: [id], onDelete: SetNull)
@@ -850,20 +865,20 @@ model RafflePrize {
 /// pra rifa GRATUITA (em rifa paga seria injusto com quem pagou).
 /// 1 par (A,B) só rende 1 bônus por rifa (unique [raffleId, referredCustomerId]).
 model RaffleReferral {
-  id                   String   @id @default(cuid())
-  raffleId             String
+  id                 String   @id @default(cuid())
+  raffleId           String
   /// Cliente que compartilhou (ganha o bônus).
-  referrerCustomerId   String
+  referrerCustomerId String
   /// Cliente que entrou pelo link (não ganha nada por isso — só o A ganha).
-  referredCustomerId   String
+  referredCustomerId String
   /// A entry bônus criada pro A. Pode ser null se rifa esgotou números.
-  awardedEntryId       String?  @unique
-  createdAt            DateTime @default(now())
+  awardedEntryId     String?  @unique
+  createdAt          DateTime @default(now())
 
-  raffle             Raffle      @relation(fields: [raffleId], references: [id], onDelete: Cascade)
-  referrer           Customer    @relation("ReferrerReferrals", fields: [referrerCustomerId], references: [id], onDelete: Cascade)
-  referred           Customer    @relation("ReferredReferrals", fields: [referredCustomerId], references: [id], onDelete: Cascade)
-  awardedEntry       RaffleEntry? @relation("ReferralAward", fields: [awardedEntryId], references: [id], onDelete: SetNull)
+  raffle       Raffle       @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  referrer     Customer     @relation("ReferrerReferrals", fields: [referrerCustomerId], references: [id], onDelete: Cascade)
+  referred     Customer     @relation("ReferredReferrals", fields: [referredCustomerId], references: [id], onDelete: Cascade)
+  awardedEntry RaffleEntry? @relation("ReferralAward", fields: [awardedEntryId], references: [id], onDelete: SetNull)
 
   /// Mesmo "amigo B" só conta 1x por rifa pra mesma rifa (evita farm
   /// de bonus quando B clica em vários links).
@@ -889,12 +904,12 @@ model RaffleEntry {
   onlinePaymentId String?
   createdAt       DateTime @default(now())
 
-  raffle        Raffle         @relation(fields: [raffleId], references: [id], onDelete: Cascade)
-  customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  onlinePayment OnlinePayment? @relation(fields: [onlinePaymentId], references: [id], onDelete: SetNull)
+  raffle        Raffle          @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  customer      Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  onlinePayment OnlinePayment?  @relation(fields: [onlinePaymentId], references: [id], onDelete: SetNull)
   /// Prêmio que esta entry ganhou (se ganhou algum). Relação 1-1 com
   /// RafflePrize. Uma entry só ganha um prêmio (regra: 1 cliente = 1 prêmio).
-  wonPrize      RafflePrize?   @relation("PrizeWinner")
+  wonPrize      RafflePrize?    @relation("PrizeWinner")
   /// Referral que premiou esta entry (se foi entry bônus de indicação).
   referralAward RaffleReferral? @relation("ReferralAward")
 
@@ -908,25 +923,25 @@ model RaffleEntry {
 // ============================================================
 
 enum LoyaltyTransactionType {
-  EARN   // ganho ao concluir venda
+  EARN // ganho ao concluir venda
   REDEEM // resgate (vira cupom)
   ADJUST // ajuste manual (admin)
 }
 
 model LoyaltyTransaction {
-  id         String                 @id @default(cuid())
-  customerId String
-  type       LoyaltyTransactionType
+  id           String                 @id @default(cuid())
+  customerId   String
+  type         LoyaltyTransactionType
   /// Sempre positivo. EARN soma; REDEEM e ADJUST negativo subtraem (regra no service).
-  points     Int
+  points       Int
   /// Saldo do cliente APÓS aplicar essa transação (snapshot pra histórico).
   balanceAfter Int
   /// Venda que originou o EARN (opcional — null em ADJUST/REDEEM).
-  saleId     String?
+  saleId       String?
   /// Cupom que originou o REDEEM (opcional).
-  couponId   String?
-  notes      String?
-  createdAt  DateTime               @default(now())
+  couponId     String?
+  notes        String?
+  createdAt    DateTime               @default(now())
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
@@ -935,23 +950,23 @@ model LoyaltyTransaction {
 }
 
 model Coupon {
-  id          String     @id @default(cuid())
+  id             String     @id @default(cuid())
   /// Código que o cliente digita no checkout (sempre uppercase).
-  code        String     @unique
-  description String?
-  type        CouponType
+  code           String     @unique
+  description    String?
+  type           CouponType
   /// PERCENT: 0..100 (ex.: 10 = 10% off). FIXED: valor em reais.
-  value       Decimal    @db.Decimal(12, 4)
+  value          Decimal    @db.Decimal(12, 4)
   /// null = ilimitado. Caso contrário, bloqueia quando usedCount atinge.
-  maxUses     Int?
-  usedCount   Int        @default(0)
+  maxUses        Int?
+  usedCount      Int        @default(0)
   /// Pedido mínimo (subtotal) pra cupom ser aplicável. null = sem mínimo.
-  minOrderAmount Decimal? @db.Decimal(12, 2)
-  validFrom   DateTime?
-  validUntil  DateTime?
-  active      Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  minOrderAmount Decimal?   @db.Decimal(12, 2)
+  validFrom      DateTime?
+  validUntil     DateTime?
+  active         Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   sales Sale[]
 
@@ -1162,18 +1177,29 @@ model Sale {
   /// Estimativa em minutos (preenchida pelo admin) — exibida ao cliente. Opcional.
   progressEstimateMinutes Int?
 
+  /// Pré-venda (Sprint 2): vincula pedido a um evento de venda planejada.
+  /// Quando preenchido, este pedido conta no SalesEventProduct.reservedQty
+  /// e no SalesEventWindow.reservedCount.
+  salesEventId         String?
+  salesEventWindowId   String?
+  /// Se pedido de pré-venda sem pagamento finalizado, a reserva expira após
+  /// SalesEvent.reservationTimeoutMinutes. Job libera disponibilidade.
+  reservationExpiresAt DateTime?
+
   createdById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  createdBy   User?         @relation("SaleCreatedBy", fields: [createdById], references: [id])
-  closedBy    User?         @relation("SaleClosedBy", fields: [closedById], references: [id])
-  cancelledBy User?         @relation("SaleCancelledBy", fields: [cancelledById], references: [id])
-  coupon      Coupon?       @relation(fields: [couponId], references: [id], onDelete: SetNull)
-  customer    Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  items       SaleItem[]
-  payments    SalePayment[]
-  onlinePayment OnlinePayment?
+  createdBy        User?             @relation("SaleCreatedBy", fields: [createdById], references: [id])
+  closedBy         User?             @relation("SaleClosedBy", fields: [closedById], references: [id])
+  cancelledBy      User?             @relation("SaleCancelledBy", fields: [cancelledById], references: [id])
+  coupon           Coupon?           @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  customer         Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  salesEvent       SalesEvent?       @relation(fields: [salesEventId], references: [id], onDelete: SetNull)
+  salesEventWindow SalesEventWindow? @relation(fields: [salesEventWindowId], references: [id], onDelete: SetNull)
+  items            SaleItem[]
+  payments         SalePayment[]
+  onlinePayment    OnlinePayment?
 
   @@index([occurredAt])
   @@index([status, occurredAt])
@@ -1269,12 +1295,100 @@ model OnlinePayment {
   createdAt       DateTime                 @default(now())
   updatedAt       DateTime                 @updatedAt
 
-  sale          Sale?          @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  raffle        Raffle?        @relation(fields: [raffleId], references: [id], onDelete: Cascade)
-  customer      Customer       @relation(fields: [customerId], references: [id])
+  sale          Sale?         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  raffle        Raffle?       @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  customer      Customer      @relation(fields: [customerId], references: [id])
   raffleEntries RaffleEntry[]
 
   @@index([status, createdAt])
   @@index([raffleId])
   @@index([customerId])
+}
+
+// ============================================================
+// PRÉ-VENDA / SALES EVENT (Sprint 2)
+// ============================================================
+
+/// Pré-venda: evento de venda planejada com lote fechado (ex.: "Sábado
+/// almoço Dia das Mães"). Cliente pede até o cardápio fechar; cozinha
+/// produz a quantidade vendida. Disponibilidade desce ao confirmar
+/// pedido (não ao pagar) — reservas expiram se Sale não fecha em N min.
+model SalesEvent {
+  id                        String           @id @default(cuid())
+  /// Nome público (ex.: "Almoço Sábado - Dia das Mães").
+  name                      String
+  /// Data prevista da entrega/retirada.
+  eventDate                 DateTime         @db.Date
+  status                    SalesEventStatus @default(DRAFT)
+  /// Cardápio fica visível ao cliente entre opensAt e closesAt.
+  opensAt                   DateTime
+  closesAt                  DateTime
+  /// Descrição livre exibida ao cliente (opcional).
+  description               String?
+  /// Reserva expira automaticamente após N minutos sem fechamento.
+  /// Liberada por job. Default 120min (2h) — bom pra PIX.
+  reservationTimeoutMinutes Int              @default(120)
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products  SalesEventProduct[]
+  windows   SalesEventWindow[]
+  sales     Sale[]
+  createdBy User?               @relation("SalesEventCreatedBy", fields: [createdById], references: [id])
+
+  @@index([status, eventDate])
+}
+
+/// Produto/Combo disponível no evento com limite de unidades.
+model SalesEventProduct {
+  id             String   @id @default(cuid())
+  salesEventId   String
+  /// Polimórfico: ou productId ou comboId (similar a SaleItem).
+  productId      String?
+  comboId        String?
+  /// Quantidade máxima disponível (ex.: 40 frangos).
+  quantityLimit  Int
+  /// Cache: soma das unidades vendidas/reservadas. Atualizado em transação
+  /// ao confirmar pedido. Liberado por job quando reserva expira.
+  reservedQty    Int      @default(0)
+  /// Preço override opcional pro evento (ex.: combo dia das mães).
+  /// Se null, usa Product.salePrice ou Combo.salePrice padrão.
+  unitPriceCents Int?
+  /// Ordem de exibição no cardápio do evento (asc).
+  displayOrder   Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  salesEvent SalesEvent @relation(fields: [salesEventId], references: [id], onDelete: Cascade)
+  product    Product?   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  combo      Combo?     @relation(fields: [comboId], references: [id], onDelete: Restrict)
+
+  @@unique([salesEventId, productId])
+  @@unique([salesEventId, comboId])
+  @@index([salesEventId])
+}
+
+/// Janela de retirada/entrega do evento. Ex.: "Sáb 11h-12h" com cap=10.
+model SalesEventWindow {
+  id            String               @id @default(cuid())
+  salesEventId  String
+  kind          SalesEventWindowKind
+  /// Rótulo exibido ao cliente (ex.: "Sábado 11h às 12h - retirada").
+  label         String
+  /// Início e fim do range (data + hora).
+  startsAt      DateTime
+  endsAt        DateTime
+  /// Capacidade de pedidos no slot. 0 = ilimitada.
+  capacity      Int                  @default(0)
+  /// Cache: pedidos já reservados nesse slot.
+  reservedCount Int                  @default(0)
+  /// Ordem de exibição.
+  displayOrder  Int                  @default(0)
+  createdAt     DateTime             @default(now())
+
+  salesEvent SalesEvent @relation(fields: [salesEventId], references: [id], onDelete: Cascade)
+  sales      Sale[]
+
+  @@index([salesEventId, startsAt])
 }

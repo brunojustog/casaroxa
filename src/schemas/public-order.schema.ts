@@ -32,6 +32,9 @@ export const publicOrderSchema = z
     /** Código de cupom (opcional). Validado server-side em public-order.service. */
     couponCode: optionalString(40),
     items: z.array(publicOrderItemSchema).min(1, "Carrinho vazio"),
+    /** Pré-venda: se carrinho for de evento, ID do evento + janela escolhida. */
+    salesEventId: z.string().min(1).optional().nullable(),
+    salesEventWindowId: z.string().min(1).optional().nullable(),
   })
   .superRefine((data, ctx) => {
     if (data.deliveryMode === "DELIVERY") {
