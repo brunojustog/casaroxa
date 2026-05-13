@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -931,12 +931,60 @@ function AsaasBlock({
         </Field>
       </div>
 
-      <p className="text-[11px] text-slate-500">
-        Webhook do Asaas:{" "}
-        <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">
-          https://casaroxa.com.br/api/public/webhook/asaas
+      <WebhookUrlBlock />
+    </div>
+  );
+}
+
+function WebhookUrlBlock() {
+  const [copied, setCopied] = useState(false);
+  const [origin, setOrigin] = useState<string>("https://casaroxa.com.br");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Detecta domínio público: se estamos em gestao.X, troca pra X.
+    const host = window.location.host;
+    const publicHost = host.startsWith("gestao.")
+      ? host.slice("gestao.".length)
+      : host.startsWith("staging-gestao.")
+        ? `staging.${host.slice("staging-gestao.".length)}`
+        : host;
+    setOrigin(`${window.location.protocol}//${publicHost}`);
+  }, []);
+
+  const url = `${origin}/api/public/webhook/asaas`;
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* */
+    }
+  }
+
+  return (
+    <div className="rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 space-y-1">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-900">
+        ⚠️ URL do webhook (usar EXATAMENTE essa, sem subdomínio admin)
+      </p>
+      <div className="flex items-center gap-2">
+        <code className="flex-1 font-mono text-[12px] bg-white border border-amber-200 px-2 py-1 rounded overflow-x-auto whitespace-nowrap">
+          {url}
         </code>
-        . Configure no painel Asaas em <em>Integrações → Webhooks</em>.
+        <button
+          type="button"
+          onClick={copy}
+          className="inline-flex items-center gap-1 rounded-md bg-amber-600 px-2 py-1 text-xs font-semibold text-white hover:bg-amber-700 whitespace-nowrap"
+        >
+          {copied ? "✓ Copiado" : "Copiar"}
+        </button>
+      </div>
+      <p className="text-[11px] text-amber-800">
+        Configure no painel Asaas → <em>Integrações → Webhooks</em>.
+        Cuidado: <strong>NÃO</strong> use o domínio <code>gestao.*</code> — o
+        admin redireciona POST e o Asaas pausa o webhook após 15 falhas.
       </p>
     </div>
   );
