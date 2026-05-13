@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Gift } from "lucide-react";
+import { Gift, CalendarDays, ArrowRight } from "lucide-react";
 import { MenuItemCard } from "@/components/public/MenuItemCard";
 import { getPublicMenu, getSiteSettings } from "@/server/services/public-menu.service";
 import { listOpenRaffles } from "@/server/services/raffle.service";
+import { getActiveSalesEvent } from "@/server/services/sales-event.service";
 
 export const dynamic = "force-dynamic";
 
@@ -31,10 +32,11 @@ export default async function CardapioPage({
   const sp = await searchParams;
   const selectedCat = typeof sp.cat === "string" ? sp.cat : null;
 
-  const [menu, settings, openRaffles] = await Promise.all([
+  const [menu, settings, openRaffles, activeEvent] = await Promise.all([
     getPublicMenu(),
     getSiteSettings(),
     listOpenRaffles(),
+    getActiveSalesEvent(),
   ]);
 
   const filtered = selectedCat
@@ -64,6 +66,45 @@ export default async function CardapioPage({
           )}
         </p>
       </header>
+
+      {/* Banner de pré-venda ativa */}
+      {activeEvent && (
+        <Link
+          href="/pre-venda"
+          className="flex items-start gap-3 rounded-xl border-2 border-roxa-300 bg-roxa-50 p-4 hover:bg-roxa-100 transition"
+        >
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-roxa-200 text-roxa-700">
+            <CalendarDays className="h-5 w-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="inline-flex items-center rounded-full bg-roxa-700 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+              📅 Pré-venda
+            </div>
+            <p className="font-serif text-base font-semibold text-roxa-900 mt-1">
+              {activeEvent.name}
+            </p>
+            {activeEvent.description && (
+              <p className="text-xs text-roxa-800 line-clamp-2">
+                {activeEvent.description}
+              </p>
+            )}
+            <p className="text-[11px] text-roxa-700 mt-0.5">
+              Fecha em{" "}
+              <strong>
+                {new Intl.DateTimeFormat("pt-BR", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }).format(activeEvent.closesAt)}
+              </strong>
+            </p>
+          </div>
+          <span className="rounded-md bg-roxa-700 px-3 py-1.5 text-xs font-semibold text-white whitespace-nowrap inline-flex items-center gap-1">
+            Ver pré-venda <ArrowRight className="h-3 w-3" />
+          </span>
+        </Link>
+      )}
 
       {/* Banner de rifas/sorteios em andamento */}
       {openRaffles.length > 0 && (
