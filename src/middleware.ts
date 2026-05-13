@@ -13,6 +13,7 @@ const PUBLIC_PREFIXES = [
   "/login",
   "/api/auth",
   "/api/public",
+  "/api/cron",
   "/cardapio",
   "/checkout",
   "/pedido",
