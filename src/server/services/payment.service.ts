@@ -495,7 +495,7 @@ export async function handlePaymentWebhook(payload: {
       if (local.sale.customer?.phone) {
         sendText({
           phone: local.sale.customer.phone,
-          message: `✅ *Pagamento recebido!*\n\nPedido #${local.sale.number} — pagamento confirmado pela Casa Roxa. Já estamos preparando seu pedido. 🍗`,
+          message: `✅ *Pagamento recebido!*\n\nPedido #${local.sale.number} — pagamento confirmado pela Casa Roxa. Já estamos preparando seu pedido. 🍗\n\nComprovante: https://casaroxa.com.br/pedido/${local.sale.id}/comprovante`,
           event: "PAYMENT_RECEIVED",
           toggleField: "whatsappNotifyPaymentReceived",
           customerId: local.sale.customerId,

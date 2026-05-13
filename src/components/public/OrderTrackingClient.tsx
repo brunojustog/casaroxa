@@ -297,6 +297,12 @@ export function OrderTrackingClient({
           <ShoppingBag className="h-4 w-4" />
           Ver cardápio
         </Link>
+        <Link
+          href={`/pedido/${saleId}/comprovante`}
+          className="inline-flex items-center gap-1.5 rounded-md border border-roxa-200 bg-white px-3 py-1.5 text-xs font-medium text-roxa-700 hover:bg-roxa-50"
+        >
+          Ver comprovante
+        </Link>
       </div>
 
       {/* Botão flutuante de WhatsApp — sticky no rodapé, sempre visível */}

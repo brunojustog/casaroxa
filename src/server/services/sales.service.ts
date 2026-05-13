@@ -92,6 +92,72 @@ export async function getSaleById(id: string) {
   });
 }
 
+/**
+ * Comprovante público da venda — agrega dados pra renderizar a página.
+ * Não inclui custos (CMV, totalCost, totalNet) — esses são internos.
+ */
+export async function getSaleComprovante(id: string) {
+  return prisma.sale.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      number: true,
+      status: true,
+      occurredAt: true,
+      closedAt: true,
+      customerName: true,
+      notes: true,
+      totalRevenue: true,
+      totalPaid: true,
+      totalDiscount: true,
+      couponCode: true,
+      couponDiscount: true,
+      progress: true,
+      progressUpdatedAt: true,
+      items: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          quantity: true,
+          unitPrice: true,
+          totalPrice: true,
+          notes: true,
+          product: { select: { name: true } },
+          combo: { select: { name: true } },
+        },
+      },
+      payments: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          method: true,
+          amount: true,
+          createdAt: true,
+        },
+      },
+      onlinePayment: {
+        select: {
+          status: true,
+          billingType: true,
+          paidAt: true,
+          asaasPaymentId: true,
+        },
+      },
+      customer: {
+        select: {
+          name: true,
+          phone: true,
+          address: true,
+          addressNumber: true,
+          addressComplement: true,
+          neighborhood: true,
+          reference: true,
+        },
+      },
+    },
+  });
+}
+
 // ---------- Helpers internos ----------
 
 function defaultFeePercentForMethod(
