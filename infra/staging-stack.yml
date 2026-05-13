@@ -1,0 +1,112 @@
+# Stack do staging Casa Roxa
+# Deploy: cole este conteúdo no Portainer → Stacks → Add stack
+# Antes de subir: configure as ENV VARS na seção "Environment variables"
+# do Portainer (variáveis com ${NOME} são substituídas no deploy).
+#
+# Pré-requisitos:
+#   - DNS staging.casaroxa.com.br e staging-gestao.casaroxa.com.br
+#     apontando pra 46.225.71.122 (Cloudflare proxy DESLIGADO)
+#   - Rede overlay `traefik-public` (já existe — usada pela produção)
+#   - Node `n8n` no Swarm (já existe)
+#
+# Environment variables que o Portainer precisa fornecer:
+#   POSTGRES_PASSWORD       — senha do Postgres staging (forte e única)
+#   AUTH_SECRET             — openssl rand -base64 32
+#   SEED_ADMIN_PASSWORD     — senha inicial do admin
+#   ASAAS_API_KEY           — chave sandbox (formato $aact_hmlg_...)
+#   ASAAS_WEBHOOK_TOKEN     — qualquer string aleatória
+#   WHATSAPP_API_TOKEN      — token da instância wuzapi staging
+#   PUSH_VAPID_PUBLIC       — gerar via `npx web-push generate-vapid-keys`
+#   PUSH_VAPID_PRIVATE      — gerar junto com a public
+#   ANTHROPIC_API_KEY       — chave da API Anthropic
+#
+# Secrets reais NUNCA devem ficar neste arquivo. Use o painel.
+
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: casaroxa_staging
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: casa_roxa_staging
+    volumes:
+      - casaroxa_staging_pgdata:/var/lib/postgresql/data
+    networks:
+      - casaroxa_staging_net
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == n8n
+      restart_policy:
+        condition: any
+
+  app:
+    image: ghcr.io/brunojustog/casa-roxa-gestao:latest
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: "postgresql://casaroxa_staging:${POSTGRES_PASSWORD}@postgres:5432/casa_roxa_staging?schema=public"
+
+      PUBLIC_DOMAIN: staging.casaroxa.com.br
+      ADMIN_DOMAIN: staging-gestao.casaroxa.com.br
+      NEXT_PUBLIC_APP_NAME: "Casa Roxa Gestão (STAGING)"
+
+      AUTH_SECRET: "${AUTH_SECRET}"
+      AUTH_TRUST_HOST: "true"
+      SEED_ADMIN_EMAIL: bruno@simplificaonline.site
+      SEED_ADMIN_NAME: Bruno
+      SEED_ADMIN_PASSWORD: "${SEED_ADMIN_PASSWORD}"
+
+      ASAAS_ENV: sandbox
+      ASAAS_API_KEY: "${ASAAS_API_KEY}"
+      ASAAS_WEBHOOK_TOKEN: "${ASAAS_WEBHOOK_TOKEN}"
+
+      WHATSAPP_API_URL: https://wuzapi.brunojusto.com.br
+      WHATSAPP_API_TOKEN: "${WHATSAPP_API_TOKEN}"
+
+      PUSH_VAPID_PUBLIC: "${PUSH_VAPID_PUBLIC}"
+      PUSH_VAPID_PRIVATE: "${PUSH_VAPID_PRIVATE}"
+      PUSH_VAPID_SUBJECT: "mailto:bruno@simplificaonline.site"
+
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}"
+      ANTHROPIC_MODEL: claude-sonnet-4-6
+      AI_MONTHLY_BUDGET_USD: "5"
+
+    networks:
+      - casaroxa_staging_net
+      - traefik-public
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == n8n
+      restart_policy:
+        condition: any
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=traefik-public"
+
+        - "traefik.http.routers.casa-roxa-staging-public.rule=Host(`staging.casaroxa.com.br`)"
+        - "traefik.http.routers.casa-roxa-staging-public.entrypoints=websecure"
+        - "traefik.http.routers.casa-roxa-staging-public.tls=true"
+        - "traefik.http.routers.casa-roxa-staging-public.tls.certresolver=le"
+        - "traefik.http.routers.casa-roxa-staging-public.service=casa-roxa-staging-app"
+
+        - "traefik.http.routers.casa-roxa-staging-admin.rule=Host(`staging-gestao.casaroxa.com.br`)"
+        - "traefik.http.routers.casa-roxa-staging-admin.entrypoints=websecure"
+        - "traefik.http.routers.casa-roxa-staging-admin.tls=true"
+        - "traefik.http.routers.casa-roxa-staging-admin.tls.certresolver=le"
+        - "traefik.http.routers.casa-roxa-staging-admin.service=casa-roxa-staging-app"
+
+        - "traefik.http.services.casa-roxa-staging-app.loadbalancer.server.port=3000"
+
+volumes:
+  casaroxa_staging_pgdata:
+
+networks:
+  casaroxa_staging_net:
+    driver: overlay
+  traefik-public:
+    external: true
