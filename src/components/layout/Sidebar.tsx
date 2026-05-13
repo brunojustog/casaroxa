@@ -25,6 +25,7 @@ import {
   Tag,
   UsersRound,
   Gift,
+  ChefHat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@prisma/client";
@@ -60,6 +61,7 @@ const NAV: NavSection[] = [
   {
     section: "Operação",
     items: [
+      { href: "/cozinha",     label: "Cozinha",     icon: ChefHat },
       { href: "/estoque",     label: "Estoque",     icon: Warehouse },
       { href: "/inventarios", label: "Inventário",  icon: ClipboardCheck },
       { href: "/compras",     label: "Compras",     icon: ShoppingCart, roles: ["ADMIN"] },

@@ -93,6 +93,47 @@ export async function getSaleById(id: string) {
 }
 
 /**
+ * KDS (Kitchen Display System) — pedidos em produção pra cozinha.
+ * Retorna pedidos com status ABERTA OU CONCLUIDA cujo progress não é
+ * ENTREGUE e occurredAt nos últimos 24h (evita exibir histórico antigo).
+ * Ordenado por occurredAt ASC pra fila do mais antigo pro mais novo.
+ */
+export async function getKdsOrders() {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  return prisma.sale.findMany({
+    where: {
+      status: { in: ["ABERTA", "CONCLUIDA"] },
+      progress: { not: "ENTREGUE" },
+      occurredAt: { gte: since },
+    },
+    orderBy: { occurredAt: "asc" },
+    select: {
+      id: true,
+      number: true,
+      occurredAt: true,
+      progress: true,
+      progressUpdatedAt: true,
+      progressEstimateMinutes: true,
+      customerName: true,
+      notes: true,
+      status: true,
+      items: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          quantity: true,
+          notes: true,
+          product: { select: { name: true } },
+          combo: { select: { name: true } },
+        },
+      },
+      customer: { select: { name: true, phone: true } },
+      onlinePayment: { select: { status: true } },
+    },
+  });
+}
+
+/**
  * Comprovante público da venda — agrega dados pra renderizar a página.
  * Não inclui custos (CMV, totalCost, totalNet) — esses são internos.
  */
