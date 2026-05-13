@@ -203,6 +203,8 @@ model User {
   pushSubscriptions      PushSubscription[]
   rafflesDrawn           Raffle[]                 @relation("RaffleDrawnBy")
   salesEventsCreated     SalesEvent[]             @relation("SalesEventCreatedBy")
+  orderRequestsCreated   OrderRequest[]           @relation("OrderRequestCreatedBy")
+  orderRequestsApproved  OrderRequest[]           @relation("OrderRequestApprovedBy")
 }
 
 // ============================================================
@@ -353,6 +355,7 @@ model Product {
   priceHistory       ProductPriceHistory[]
   saleItems          SaleItem[]
   salesEventProducts SalesEventProduct[]
+  orderRequestItems  OrderRequestItem[]
 
   @@index([category, active])
   @@index([showInMenu, active])
@@ -453,6 +456,7 @@ model Combo {
 
   saleItems          SaleItem[]
   salesEventProducts SalesEventProduct[]
+  orderRequestItems  OrderRequestItem[]
 
   items ComboItem[]
 
@@ -564,6 +568,11 @@ model Settings {
   /// Quantas horas após a criação o cliente tem pra pagar (default 24h).
   /// Após isso o sistema marca como OVERDUE.
   asaasPaymentTtlHours Int     @default(24)
+
+  // ----- Encomendas -----
+  /// Antecedência mínima em horas pra uma encomenda ser aceita pelo site.
+  /// Valida no /encomenda — cliente não pode pedir pra data anterior a now + N horas.
+  orderLeadTimeHours Int @default(48)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -750,6 +759,7 @@ model Customer {
   onlinePayments      OnlinePayment[]
   referralsMade       RaffleReferral[]     @relation("ReferrerReferrals")
   referralsReceived   RaffleReferral[]     @relation("ReferredReferrals")
+  orderRequests       OrderRequest[]
 
   @@index([active, name])
   @@index([birthday])
@@ -1200,6 +1210,7 @@ model Sale {
   items            SaleItem[]
   payments         SalePayment[]
   onlinePayment    OnlinePayment?
+  orderRequest     OrderRequest?
 
   @@index([occurredAt])
   @@index([status, occurredAt])
@@ -1367,6 +1378,105 @@ model SalesEventProduct {
   @@unique([salesEventId, productId])
   @@unique([salesEventId, comboId])
   @@index([salesEventId])
+}
+
+// ============================================================
+// ENCOMENDAS (Sprint 3)
+// ============================================================
+
+enum OrderRequestStatus {
+  PENDENTE // criada pelo cliente, aguarda admin aprovar/recusar
+  APROVADA // admin aceitou; Sale criada
+  RECUSADA // admin recusou (com razão)
+  EM_PRODUCAO // produção iniciada
+  PRONTA // produzida, aguardando retirada/entrega
+  ENTREGUE // finalizada
+  CANCELADA // cancelada após aprovação
+}
+
+enum OrderRequestSource {
+  SITE // cliente preencheu form em /encomenda
+  ADMIN // admin cadastrou manualmente (cliente ligou/WhatsApp)
+}
+
+enum OrderRequestDeliveryMode {
+  PICKUP
+  DELIVERY
+}
+
+/// Encomenda — pedido com data/hora desejada futura (pelo menos
+/// Settings.orderLeadTimeHours horas adiante). Aprovação manual do admin
+/// converte em Sale. Diferente de pré-venda (SalesEvent) que é lote
+/// fechado pra data única coletiva.
+model OrderRequest {
+  id     String @id @default(cuid())
+  number Int    @unique @default(autoincrement())
+
+  // Cliente (snapshot — customerId opcional liga ao cadastro)
+  customerName  String
+  customerPhone String
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  // Pedido
+  requestedFor      DateTime
+  deliveryMode      OrderRequestDeliveryMode @default(PICKUP)
+  // Endereço (se DELIVERY)
+  address           String?
+  addressNumber     String?
+  addressComplement String?
+  neighborhood      String?
+  reference         String?
+  notes             String?
+
+  // Status / origem
+  status          OrderRequestStatus @default(PENDENTE)
+  source          OrderRequestSource @default(SITE)
+  rejectionReason String?
+  adminNotes      String?
+
+  // Aprovação
+  approvedAt   DateTime?
+  approvedById String?
+  approvedBy   User?     @relation("OrderRequestApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  // Sinal opcional (admin decide na hora de aprovar)
+  depositRequiredCents Int?
+  depositPaidAt        DateTime?
+
+  // Quando aprovada, link com Sale criada (1:1 opcional)
+  saleId String? @unique
+  sale   Sale?   @relation(fields: [saleId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   User?    @relation("OrderRequestCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items OrderRequestItem[]
+
+  @@index([status, requestedFor])
+  @@index([requestedFor])
+  @@index([customerId])
+}
+
+model OrderRequestItem {
+  id                String  @id @default(cuid())
+  orderRequestId    String
+  productId         String?
+  comboId           String?
+  /// Quantidade pedida. Decimal pra alinhar com SaleItem.
+  quantity          Decimal @db.Decimal(10, 4)
+  /// Snapshot do preço unitário no momento do pedido (Product.salePrice ou Combo.salePrice).
+  unitPriceSnapshot Decimal @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  orderRequest OrderRequest @relation(fields: [orderRequestId], references: [id], onDelete: Cascade)
+  product      Product?     @relation(fields: [productId], references: [id], onDelete: Restrict)
+  combo        Combo?       @relation(fields: [comboId], references: [id], onDelete: Restrict)
+
+  @@index([orderRequestId])
 }
 
 /// Janela de retirada/entrega do evento. Ex.: "Sáb 11h-12h" com cap=10.
