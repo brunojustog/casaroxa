@@ -224,6 +224,67 @@ export async function setSalesEventStatus(
   });
 }
 
+/**
+ * Duplica um evento adicionando 7 dias em todas as datas (eventDate,
+ * opensAt, closesAt e janelas). Status volta a DRAFT, contadores
+ * zerados. Útil pra recorrência semanal (todo sábado/domingo).
+ *
+ * @returns id do novo evento
+ */
+export async function duplicateSalesEventNextWeek(
+  id: string,
+  userId: string,
+): Promise<{ id: string }> {
+  const src = await prisma.salesEvent.findUnique({
+    where: { id },
+    include: {
+      products: { orderBy: { displayOrder: "asc" } },
+      windows: { orderBy: [{ kind: "asc" }, { startsAt: "asc" }] },
+    },
+  });
+  if (!src) throw new BusinessError("Pré-venda não encontrada.");
+
+  const plus7 = (d: Date) => {
+    const out = new Date(d);
+    out.setDate(out.getDate() + 7);
+    return out;
+  };
+
+  const created = await prisma.salesEvent.create({
+    data: {
+      name: `${src.name} (cópia)`,
+      eventDate: plus7(src.eventDate),
+      description: src.description,
+      opensAt: plus7(src.opensAt),
+      closesAt: plus7(src.closesAt),
+      reservationTimeoutMinutes: src.reservationTimeoutMinutes,
+      status: "DRAFT",
+      createdById: userId,
+      products: {
+        create: src.products.map((p) => ({
+          productId: p.productId,
+          comboId: p.comboId,
+          quantityLimit: p.quantityLimit,
+          unitPriceCents: p.unitPriceCents,
+          displayOrder: p.displayOrder,
+        })),
+      },
+      windows: {
+        create: src.windows.map((w) => ({
+          kind: w.kind,
+          label: w.label,
+          startsAt: plus7(w.startsAt),
+          endsAt: plus7(w.endsAt),
+          capacity: w.capacity,
+          displayOrder: w.displayOrder,
+        })),
+      },
+    },
+    select: { id: true },
+  });
+  return created;
+}
+
 export async function deleteSalesEvent(id: string) {
   const e = await prisma.salesEvent.findUnique({
     where: { id },

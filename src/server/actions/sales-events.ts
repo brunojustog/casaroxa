@@ -6,6 +6,7 @@ import { salesEventFormSchema } from "@/schemas/sales-event.schema";
 import {
   createSalesEvent,
   deleteSalesEvent,
+  duplicateSalesEventNextWeek,
   setSalesEventStatus,
   updateSalesEvent,
   cleanupExpiredReservations,
@@ -66,6 +67,17 @@ export async function setSalesEventStatusAction(
     await setSalesEventStatus(id, status);
   });
   if (result.ok) revalidate(id);
+  return result;
+}
+
+export async function duplicateSalesEventNextWeekAction(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  const result = await runAction(async () => {
+    const user = await requireRole("ADMIN");
+    return await duplicateSalesEventNextWeek(id, user.id);
+  });
+  if (result.ok) revalidate(result.data?.id);
   return result;
 }
 

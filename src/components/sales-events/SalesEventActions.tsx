@@ -2,11 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Lock, Trash2, Unlock, XCircle } from "lucide-react";
+import { CalendarPlus, Lock, Trash2, Unlock, XCircle } from "lucide-react";
 import { SalesEventStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import {
   deleteSalesEventAction,
+  duplicateSalesEventNextWeekAction,
   setSalesEventStatusAction,
 } from "@/server/actions/sales-events";
 
@@ -30,6 +31,23 @@ export function SalesEventActions({
         return;
       }
       router.refresh();
+    });
+  }
+
+  function duplicateNextWeek() {
+    if (
+      !window.confirm(
+        "Criar uma cópia desta pré-venda com todas as datas +7 dias? Novo evento entra como rascunho pra você ajustar.",
+      )
+    )
+      return;
+    startTransition(async () => {
+      const res = await duplicateSalesEventNextWeekAction(eventId);
+      if (!res.ok) {
+        window.alert(res.error);
+        return;
+      }
+      if (res.data?.id) router.push(`/pre-vendas/${res.data.id}`);
     });
   }
 
@@ -105,6 +123,17 @@ export function SalesEventActions({
           Cancelar
         </Button>
       )}
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={duplicateNextWeek}
+        disabled={pending}
+      >
+        <CalendarPlus className="h-3.5 w-3.5" />
+        Duplicar +7 dias
+      </Button>
 
       {status === "DRAFT" && salesCount === 0 && (
         <button
