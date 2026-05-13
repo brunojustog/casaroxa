@@ -87,6 +87,23 @@ export const raffleFormSchema = z
       }
       positions.add(p.position);
     });
+    // Rifa paga com ticket < R$ 5: Asaas exige R$ 5 mínimo por cobrança.
+    // Se admin define limite=1 e preço < R$ 5, cliente fica TRAVADO ao
+    // tentar pagar 1 número (valor abaixo do mínimo do banco). Avisa.
+    if (
+      v.ticketPriceCents > 0 &&
+      v.ticketPriceCents < 500 &&
+      v.maxTicketsPerCustomer !== null
+    ) {
+      const minRequired = Math.ceil(500 / v.ticketPriceCents);
+      if (v.maxTicketsPerCustomer < minRequired) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["maxTicketsPerCustomer"],
+          message: `Com ticket abaixo de R$ 5, o limite deve ser pelo menos ${minRequired} (Asaas exige R$ 5 mínimo por cobrança). Aumente o limite ou deixe vazio (sem limite).`,
+        });
+      }
+    }
     // Rifa gratuita: limite por cliente é obrigatório pra evitar que um
     // só usuário pegue todos os números (e fure quem indicar amigo).
     if (v.ticketPriceCents === 0 && v.maxTicketsPerCustomer === null) {

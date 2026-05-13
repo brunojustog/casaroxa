@@ -3,9 +3,16 @@ import Image from "next/image";
 import { History, MessageCircle } from "lucide-react";
 import { whatsappLink } from "@/lib/whatsapp";
 import { CartIndicator } from "./cart/CartIndicator";
+import { CustomerMenu } from "./CustomerMenu";
 import type { PublicSiteSettings } from "@/server/services/public-menu.service";
 
-export function PublicHeader({ settings }: { settings: PublicSiteSettings }) {
+export function PublicHeader({
+  settings,
+  customer,
+}: {
+  settings: PublicSiteSettings;
+  customer: { name: string; phone: string } | null;
+}) {
   const wa = whatsappLink(settings.whatsappNumber, "Olá, vim pelo site!");
 
   return (
@@ -47,6 +54,7 @@ export function PublicHeader({ settings }: { settings: PublicSiteSettings }) {
             Meus pedidos
           </Link>
           <CartIndicator />
+          {customer && <CustomerMenu customer={customer} />}
           {wa && (
             <a
               href={wa}
