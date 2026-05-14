@@ -53,13 +53,14 @@ export async function POST(
       orderRequestId: id,
       cpfCnpj: parsed.data.cpfCnpj,
     });
-    if (!result.invoiceUrl) {
-      return NextResponse.json(
-        { ok: false, error: "Não foi possível gerar o link de pagamento." },
-        { status: 502 },
-      );
-    }
-    return NextResponse.json({ ok: true, invoiceUrl: result.invoiceUrl });
+    return NextResponse.json({
+      ok: true,
+      pixPayload: result.pixPayload,
+      pixQrCodeBase64: result.pixQrCodeBase64,
+      invoiceUrl: result.invoiceUrl,
+      value: result.value,
+      dueDate: result.dueDate.toISOString(),
+    });
   } catch (e) {
     if (e instanceof BusinessError) {
       return NextResponse.json({ ok: false, error: e.message }, { status: 400 });

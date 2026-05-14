@@ -77,7 +77,12 @@ export async function getPublicOrderRequestTracking(id: string) {
         },
       },
       depositPayment: {
-        select: { invoiceUrl: true, status: true },
+        select: {
+          invoiceUrl: true,
+          status: true,
+          pixPayload: true,
+          pixQrCodeBase64: true,
+        },
       },
     },
   });

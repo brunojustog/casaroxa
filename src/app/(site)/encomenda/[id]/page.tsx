@@ -11,7 +11,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { getPublicOrderRequestTracking } from "@/server/services/order-request.service";
-import { RequestDepositPaymentForm } from "@/components/public/encomenda/RequestDepositPaymentForm";
+import { DepositPaymentSection } from "@/components/public/encomenda/DepositPaymentSection";
 
 export const dynamic = "force-dynamic";
 
@@ -229,45 +229,15 @@ export default async function EncomendaTrackingPage({
 
       {/* Sinal */}
       {req.depositRequiredCents && req.depositRequiredCents > 0 && (
-        <section className="rounded-xl border border-roxa-100 bg-white p-4 shadow-sm">
-          <p className="text-[11px] uppercase tracking-wider text-slate-500 inline-flex items-center gap-1">
-            <Wallet className="h-3 w-3" /> Sinal
-          </p>
-          <p className="mt-1 text-sm">
-            <strong className="tabular-nums">
-              {fmtCurrency(req.depositRequiredCents)}
-            </strong>{" "}
-            {req.depositPaidAt ? (
-              <span className="text-green-700 font-semibold">— pago ✓</span>
-            ) : (
-              <span className="text-amber-700 font-semibold">— aguardando pagamento</span>
-            )}
-          </p>
-          {!req.depositPaidAt && req.depositPayment?.invoiceUrl && (
-            <a
-              href={req.depositPayment.invoiceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 inline-flex items-center justify-center gap-2 rounded-md bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700"
-            >
-              <Wallet className="h-4 w-4" />
-              Pagar sinal agora (PIX)
-            </a>
-          )}
-          {!req.depositPaidAt &&
-            !req.depositPayment?.invoiceUrl &&
-            req.status === "APROVADA" && (
-              <RequestDepositPaymentForm orderRequestId={req.id} />
-            )}
-          {!req.depositPaidAt &&
-            !req.depositPayment?.invoiceUrl &&
-            req.status !== "APROVADA" && (
-              <p className="mt-1 text-xs text-slate-500">
-                O link de pagamento aparece aqui assim que a Casa Roxa
-                confirmar sua encomenda.
-              </p>
-            )}
-        </section>
+        <SinalBlock
+          orderRequestId={req.id}
+          depositCents={req.depositRequiredCents}
+          paid={!!req.depositPaidAt}
+          status={req.status}
+          pixPayload={req.depositPayment?.pixPayload ?? null}
+          pixQrCodeBase64={req.depositPayment?.pixQrCodeBase64 ?? null}
+          invoiceUrl={req.depositPayment?.invoiceUrl ?? null}
+        />
       )}
 
       <Link
@@ -277,5 +247,53 @@ export default async function EncomendaTrackingPage({
         ← Voltar ao cardápio
       </Link>
     </div>
+  );
+}
+
+/** Roteia entre componente client de QR/PIX (quando sinal já pode ser pago)
+ *  e placeholder estático (status anterior à aprovação). */
+function SinalBlock({
+  orderRequestId,
+  depositCents,
+  paid,
+  status,
+  pixPayload,
+  pixQrCodeBase64,
+  invoiceUrl,
+}: {
+  orderRequestId: string;
+  depositCents: number;
+  paid: boolean;
+  status: string;
+  pixPayload: string | null;
+  pixQrCodeBase64: string | null;
+  invoiceUrl: string | null;
+}) {
+  const PAYABLE = ["APROVADA", "EM_PRODUCAO", "PRONTA", "ENTREGUE"];
+  if (paid || PAYABLE.includes(status)) {
+    return (
+      <DepositPaymentSection
+        orderRequestId={orderRequestId}
+        depositCents={depositCents}
+        initialPaid={paid}
+        initialPixPayload={pixPayload}
+        initialPixQrCodeBase64={pixQrCodeBase64}
+        initialInvoiceUrl={invoiceUrl}
+      />
+    );
+  }
+  return (
+    <section className="rounded-xl border border-roxa-100 bg-white p-4 shadow-sm">
+      <p className="text-[11px] uppercase tracking-wider text-slate-500 inline-flex items-center gap-1">
+        <Wallet className="h-3 w-3" /> Sinal
+      </p>
+      <p className="mt-1 text-sm">
+        <strong className="tabular-nums">{fmtCurrency(depositCents)}</strong>{" "}
+        <span className="text-amber-700 font-semibold">— pendente</span>
+      </p>
+      <p className="mt-1 text-xs text-slate-500">
+        O QR Code aparece aqui assim que a Casa Roxa confirmar sua encomenda.
+      </p>
+    </section>
   );
 }
