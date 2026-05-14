@@ -452,12 +452,16 @@ export async function approveOrderRequest(
   const trackingUrl = publicDomain
     ? `https://${publicDomain}/encomenda/${result.id}`
     : null;
+  // Sempre prefere a URL da tracking (lá tem QR inline + copia-cola).
+  // invoiceUrl direto do Asaas vira fallback se PUBLIC_DOMAIN não estiver
+  // configurado, e segue como botão dentro da tracking quando o cliente
+  // entra. Mensagem genérica só se não temos nem URL.
   const depositLine =
     result.depositRequiredCents && result.depositRequiredCents > 0
-      ? invoiceUrl
-        ? `\n💳 *Sinal:* R$ ${(result.depositRequiredCents / 100).toFixed(2).replace(".", ",")}\nLink pra pagar (PIX): ${invoiceUrl}`
-        : trackingUrl
-          ? `\n💳 *Sinal:* R$ ${(result.depositRequiredCents / 100).toFixed(2).replace(".", ",")}\nGere o link de pagamento aqui: ${trackingUrl}`
+      ? trackingUrl
+        ? `\n💳 *Sinal:* R$ ${(result.depositRequiredCents / 100).toFixed(2).replace(".", ",")}\nQR Code e código PIX aqui: ${trackingUrl}`
+        : invoiceUrl
+          ? `\n💳 *Sinal:* R$ ${(result.depositRequiredCents / 100).toFixed(2).replace(".", ",")}\nLink pra pagar (PIX): ${invoiceUrl}`
           : `\nSinal combinado: *R$ ${(result.depositRequiredCents / 100).toFixed(2).replace(".", ",")}*.`
       : "";
   void notifyCustomer({
