@@ -23,6 +23,7 @@ import { useCart, cartKeyOf } from "@/components/public/cart/CartProvider";
 import { validateCouponAction } from "@/server/actions/coupons";
 import { OtpLoginDialog } from "@/components/public/auth/OtpLoginDialog";
 import { ConfirmOrderDialog } from "./ConfirmOrderDialog";
+import { UpsellSuggestions } from "./UpsellSuggestions";
 
 type SiteSettingsForCheckout = {
   pickupEnabled: boolean;
@@ -524,6 +525,9 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
             })}
           </ul>
         </section>
+
+        {/* Upsells: sugestões de items complementares ao cart atual */}
+        <UpsellSuggestions />
 
         {/* Identificação por OTP (opcional, atalho pra clientes recorrentes) */}
         {authedCustomer ? (
