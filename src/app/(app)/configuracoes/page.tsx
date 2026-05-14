@@ -77,6 +77,8 @@ export default async function ConfiguracoesPage() {
               whatsappNotifyOrderRequestRejected: settings.whatsappNotifyOrderRequestRejected,
               whatsappNotifyOrderRequestReady: settings.whatsappNotifyOrderRequestReady,
               whatsappNotifyNpsRequest: settings.whatsappNotifyNpsRequest,
+              whatsappNotifyAbandonedCart: settings.whatsappNotifyAbandonedCart,
+              abandonedCartNotifyAfterMinutes: settings.abandonedCartNotifyAfterMinutes,
               asaasEnabled: settings.asaasEnabled,
               asaasPaymentTtlHours: settings.asaasPaymentTtlHours,
             }}

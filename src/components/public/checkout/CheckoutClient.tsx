@@ -217,6 +217,35 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
     notes,
   ]);
 
+  // Captura de carrinho abandonado: debounce 3s após digitar phone válido
+  // (10+ dígitos) com items no carrinho. POSTa pra /api/public/abandoned-cart
+  // que faz upsert idempotente por phone.
+  useEffect(() => {
+    if (count === 0) return;
+    const digits = customerPhone.replace(/\D+/g, "");
+    if (digits.length < 10) return;
+    const timer = setTimeout(() => {
+      fetch("/api/public/abandoned-cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerPhone: digits,
+          customerName: customerName.trim() || null,
+          items: cart.items.map((it) => ({
+            kind: it.kind,
+            id: it.id,
+            name: it.name,
+            price: it.price,
+            quantity: it.quantity,
+          })),
+        }),
+      }).catch(() => {
+        /* fire-and-forget */
+      });
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [customerPhone, customerName, count, cart.items]);
+
   const minOrder = settings.minimumOrderValue ?? 0;
   const belowMinimum = minOrder > 0 && total < minOrder;
 

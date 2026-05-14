@@ -75,6 +75,8 @@ type Defaults = {
   whatsappNotifyOrderRequestRejected: boolean;
   whatsappNotifyOrderRequestReady: boolean;
   whatsappNotifyNpsRequest: boolean;
+  whatsappNotifyAbandonedCart: boolean;
+  abandonedCartNotifyAfterMinutes: number;
   // Pagamento online (Asaas)
   asaasEnabled: boolean;
   asaasPaymentTtlHours: number;
@@ -129,6 +131,8 @@ const FACTORY_DEFAULTS: Defaults = {
   whatsappNotifyOrderRequestRejected: false,
   whatsappNotifyOrderRequestReady: false,
   whatsappNotifyNpsRequest: false,
+  whatsappNotifyAbandonedCart: false,
+  abandonedCartNotifyAfterMinutes: 30,
   asaasEnabled: false,
   asaasPaymentTtlHours: 24,
 };
@@ -185,6 +189,8 @@ function toState(d: Defaults) {
     whatsappNotifyOrderRequestRejected: d.whatsappNotifyOrderRequestRejected,
     whatsappNotifyOrderRequestReady: d.whatsappNotifyOrderRequestReady,
     whatsappNotifyNpsRequest: d.whatsappNotifyNpsRequest,
+    whatsappNotifyAbandonedCart: d.whatsappNotifyAbandonedCart,
+    abandonedCartNotifyAfterMinutes: String(d.abandonedCartNotifyAfterMinutes),
     asaasEnabled: d.asaasEnabled,
     asaasPaymentTtlHours: String(d.asaasPaymentTtlHours),
   };
@@ -844,6 +850,14 @@ function WhatsAppApiBlock({
             disabled={!state.whatsappApiEnabled}
             label="Pedido de avaliação (NPS)"
             hint="Quando você clica 'Enviar avaliação' em uma venda, manda o link pelo WhatsApp."
+          />
+          <ToggleRow
+            id="wnAbandonedCart"
+            checked={state.whatsappNotifyAbandonedCart}
+            onChange={(v) => set("whatsappNotifyAbandonedCart", v)}
+            disabled={!state.whatsappApiEnabled}
+            label="Carrinho abandonado"
+            hint={`Cron envia WhatsApp pra quem digitou telefone mas não finalizou. Espera ${state.abandonedCartNotifyAfterMinutes || "30"} min depois do abandono.`}
           />
         </div>
       </div>

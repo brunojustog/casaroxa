@@ -41,7 +41,8 @@ export type SendTextInput = {
     | "whatsappNotifyOrderRequestApproved"
     | "whatsappNotifyOrderRequestRejected"
     | "whatsappNotifyOrderRequestReady"
-    | "whatsappNotifyNpsRequest";
+    | "whatsappNotifyNpsRequest"
+    | "whatsappNotifyAbandonedCart";
   /** Atraso de digitação em ms (default 1500). */
   typingDelayMs?: number;
 };
@@ -134,6 +135,7 @@ export async function isEventEnabled(
       whatsappNotifyOrderRequestRejected: true,
       whatsappNotifyOrderRequestReady: true,
       whatsappNotifyNpsRequest: true,
+      whatsappNotifyAbandonedCart: true,
     },
   });
   if (!settings || !settings.whatsappApiEnabled) return false;

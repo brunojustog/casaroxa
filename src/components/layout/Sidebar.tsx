@@ -75,6 +75,7 @@ const NAV: NavSection[] = [
       { href: "/clientes",    label: "Clientes",    icon: UsersRound },
       { href: "/campanhas",   label: "Campanhas",   icon: Megaphone, roles: ["ADMIN"] },
       { href: "/avaliacoes",  label: "Avaliações",  icon: Star, roles: ["ADMIN"] },
+      { href: "/carrinhos-abandonados", label: "Carrinhos perdidos", icon: ShoppingCart, roles: ["ADMIN"] },
     ],
   },
   {

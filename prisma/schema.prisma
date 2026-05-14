@@ -207,6 +207,13 @@ enum NpsCategory {
   PROMOTER // score 9-10
 }
 
+enum AbandonedCartStatus {
+  PENDING // capturado, ainda não notificado
+  NOTIFIED // WhatsApp de recuperação enviado
+  RECOVERED // cliente voltou e finalizou (Sale criada)
+  EXPIRED // mais de N dias sem ação, purged
+}
+
 // ============================================================
 // AUTENTICAÇÃO
 // ============================================================
@@ -262,6 +269,7 @@ enum WhatsAppEvent {
   ORDER_REQUEST_REJECTED // admin recusou
   ORDER_REQUEST_READY // encomenda PRONTA pra retirada/entrega
   NPS_REQUEST // link de avaliação pós-entrega
+  ABANDONED_CART // recuperação de carrinho abandonado
   MANUAL // disparado pelo chat IA ou botão manual
   TEST // botão "Testar conexão" em /configuracoes
 }
@@ -611,6 +619,10 @@ model Settings {
   whatsappNotifyOrderRequestReady    Boolean @default(false)
   /// Envia link de avaliação pós-entrega (NPS) ao cliente.
   whatsappNotifyNpsRequest           Boolean @default(false)
+  /// Recuperação de carrinho abandonado por WhatsApp.
+  whatsappNotifyAbandonedCart        Boolean @default(false)
+  /// Quanto tempo após abandono o sistema espera pra notificar (minutos).
+  abandonedCartNotifyAfterMinutes    Int     @default(30)
 
   // ----- Pagamento online (Asaas) -----
   /// Master switch — se false, opções de pagamento online ficam ocultas
@@ -814,6 +826,7 @@ model Customer {
   orderRequests       OrderRequest[]
   campaignDeliveries  CampaignDelivery[]
   reviews             CustomerReview[]
+  abandonedCarts      AbandonedCart[]
 
   /// Cliente aceita receber comunicação de marketing (campanhas). Default
   /// true; futuro opt-out fica neste campo. Mensagens transacionais
@@ -1646,6 +1659,38 @@ model CustomerReview {
 
   @@index([customerId, createdAt])
   @@index([category, createdAt])
+}
+
+// ============================================================
+// CARRINHO ABANDONADO (Sprint 7)
+// ============================================================
+
+/// Snapshot do carrinho de um cliente que estava no checkout mas
+/// não finalizou. Capturado quando ele preenche telefone válido.
+/// Idempotente por phone (1 cart "aberto" por número).
+model AbandonedCart {
+  id              String              @id @default(cuid())
+  /// Chave natural — upsert acontece por aqui.
+  customerPhone   String              @unique
+  customerName    String?
+  /// FK opcional pra Customer já cadastrado.
+  customerId      String?
+  customer        Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  /// Snapshot dos items (JSON): [{ kind, id, name, price, quantity }, ...].
+  itemsSnapshot   Json
+  /// Soma do snapshot no momento (cache).
+  totalSnapshot   Decimal             @db.Decimal(14, 2)
+  status          AbandonedCartStatus @default(PENDING)
+  /// Timestamp do envio do WhatsApp de recuperação.
+  notifiedAt      DateTime?
+  /// Se cliente voltou e finalizou, FK pra Sale gerada.
+  recoveredSaleId String?
+  recoveredAt     DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([status, createdAt])
+  @@index([customerId])
 }
 
 model CampaignDelivery {

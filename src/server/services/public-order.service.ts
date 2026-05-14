@@ -209,6 +209,20 @@ export async function createPublicOrder(
       await attributeSaleToCampaign(tx, created.id, couponId);
     }
 
+    // Recuperação de carrinho abandonado (Sprint 7): se o cliente tinha
+    // um cart "aberto" no número, marca como RECOVERED.
+    try {
+      const { markRecoveredIfExists } = await import(
+        "./abandoned-cart.service"
+      );
+      await markRecoveredIfExists(tx, {
+        customerPhone: input.customerPhone,
+        saleId: created.id,
+      });
+    } catch (e) {
+      console.warn("[public-order] markRecovered falhou:", e);
+    }
+
     // Atualiza caches da Sale
     const totalRevenue = sumDecimal(totals.map((t) => t.totalPrice));
     const totalCost = sumDecimal(totals.map((t) => t.totalCost));

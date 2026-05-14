@@ -96,6 +96,8 @@ export const settingsFormSchema = z.object({
   whatsappNotifyOrderRequestRejected: z.coerce.boolean().default(false),
   whatsappNotifyOrderRequestReady: z.coerce.boolean().default(false),
   whatsappNotifyNpsRequest: z.coerce.boolean().default(false),
+  whatsappNotifyAbandonedCart: z.coerce.boolean().default(false),
+  abandonedCartNotifyAfterMinutes: z.coerce.number().int().min(5).max(1440).default(30),
 
   // Pagamento online (Asaas)
   asaasEnabled: z.coerce.boolean().default(false),
