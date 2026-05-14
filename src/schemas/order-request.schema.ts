@@ -1,15 +1,21 @@
 import { z } from "zod";
 
 const requiredString = (field: string, max = 200) =>
-  z.string().trim().min(1, `${field} é obrigatório`).max(max);
+  z
+    .preprocess(
+      (v) => (v == null ? "" : v),
+      z.string().trim().min(1, `${field} é obrigatório`).max(max),
+    );
 
 const optionalString = (max = 500) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .optional()
-    .transform((v) => (v && v.length > 0 ? v : null));
+  z.preprocess(
+    (v) => {
+      if (v == null) return null;
+      const trimmed = String(v).trim();
+      return trimmed.length > 0 ? trimmed : null;
+    },
+    z.string().max(max).nullable(),
+  );
 
 export const orderRequestItemSchema = z.object({
   productId: z.string().min(1).optional().nullable(),

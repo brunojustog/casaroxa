@@ -33,8 +33,12 @@ export async function createAdminOrderRequestAction(
     const user = await requireRole("ADMIN");
     const parsed = adminOrderRequestSchema.safeParse(raw);
     if (!parsed.success) {
+      const first = parsed.error.errors[0];
+      const path = first?.path.join(".");
       throw new BusinessError(
-        parsed.error.errors[0]?.message ?? "Dados inválidos",
+        path
+          ? `${path}: ${first.message}`
+          : (first?.message ?? "Dados inválidos"),
       );
     }
     return await createAdminOrderRequest(parsed.data, user.id);
