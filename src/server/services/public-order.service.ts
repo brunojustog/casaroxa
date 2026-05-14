@@ -202,6 +202,13 @@ export async function createPublicOrder(
       }
     }
 
+    // Atribuição de campanha (Sprint 5): se o cupom usado é de uma
+    // campanha, cria CampaignOrderAttribution. Silencioso se não houver.
+    if (couponId) {
+      const { attributeSaleToCampaign } = await import("./campaign.service");
+      await attributeSaleToCampaign(tx, created.id, couponId);
+    }
+
     // Atualiza caches da Sale
     const totalRevenue = sumDecimal(totals.map((t) => t.totalPrice));
     const totalCost = sumDecimal(totals.map((t) => t.totalCost));

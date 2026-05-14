@@ -171,6 +171,34 @@ enum SalesEventWindowKind {
   DELIVERY // entrega
 }
 
+enum CampaignChannel {
+  WHATSAPP
+  EMAIL // futuro
+}
+
+enum CampaignAudienceKey {
+  BIRTHDAY_MONTH // aniversariantes do mês corrente
+  INACTIVE_30D // sem pedido CONCLUIDO nos últimos 30 dias
+  RECURRING // >= 3 pedidos concluídos
+  HIGH_TICKET // ticket médio acima de Settings.targetAverageTicket
+  BOUGHT_CHICKEN // já comprou pelo menos 1 produto categoria FRANGO
+  BOUGHT_BEEF_RIB // já comprou pelo menos 1 produto categoria COSTELA
+}
+
+enum CampaignStatus {
+  DRAFT // ainda não disparada
+  DISPATCHING // disparo em andamento
+  SENT // todos os envios processados
+  CANCELLED // cancelada antes de terminar
+}
+
+enum CampaignDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
 // ============================================================
 // AUTENTICAÇÃO
 // ============================================================
@@ -205,6 +233,7 @@ model User {
   salesEventsCreated     SalesEvent[]             @relation("SalesEventCreatedBy")
   orderRequestsCreated   OrderRequest[]           @relation("OrderRequestCreatedBy")
   orderRequestsApproved  OrderRequest[]           @relation("OrderRequestApprovedBy")
+  campaignsCreated       Campaign[]               @relation("CampaignCreatedBy")
 }
 
 // ============================================================
@@ -772,6 +801,12 @@ model Customer {
   referralsMade       RaffleReferral[]     @relation("ReferrerReferrals")
   referralsReceived   RaffleReferral[]     @relation("ReferredReferrals")
   orderRequests       OrderRequest[]
+  campaignDeliveries  CampaignDelivery[]
+
+  /// Cliente aceita receber comunicação de marketing (campanhas). Default
+  /// true; futuro opt-out fica neste campo. Mensagens transacionais
+  /// (confirmação, pagamento) ignoram esse flag.
+  marketingOptIn Boolean @default(true)
 
   @@index([active, name])
   @@index([birthday])
@@ -990,7 +1025,8 @@ model Coupon {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
-  sales Sale[]
+  sales     Sale[]
+  campaigns Campaign[]
 
   @@index([active, validUntil])
 }
@@ -1212,17 +1248,18 @@ model Sale {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  createdBy        User?             @relation("SaleCreatedBy", fields: [createdById], references: [id])
-  closedBy         User?             @relation("SaleClosedBy", fields: [closedById], references: [id])
-  cancelledBy      User?             @relation("SaleCancelledBy", fields: [cancelledById], references: [id])
-  coupon           Coupon?           @relation(fields: [couponId], references: [id], onDelete: SetNull)
-  customer         Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  salesEvent       SalesEvent?       @relation(fields: [salesEventId], references: [id], onDelete: SetNull)
-  salesEventWindow SalesEventWindow? @relation(fields: [salesEventWindowId], references: [id], onDelete: SetNull)
-  items            SaleItem[]
-  payments         SalePayment[]
-  onlinePayment    OnlinePayment?
-  orderRequest     OrderRequest?
+  createdBy           User?                     @relation("SaleCreatedBy", fields: [createdById], references: [id])
+  closedBy            User?                     @relation("SaleClosedBy", fields: [closedById], references: [id])
+  cancelledBy         User?                     @relation("SaleCancelledBy", fields: [cancelledById], references: [id])
+  coupon              Coupon?                   @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  customer            Customer?                 @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  salesEvent          SalesEvent?               @relation(fields: [salesEventId], references: [id], onDelete: SetNull)
+  salesEventWindow    SalesEventWindow?         @relation(fields: [salesEventWindowId], references: [id], onDelete: SetNull)
+  items               SaleItem[]
+  payments            SalePayment[]
+  onlinePayment       OnlinePayment?
+  orderRequest        OrderRequest?
+  campaignAttribution CampaignOrderAttribution?
 
   @@index([occurredAt])
   @@index([status, occurredAt])
@@ -1519,4 +1556,73 @@ model SalesEventWindow {
   sales      Sale[]
 
   @@index([salesEventId, startsAt])
+}
+
+// ============================================================
+// CAMPANHAS (Sprint 5)
+// ============================================================
+
+/// Campanha de marketing — admin define mensagem, escolhe público fixo
+/// (audienceKey) e dispara. Cada Customer da audiência vira um
+/// CampaignDelivery com status próprio. Atribuição de vendas via
+/// CampaignOrderAttribution (gerada ao usar o cupom da campanha no checkout).
+model Campaign {
+  id               String              @id @default(cuid())
+  name             String
+  /// Template da mensagem. Suporta {nome} (primeiro nome) e {cupom}.
+  message          String              @db.Text
+  channel          CampaignChannel     @default(WHATSAPP)
+  audienceKey      CampaignAudienceKey
+  status           CampaignStatus      @default(DRAFT)
+  /// Cupom gerado pra atribuição automática (opcional).
+  couponId         String?
+  coupon           Coupon?             @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  /// Snapshot do tamanho da audiência no momento do disparo.
+  audienceSnapshot Int                 @default(0)
+  startedAt        DateTime?
+  finishedAt       DateTime?
+
+  createdById String?
+  createdBy   User?    @relation("CampaignCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  deliveries   CampaignDelivery[]
+  attributions CampaignOrderAttribution[]
+
+  @@index([status, createdAt])
+}
+
+model CampaignDelivery {
+  id              String                 @id @default(cuid())
+  campaignId      String
+  campaign        Campaign               @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  customerId      String
+  customer        Customer               @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  status          CampaignDeliveryStatus @default(PENDING)
+  /// Telefone normalizado usado no envio (snapshot).
+  phoneSnapshot   String?
+  /// Mensagem renderizada com substituições (snapshot).
+  messageSnapshot String?                @db.Text
+  /// FK pro WhatsAppMessageLog gerado, se SENT.
+  whatsappLogId   String?
+  errorMessage    String?
+  sentAt          DateTime?
+  createdAt       DateTime               @default(now())
+
+  @@unique([campaignId, customerId])
+  @@index([campaignId, status])
+}
+
+/// Liga uma Sale à campanha que provavelmente gerou ela. Criado quando
+/// o cliente usa o cupom da campanha no checkout, ou manualmente pelo admin.
+model CampaignOrderAttribution {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  saleId     String   @unique
+  sale       Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([campaignId])
 }

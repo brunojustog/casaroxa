@@ -84,6 +84,7 @@ const ADMIN_PREFIXES = [
   "/pre-vendas",
   "/encomendas",
   "/producao",
+  "/campanhas",
   "/api/auth",
   "/api/admin",
 ];
