@@ -99,6 +99,8 @@ export async function getPublicMenuItem(
       ingredientsPublic: derived,
       gallery: parseGallery(p.gallery),
       youtubeUrl: p.youtubeUrl,
+      savings: null,
+      topPick: false,
     };
   }
   const c = await prisma.combo.findFirst({
@@ -140,6 +142,8 @@ export async function getPublicMenuItem(
     ingredientsPublic: derived,
     gallery: parseGallery(c.gallery),
     youtubeUrl: c.youtubeUrl,
+    savings: null,
+    topPick: false,
   };
 }
 
@@ -155,6 +159,11 @@ export type PublicMenuItem = {
   ingredientsPublic: string | null;
   gallery: string[];
   youtubeUrl: string | null;
+  /** Combo: diferença positiva entre soma dos items individuais e o
+   *  preço do combo. null se não é combo ou não há economia. */
+  savings: number | null;
+  /** Top N mais vendidos nos últimos 30 dias — ganha badge "Mais pedido". */
+  topPick: boolean;
 };
 
 export type PublicMenuCategory = {
@@ -166,17 +175,80 @@ export type PublicMenuCategory = {
 };
 
 const CATEGORY_ORDER: Array<ProductCategory | "COMBOS"> = [
+  "COMBOS", // Combos primeiro — orientação a ticket
   "FRANGO",
   "COSTELA",
   "SUINOS",
   "ACOMPANHAMENTOS",
   "EXTRAS",
   "BEBIDAS",
-  "COMBOS",
 ];
 
+const TOP_PICK_COUNT = 3;
+
+/** Top N produtos/combos mais vendidos nos últimos 30d (Sales CONCLUIDA). */
+async function getTopPickIds(): Promise<{
+  productIds: Set<string>;
+  comboIds: Set<string>;
+}> {
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const items = await prisma.saleItem.groupBy({
+    by: ["productId", "comboId"],
+    where: {
+      sale: { status: "CONCLUIDA", occurredAt: { gte: cutoff } },
+    },
+    _count: { _all: true },
+  });
+  const productRanks = items
+    .filter((i) => i.productId)
+    .map((i) => ({ id: i.productId!, n: i._count._all }))
+    .sort((a, b) => b.n - a.n)
+    .slice(0, TOP_PICK_COUNT)
+    .map((i) => i.id);
+  const comboRanks = items
+    .filter((i) => i.comboId)
+    .map((i) => ({ id: i.comboId!, n: i._count._all }))
+    .sort((a, b) => b.n - a.n)
+    .slice(0, TOP_PICK_COUNT)
+    .map((i) => i.id);
+  return {
+    productIds: new Set(productRanks),
+    comboIds: new Set(comboRanks),
+  };
+}
+
+/** Pra cada combo, soma os preços dos items individuais (ComboItem ×
+ *  Product.salePrice). Diferença positiva é a "economia". */
+async function getComboSavings(): Promise<Map<string, number>> {
+  const combos = await prisma.combo.findMany({
+    where: { active: true, showInMenu: true },
+    select: {
+      id: true,
+      salePrice: true,
+      items: {
+        select: {
+          quantity: true,
+          product: { select: { salePrice: true } },
+        },
+      },
+    },
+  });
+  const out = new Map<string, number>();
+  for (const c of combos) {
+    if (!c.salePrice) continue;
+    let sumIndividual = 0;
+    for (const ci of c.items) {
+      const unit = Number(ci.product?.salePrice ?? 0);
+      sumIndividual += unit * Number(ci.quantity);
+    }
+    const diff = sumIndividual - Number(c.salePrice);
+    if (diff > 0) out.set(c.id, diff);
+  }
+  return out;
+}
+
 export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
-  const [products, combos] = await Promise.all([
+  const [products, combos, topPicks, comboSavings] = await Promise.all([
     prisma.product.findMany({
       where: {
         showInMenu: true,
@@ -216,6 +288,8 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
         youtubeUrl: true,
       },
     }),
+    getTopPickIds(),
+    getComboSavings(),
   ]);
 
   const productItems: PublicMenuItem[] = products.map((p) => ({
@@ -230,6 +304,8 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
     ingredientsPublic: p.ingredientsPublic,
     gallery: parseGallery(p.gallery),
     youtubeUrl: p.youtubeUrl,
+    savings: null,
+    topPick: topPicks.productIds.has(p.id),
   }));
 
   const comboItems: PublicMenuItem[] = combos.map((c) => ({
@@ -244,7 +320,20 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
     ingredientsPublic: c.ingredientsPublic,
     gallery: parseGallery(c.gallery),
     youtubeUrl: c.youtubeUrl,
+    savings: comboSavings.get(c.id) ?? null,
+    topPick: topPicks.comboIds.has(c.id),
   }));
+
+  // Dentro de cada categoria, ordena: topPick primeiro, depois savings desc, depois alfabético
+  function sortInCategory(items: PublicMenuItem[]): PublicMenuItem[] {
+    return [...items].sort((a, b) => {
+      if (a.topPick !== b.topPick) return a.topPick ? -1 : 1;
+      const sa = a.savings ?? 0;
+      const sb = b.savings ?? 0;
+      if (sa !== sb) return sb - sa;
+      return a.name.localeCompare(b.name, "pt-BR");
+    });
+  }
 
   // Agrupa: produtos por sua categoria, combos numa categoria virtual "COMBOS"
   const byCategory = new Map<ProductCategory | "COMBOS", PublicMenuItem[]>();
@@ -258,7 +347,7 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
   }
 
   return CATEGORY_ORDER.filter((c) => byCategory.has(c)).map((c) => {
-    const items = byCategory.get(c) ?? [];
+    const items = sortInCategory(byCategory.get(c) ?? []);
     const cover = items.find((i) => i.imageUrl)?.imageUrl ?? null;
     return {
       category: c,

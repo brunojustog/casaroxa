@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ImageOff } from "lucide-react";
+import { Flame, ImageOff, PiggyBank } from "lucide-react";
 import { formatBRL } from "@/lib/format";
 import { MenuItemActions } from "./cart/MenuItemActions";
 import type { PublicMenuItem } from "@/server/services/public-menu.service";
@@ -34,6 +34,12 @@ export function MenuItemCard({ item }: { item: PublicMenuItem }) {
             Combo
           </span>
         )}
+        {item.topPick && (
+          <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-amber-500 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-white shadow">
+            <Flame className="h-3 w-3" />
+            Mais pedido
+          </span>
+        )}
       </Link>
 
       <div className="flex flex-1 flex-col gap-2 p-4">
@@ -53,9 +59,17 @@ export function MenuItemCard({ item }: { item: PublicMenuItem }) {
           Ver detalhes →
         </Link>
         <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-2">
-          <span className="text-2xl font-bold tabular-nums text-roxa-700">
-            {formatBRL(item.price)}
-          </span>
+          <div className="flex flex-col">
+            <span className="text-2xl font-bold tabular-nums text-roxa-700">
+              {formatBRL(item.price)}
+            </span>
+            {item.savings && item.savings > 0 && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-700">
+                <PiggyBank className="h-3 w-3" />
+                Economize {formatBRL(item.savings)}
+              </span>
+            )}
+          </div>
           <MenuItemActions
             item={{
               id: item.id,
