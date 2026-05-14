@@ -75,6 +75,9 @@ export async function getPublicOrderRequestTracking(id: string) {
           combo: { select: { name: true } },
         },
       },
+      depositPayment: {
+        select: { invoiceUrl: true, status: true },
+      },
     },
   });
 }
@@ -369,11 +372,34 @@ export async function approveOrderRequest(
     return updated;
   });
 
+  // Se tem sinal configurado, tenta gerar charge Asaas automaticamente.
+  // Falha graceful: se cliente não tem CPF ou Asaas falha, segue sem charge
+  // e admin combina manual. invoiceUrl entra na mensagem se gerado.
+  let invoiceUrl: string | null = null;
+  if (result.depositRequiredCents && result.depositRequiredCents > 0) {
+    try {
+      const { initiateOrderRequestDepositPayment } = await import(
+        "./payment.service"
+      );
+      const payment = await initiateOrderRequestDepositPayment({
+        orderRequestId: result.id,
+      });
+      invoiceUrl = payment.invoiceUrl ?? null;
+    } catch (e) {
+      console.warn(
+        "[approveOrderRequest] charge Asaas pulada:",
+        e instanceof Error ? e.message : e,
+      );
+    }
+  }
+
   // Notifica cliente fora da transação
   const businessName = await loadBusinessName();
   const depositLine =
     result.depositRequiredCents && result.depositRequiredCents > 0
-      ? `\nSinal combinado: *R$ ${(result.depositRequiredCents / 100).toFixed(2).replace(".", ",")}*. A gente te passa o jeito de pagar.`
+      ? invoiceUrl
+        ? `\n💳 *Sinal:* R$ ${(result.depositRequiredCents / 100).toFixed(2).replace(".", ",")}\nLink pra pagar (PIX): ${invoiceUrl}`
+        : `\nSinal combinado: *R$ ${(result.depositRequiredCents / 100).toFixed(2).replace(".", ",")}*. A gente te passa o jeito de pagar.`
       : "";
   void notifyCustomer({
     phone: result.customerPhone,

@@ -430,6 +430,127 @@ async function initiateRafflePayment(input: {
   };
 }
 
+/**
+ * Cria charge Asaas pra sinal de encomenda. Idempotente: se já existe
+ * OnlinePayment vinculado ao OrderRequest, retorna ele. Sempre PIX.
+ *
+ * Pré-requisitos:
+ *   - OrderRequest tem customerId (cliente cadastrado)
+ *   - Customer tem cpfCnpj (Asaas exige)
+ *   - depositRequiredCents >= ASAAS_MIN_VALUE_CENTS (R$ 5,00)
+ */
+export async function initiateOrderRequestDepositPayment(input: {
+  orderRequestId: string;
+  cpfCnpj?: string;
+}): Promise<InitiateOnlinePaymentResult> {
+  const req = await prisma.orderRequest.findUnique({
+    where: { id: input.orderRequestId },
+    select: {
+      id: true,
+      number: true,
+      customerId: true,
+      depositRequiredCents: true,
+      depositPaidAt: true,
+    },
+  });
+  if (!req) throw new BusinessError("Encomenda não encontrada.");
+  if (!req.depositRequiredCents || req.depositRequiredCents <= 0) {
+    throw new BusinessError("Encomenda sem sinal configurado.");
+  }
+  if (req.depositPaidAt) {
+    throw new BusinessError("Sinal já foi pago.");
+  }
+  if (!req.customerId) {
+    throw new BusinessError(
+      "Cliente não está cadastrado — não dá pra gerar cobrança online.",
+    );
+  }
+  if (req.depositRequiredCents < ASAAS_MIN_VALUE_CENTS) {
+    throw new BusinessError(
+      "Valor mínimo de cobrança é R$ 5,00 (regra do banco).",
+    );
+  }
+
+  // Idempotência: se já existe payment, retorna
+  const existing = await prisma.onlinePayment.findUnique({
+    where: { orderRequestId: req.id },
+  });
+  if (existing) {
+    return {
+      paymentId: existing.id,
+      billingType: existing.billingType,
+      status: existing.status,
+      pixPayload: existing.pixPayload,
+      pixQrCodeBase64: existing.pixQrCodeBase64,
+      invoiceUrl: existing.invoiceUrl,
+      value: Number(existing.value),
+      dueDate: existing.dueDate,
+    };
+  }
+
+  const value = req.depositRequiredCents / 100;
+
+  const { asaasCustomerId } = await getOrCreateAsaasCustomer(
+    req.customerId,
+    input.cpfCnpj,
+  );
+
+  const settings = await prisma.settings.findUnique({
+    where: { id: 1 },
+    select: { asaasPaymentTtlHours: true },
+  });
+  const ttlHours = settings?.asaasPaymentTtlHours ?? DEFAULT_TTL_HOURS;
+  const dueDate = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
+
+  const asaasResult = await createAsaasPayment({
+    customerId: asaasCustomerId,
+    billingType: "PIX",
+    value,
+    dueDate,
+    description: `Casa Roxa — Sinal encomenda ER-${req.number}`,
+    externalReference: `orderRequest:${req.id}`,
+  });
+  if (!asaasResult.ok) {
+    throw new BusinessError(`Falha no Asaas: ${asaasResult.error}`);
+  }
+  const asaasPayment = asaasResult.payment;
+
+  let pixPayload: string | null = null;
+  let pixQrCodeBase64: string | null = null;
+  const qr = await getAsaasPixQrCode(asaasPayment.id);
+  if (qr.ok) {
+    pixPayload = qr.qr.payload;
+    pixQrCodeBase64 = qr.qr.encodedImage;
+  }
+
+  const created = await prisma.onlinePayment.create({
+    data: {
+      orderRequestId: req.id,
+      customerId: req.customerId,
+      asaasPaymentId: asaasPayment.id,
+      asaasCustomerId,
+      billingType: "PIX",
+      value,
+      status: mapAsaasStatus(asaasPayment.status),
+      invoiceUrl: asaasPayment.invoiceUrl ?? null,
+      pixPayload,
+      pixQrCodeBase64,
+      dueDate,
+    },
+  });
+
+  return {
+    paymentId: created.id,
+    billingType: created.billingType,
+    status: created.status,
+    pixPayload: created.pixPayload,
+    pixQrCodeBase64: created.pixQrCodeBase64,
+    invoiceUrl: created.invoiceUrl,
+    value: Number(created.value),
+    dueDate: created.dueDate,
+  };
+}
+
 // ---------- Consulta ----------
 
 export async function getOnlinePaymentBySaleId(saleId: string) {
@@ -456,6 +577,7 @@ export async function handlePaymentWebhook(payload: {
     include: {
       sale: { include: { customer: true } },
       raffleEntries: { select: { id: true, confirmed: true } },
+      orderRequest: { select: { id: true, number: true, customerName: true, customerPhone: true } },
     },
   });
   if (!local) {
@@ -504,6 +626,21 @@ export async function handlePaymentWebhook(payload: {
       }
     } else if (local.raffleId && local.raffleEntries.length > 0) {
       await confirmRaffleEntriesFromPayment(local.id);
+    } else if (local.orderRequest) {
+      // Marca sinal como pago
+      await prisma.orderRequest.update({
+        where: { id: local.orderRequest.id },
+        data: { depositPaidAt: new Date() },
+      });
+      // Notifica o cliente
+      sendText({
+        phone: local.orderRequest.customerPhone,
+        message: `✅ *Sinal recebido!*\n\nObrigado, ${local.orderRequest.customerName.split(/\s+/)[0]}! Confirmamos o sinal da encomenda ER-${local.orderRequest.number}. Já estamos planejando a produção.`,
+        event: "PAYMENT_RECEIVED",
+        toggleField: "whatsappNotifyPaymentReceived",
+      }).catch((e) =>
+        console.error("[payment-webhook order-request] whatsapp:", e),
+      );
     }
   } else if (isExpiredNow && local.raffleId) {
     await releasePendingRaffleEntries(local.id);

@@ -242,7 +242,18 @@ export default async function EncomendaTrackingPage({
               <span className="text-amber-700 font-semibold">— aguardando pagamento</span>
             )}
           </p>
-          {!req.depositPaidAt && (
+          {!req.depositPaidAt && req.depositPayment?.invoiceUrl && (
+            <a
+              href={req.depositPayment.invoiceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex items-center justify-center gap-2 rounded-md bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700"
+            >
+              <Wallet className="h-4 w-4" />
+              Pagar sinal agora (PIX)
+            </a>
+          )}
+          {!req.depositPaidAt && !req.depositPayment?.invoiceUrl && (
             <p className="mt-1 text-xs text-slate-500">
               Combine com a Casa Roxa pelo WhatsApp como pagar o sinal.
             </p>

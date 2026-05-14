@@ -1294,12 +1294,15 @@ enum OnlinePaymentStatus {
 
 model OnlinePayment {
   id              String                   @id @default(cuid())
-  /// Polimórfico: ou paga uma Sale (saleId) ou paga N RaffleEntries
-  /// (raffleId + entries vinculadas). Exatamente um dos dois é preenchido.
+  /// Polimórfico: paga uma Sale (saleId), N RaffleEntries (raffleId +
+  /// entries vinculadas) ou o sinal de uma OrderRequest (orderRequestId).
+  /// Exatamente um dos três é preenchido.
   saleId          String?                  @unique
   /// FK pra Raffle quando o pagamento é de números de rifa. Os números
   /// específicos comprados nesse PIX ficam em RaffleEntry.onlinePaymentId.
   raffleId        String?
+  /// FK pra OrderRequest quando o pagamento é sinal de encomenda.
+  orderRequestId  String?                  @unique
   /// ID do payment no Asaas (formato pay_xxxxx).
   asaasPaymentId  String                   @unique
   /// ID do customer no Asaas que originou esse payment.
@@ -1320,11 +1323,13 @@ model OnlinePayment {
 
   sale          Sale?         @relation(fields: [saleId], references: [id], onDelete: Cascade)
   raffle        Raffle?       @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  orderRequest  OrderRequest? @relation(fields: [orderRequestId], references: [id], onDelete: Cascade)
   customer      Customer      @relation(fields: [customerId], references: [id])
   raffleEntries RaffleEntry[]
 
   @@index([status, createdAt])
   @@index([raffleId])
+  @@index([orderRequestId])
   @@index([customerId])
 }
 
@@ -1465,7 +1470,8 @@ model OrderRequest {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  items OrderRequestItem[]
+  items          OrderRequestItem[]
+  depositPayment OnlinePayment?
 
   @@index([status, requestedFor])
   @@index([requestedFor])
