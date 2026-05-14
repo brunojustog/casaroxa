@@ -44,6 +44,39 @@ export async function listOrderRequests(filters: {
   });
 }
 
+/**
+ * Versão pública (sem auth) — retorna apenas campos seguros pra
+ * exibição na página de rastreio /encomenda/[id]. Não expõe adminNotes,
+ * createdBy, customerId interno, etc.
+ */
+export async function getPublicOrderRequestTracking(id: string) {
+  return prisma.orderRequest.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      number: true,
+      customerName: true,
+      requestedFor: true,
+      deliveryMode: true,
+      status: true,
+      rejectionReason: true,
+      depositRequiredCents: true,
+      depositPaidAt: true,
+      saleId: true,
+      createdAt: true,
+      items: {
+        select: {
+          id: true,
+          quantity: true,
+          unitPriceSnapshot: true,
+          product: { select: { name: true } },
+          combo: { select: { name: true } },
+        },
+      },
+    },
+  });
+}
+
 export async function getOrderRequestById(id: string) {
   return prisma.orderRequest.findUnique({
     where: { id },

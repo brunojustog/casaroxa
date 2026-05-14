@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Gift, CalendarDays, ArrowRight } from "lucide-react";
+import { Gift, CalendarDays, ArrowRight, Package } from "lucide-react";
 import { MenuItemCard } from "@/components/public/MenuItemCard";
 import { getPublicMenu, getSiteSettings } from "@/server/services/public-menu.service";
 import { listOpenRaffles } from "@/server/services/raffle.service";
@@ -105,6 +105,28 @@ export default async function CardapioPage({
           </span>
         </Link>
       )}
+
+      {/* Banner de encomenda (sempre visível) */}
+      <Link
+        href="/encomenda"
+        className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 hover:border-roxa-300 hover:bg-roxa-50/40 transition"
+      >
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-roxa-100 text-roxa-700">
+          <Package className="h-5 w-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-serif text-base font-semibold text-roxa-900">
+            Fazer uma encomenda
+          </p>
+          <p className="text-xs text-slate-600 line-clamp-1">
+            Aniversário, almoço de família, evento — peça com antecedência e a
+            gente prepara pra data certa.
+          </p>
+        </div>
+        <span className="text-roxa-700 inline-flex items-center gap-1 text-xs font-semibold whitespace-nowrap">
+          Encomendar <ArrowRight className="h-3 w-3" />
+        </span>
+      </Link>
 
       {/* Banner de rifas/sorteios em andamento */}
       {openRaffles.length > 0 && (
