@@ -16,6 +16,15 @@ import {
   ShoppingBag,
 } from "lucide-react";
 
+type CategoryKey =
+  | "COMBOS"
+  | "FRANGO"
+  | "COSTELA"
+  | "SUINOS"
+  | "ACOMPANHAMENTOS"
+  | "EXTRAS"
+  | "BEBIDAS";
+
 type CatalogItem = {
   kind: "PRODUTO" | "COMBO";
   id: string;
@@ -23,6 +32,27 @@ type CatalogItem = {
   description: string | null;
   imageUrl: string | null;
   priceCents: number;
+  category: CategoryKey;
+};
+
+const CATEGORY_ORDER: CategoryKey[] = [
+  "COMBOS",
+  "FRANGO",
+  "COSTELA",
+  "SUINOS",
+  "ACOMPANHAMENTOS",
+  "EXTRAS",
+  "BEBIDAS",
+];
+
+const CATEGORY_LABEL: Record<CategoryKey, string> = {
+  COMBOS: "Combos",
+  FRANGO: "Frangos",
+  COSTELA: "Costela",
+  SUINOS: "Suínos",
+  ACOMPANHAMENTOS: "Acompanhamentos",
+  EXTRAS: "Extras",
+  BEBIDAS: "Bebidas",
 };
 
 const fmt = (cents: number) =>
@@ -168,75 +198,102 @@ export function EncomendaClient({
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
-        {/* Items */}
-        <section className="rounded-xl border border-roxa-100 bg-white shadow-sm">
-          <header className="flex items-center justify-between border-b border-roxa-100 px-5 py-4">
-            <h2 className="font-serif text-xl font-semibold text-roxa-900">
-              O que você quer encomendar
-            </h2>
-            <span className="text-xs text-slate-500">
-              {catalog.length} {catalog.length === 1 ? "item" : "itens"}
-            </span>
-          </header>
-          <ul className="divide-y divide-roxa-50">
-            {catalog.map((it) => {
-              const current = qty[keyOf(it)] ?? 0;
-              return (
-                <li key={keyOf(it)} className="flex items-start gap-3 p-4">
-                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-roxa-50">
-                    {it.imageUrl ? (
-                      <Image
-                        src={it.imageUrl}
-                        alt={it.name}
-                        fill
-                        sizes="80px"
-                        className="object-cover"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="grid h-full w-full place-items-center text-roxa-300">
-                        <ImageOff className="h-6 w-6" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <p className="font-semibold text-slate-900">{it.name}</p>
-                    {it.description && (
-                      <p className="text-xs text-slate-600 line-clamp-2">
-                        {it.description}
-                      </p>
-                    )}
-                    <p className="text-sm font-semibold text-roxa-700">
-                      {fmt(it.priceCents)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 rounded-md border border-roxa-200">
-                    <button
-                      type="button"
-                      onClick={() => dec(it)}
-                      disabled={current === 0}
-                      className="p-2 text-roxa-700 hover:bg-roxa-50 disabled:cursor-not-allowed disabled:opacity-40"
-                      aria-label="Diminuir"
-                    >
-                      <Minus className="h-3.5 w-3.5" />
-                    </button>
-                    <span className="min-w-[2ch] text-center text-sm font-semibold tabular-nums">
-                      {current}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => inc(it)}
-                      className="p-2 text-roxa-700 hover:bg-roxa-50"
-                      aria-label="Aumentar"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+        {/* Items agrupados por categoria */}
+        {(() => {
+          const byCat = new Map<CategoryKey, CatalogItem[]>();
+          for (const it of catalog) {
+            const arr = byCat.get(it.category) ?? [];
+            arr.push(it);
+            byCat.set(it.category, arr);
+          }
+          const sections = CATEGORY_ORDER.filter((c) => (byCat.get(c)?.length ?? 0) > 0);
+          if (sections.length === 0) return null;
+          return (
+            <div className="space-y-5">
+              {sections.map((cat) => {
+                const items = byCat.get(cat) ?? [];
+                return (
+                  <section
+                    key={cat}
+                    className="rounded-xl border border-roxa-100 bg-white shadow-sm"
+                  >
+                    <header className="flex items-center justify-between border-b border-roxa-100 px-5 py-3">
+                      <h2 className="font-serif text-lg font-semibold text-roxa-900">
+                        {CATEGORY_LABEL[cat]}
+                      </h2>
+                      <span className="text-xs text-slate-500">
+                        {items.length} {items.length === 1 ? "item" : "itens"}
+                      </span>
+                    </header>
+                    <ul className="divide-y divide-roxa-50">
+                      {items.map((it) => {
+                        const current = qty[keyOf(it)] ?? 0;
+                        return (
+                          <li
+                            key={keyOf(it)}
+                            className="flex items-start gap-3 p-4"
+                          >
+                            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-roxa-50">
+                              {it.imageUrl ? (
+                                <Image
+                                  src={it.imageUrl}
+                                  alt={it.name}
+                                  fill
+                                  sizes="80px"
+                                  className="object-cover"
+                                  unoptimized
+                                />
+                              ) : (
+                                <div className="grid h-full w-full place-items-center text-roxa-300">
+                                  <ImageOff className="h-6 w-6" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0 space-y-1">
+                              <p className="font-semibold text-slate-900">
+                                {it.name}
+                              </p>
+                              {it.description && (
+                                <p className="text-xs text-slate-600 line-clamp-2">
+                                  {it.description}
+                                </p>
+                              )}
+                              <p className="text-sm font-semibold text-roxa-700">
+                                {fmt(it.priceCents)}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1 rounded-md border border-roxa-200">
+                              <button
+                                type="button"
+                                onClick={() => dec(it)}
+                                disabled={current === 0}
+                                className="p-2 text-roxa-700 hover:bg-roxa-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label="Diminuir"
+                              >
+                                <Minus className="h-3.5 w-3.5" />
+                              </button>
+                              <span className="min-w-[2ch] text-center text-sm font-semibold tabular-nums">
+                                {current}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => inc(it)}
+                                className="p-2 text-roxa-700 hover:bg-roxa-50"
+                                aria-label="Aumentar"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* Cliente */}
         <section className="rounded-xl border border-roxa-100 bg-white p-5 shadow-sm space-y-4">

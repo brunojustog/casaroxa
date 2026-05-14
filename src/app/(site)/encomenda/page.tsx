@@ -23,6 +23,7 @@ export default async function EncomendaPage() {
         description: true,
         imageUrl: true,
         salePrice: true,
+        category: true,
       },
     }),
     prisma.combo.findMany({
@@ -40,14 +41,6 @@ export default async function EncomendaPage() {
   ]);
 
   const catalog = [
-    ...products.map((p) => ({
-      kind: "PRODUTO" as const,
-      id: p.id,
-      name: p.name,
-      description: p.description,
-      imageUrl: p.imageUrl,
-      priceCents: Math.round(Number(p.salePrice ?? 0) * 100),
-    })),
     ...combos.map((c) => ({
       kind: "COMBO" as const,
       id: c.id,
@@ -55,6 +48,16 @@ export default async function EncomendaPage() {
       description: c.description,
       imageUrl: c.imageUrl,
       priceCents: Math.round(Number(c.salePrice ?? 0) * 100),
+      category: "COMBOS" as const,
+    })),
+    ...products.map((p) => ({
+      kind: "PRODUTO" as const,
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      imageUrl: p.imageUrl,
+      priceCents: Math.round(Number(p.salePrice ?? 0) * 100),
+      category: p.category,
     })),
   ];
 
