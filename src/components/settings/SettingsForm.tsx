@@ -74,6 +74,7 @@ type Defaults = {
   whatsappNotifyOrderRequestApproved: boolean;
   whatsappNotifyOrderRequestRejected: boolean;
   whatsappNotifyOrderRequestReady: boolean;
+  whatsappNotifyNpsRequest: boolean;
   // Pagamento online (Asaas)
   asaasEnabled: boolean;
   asaasPaymentTtlHours: number;
@@ -127,6 +128,7 @@ const FACTORY_DEFAULTS: Defaults = {
   whatsappNotifyOrderRequestApproved: false,
   whatsappNotifyOrderRequestRejected: false,
   whatsappNotifyOrderRequestReady: false,
+  whatsappNotifyNpsRequest: false,
   asaasEnabled: false,
   asaasPaymentTtlHours: 24,
 };
@@ -182,6 +184,7 @@ function toState(d: Defaults) {
     whatsappNotifyOrderRequestApproved: d.whatsappNotifyOrderRequestApproved,
     whatsappNotifyOrderRequestRejected: d.whatsappNotifyOrderRequestRejected,
     whatsappNotifyOrderRequestReady: d.whatsappNotifyOrderRequestReady,
+    whatsappNotifyNpsRequest: d.whatsappNotifyNpsRequest,
     asaasEnabled: d.asaasEnabled,
     asaasPaymentTtlHours: String(d.asaasPaymentTtlHours),
   };
@@ -833,6 +836,14 @@ function WhatsAppApiBlock({
             disabled={!state.whatsappApiEnabled}
             label="Encomenda pronta"
             hint="Avisa quando a encomenda fica PRONTA pra retirada/entrega."
+          />
+          <ToggleRow
+            id="wnNps"
+            checked={state.whatsappNotifyNpsRequest}
+            onChange={(v) => set("whatsappNotifyNpsRequest", v)}
+            disabled={!state.whatsappApiEnabled}
+            label="Pedido de avaliação (NPS)"
+            hint="Quando você clica 'Enviar avaliação' em uma venda, manda o link pelo WhatsApp."
           />
         </div>
       </div>

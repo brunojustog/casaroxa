@@ -28,6 +28,7 @@ import {
   ChefHat,
   CalendarDays,
   Megaphone,
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@prisma/client";
@@ -73,6 +74,7 @@ const NAV: NavSection[] = [
       { href: "/vendas",      label: "Vendas",      icon: DollarSign },
       { href: "/clientes",    label: "Clientes",    icon: UsersRound },
       { href: "/campanhas",   label: "Campanhas",   icon: Megaphone, roles: ["ADMIN"] },
+      { href: "/avaliacoes",  label: "Avaliações",  icon: Star, roles: ["ADMIN"] },
     ],
   },
   {

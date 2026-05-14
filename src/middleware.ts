@@ -20,6 +20,7 @@ const PUBLIC_PREFIXES = [
   "/sorteio",
   "/pre-venda",
   "/encomenda",
+  "/avaliacao",
   "/meus-pedidos",
   "/menu",
   "/_next",
@@ -47,6 +48,7 @@ const SITE_PREFIXES = [
   "/sorteio",
   "/pre-venda",
   "/encomenda",
+  "/avaliacao",
   "/meus-pedidos",
   "/api/public",
   "/menu",
@@ -85,6 +87,7 @@ const ADMIN_PREFIXES = [
   "/encomendas",
   "/producao",
   "/campanhas",
+  "/avaliacoes",
   "/api/auth",
   "/api/admin",
 ];

@@ -88,6 +88,7 @@ export async function getSaleById(id: string) {
       createdBy: { select: { name: true } },
       closedBy: { select: { name: true } },
       cancelledBy: { select: { name: true } },
+      review: { select: { id: true, score: true, category: true } },
     },
   });
 }

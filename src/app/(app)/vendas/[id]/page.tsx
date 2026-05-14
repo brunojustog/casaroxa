@@ -10,6 +10,7 @@ import { SaleItemsEditor } from "@/components/sales/SaleItemsEditor";
 import { SalePaymentsEditor } from "@/components/sales/SalePaymentsEditor";
 import { SaleStatusBar } from "@/components/sales/SaleStatusBar";
 import { SaleProgressBar } from "@/components/sales/SaleProgressBar";
+import { SendNpsButton } from "@/components/sales/SendNpsButton";
 import {
   getSaleById,
   listActiveCombosForSale,
@@ -142,6 +143,42 @@ export default async function VendaPage({
           </CardContent>
         </Card>
       )}
+
+      {/* NPS — só pra Sales não-canceladas que já foram entregues */}
+      {sale.status !== "CANCELADA" &&
+        (sale.progress === "ENTREGUE" || sale.status === "CONCLUIDA") && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Avaliação do cliente</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {sale.review ? (
+                <p className="text-sm">
+                  Cliente já avaliou: <strong>{sale.review.score}/10</strong>{" "}
+                  <span className="text-xs text-slate-500">
+                    ({sale.review.category})
+                  </span>
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm text-slate-600">
+                    Manda um link pra esse cliente avaliar o pedido.{" "}
+                    {sale.npsSentAt && (
+                      <span className="text-xs">
+                        (Último envio:{" "}
+                        {formatDateTime(sale.npsSentAt)})
+                      </span>
+                    )}
+                  </p>
+                  <SendNpsButton
+                    saleId={sale.id}
+                    alreadySent={!!sale.npsSentAt}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-5">

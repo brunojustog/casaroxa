@@ -57,6 +57,16 @@ const AUDIENCE_OPTIONS: Array<{
     label: "Comprou costela",
     description: "Já comprou pelo menos 1 item da categoria Costela.",
   },
+  {
+    key: "DETRACTORS_30D",
+    label: "Detratores (NPS)",
+    description: "Deram nota 0-6 nos últimos 30 dias — use pra recuperar.",
+  },
+  {
+    key: "PROMOTERS_30D",
+    label: "Promotores (NPS)",
+    description: "Deram nota 9-10 nos últimos 30 dias — peça indicação.",
+  },
 ];
 
 export function CampaignForm() {

@@ -23,6 +23,8 @@ export const AUDIENCE_LABEL: Record<CampaignAudienceKey, string> = {
   HIGH_TICKET: "Alto ticket (acima da meta)",
   BOUGHT_CHICKEN: "Comprou frango",
   BOUGHT_BEEF_RIB: "Comprou costela",
+  DETRACTORS_30D: "Detratores (NPS) — recuperar",
+  PROMOTERS_30D: "Promotores (NPS) — premiar/indicar",
 };
 
 export const AUDIENCE_DESCRIPTION: Record<CampaignAudienceKey, string> = {
@@ -38,6 +40,10 @@ export const AUDIENCE_DESCRIPTION: Record<CampaignAudienceKey, string> = {
     "Clientes que já compraram pelo menos 1 item da categoria Frango.",
   BOUGHT_BEEF_RIB:
     "Clientes que já compraram pelo menos 1 item da categoria Costela.",
+  DETRACTORS_30D:
+    "Clientes que deram nota 0-6 nos últimos 30 dias. Use pra cupom de recuperação.",
+  PROMOTERS_30D:
+    "Clientes que deram nota 9-10 nos últimos 30 dias. Use pra pedir indicação ou premiar.",
 };
 
 /**
@@ -70,6 +76,10 @@ export async function listCustomersForAudience(
       return boughtCategory("FRANGO");
     case "BOUGHT_BEEF_RIB":
       return boughtCategory("COSTELA");
+    case "DETRACTORS_30D":
+      return reviewCategory("DETRACTOR");
+    case "PROMOTERS_30D":
+      return reviewCategory("PROMOTER");
   }
 }
 
@@ -157,6 +167,34 @@ async function highTicket(): Promise<AudienceCustomer[]> {
     ORDER BY c.name ASC
   `;
   return rows;
+}
+
+async function reviewCategory(
+  cat: "DETRACTOR" | "PROMOTER",
+): Promise<AudienceCustomer[]> {
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const reviews = await prisma.customerReview.findMany({
+    where: {
+      category: cat,
+      createdAt: { gte: cutoff },
+      customer: { is: { ...commonWhereClause() } },
+    },
+    select: {
+      customer: { select: { id: true, name: true, phone: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  // Dedupe — cliente pode ter múltiplas reviews
+  const seen = new Set<string>();
+  const out: AudienceCustomer[] = [];
+  for (const r of reviews) {
+    if (!r.customer) continue;
+    if (seen.has(r.customer.id)) continue;
+    seen.add(r.customer.id);
+    out.push({ id: r.customer.id, name: r.customer.name, phone: r.customer.phone });
+  }
+  out.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  return out;
 }
 
 async function boughtCategory(

@@ -40,7 +40,8 @@ export type SendTextInput = {
     | "whatsappNotifyOrderRequestReceived"
     | "whatsappNotifyOrderRequestApproved"
     | "whatsappNotifyOrderRequestRejected"
-    | "whatsappNotifyOrderRequestReady";
+    | "whatsappNotifyOrderRequestReady"
+    | "whatsappNotifyNpsRequest";
   /** Atraso de digitação em ms (default 1500). */
   typingDelayMs?: number;
 };
@@ -132,6 +133,7 @@ export async function isEventEnabled(
       whatsappNotifyOrderRequestApproved: true,
       whatsappNotifyOrderRequestRejected: true,
       whatsappNotifyOrderRequestReady: true,
+      whatsappNotifyNpsRequest: true,
     },
   });
   if (!settings || !settings.whatsappApiEnabled) return false;

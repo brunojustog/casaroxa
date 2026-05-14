@@ -183,6 +183,8 @@ enum CampaignAudienceKey {
   HIGH_TICKET // ticket médio acima de Settings.targetAverageTicket
   BOUGHT_CHICKEN // já comprou pelo menos 1 produto categoria FRANGO
   BOUGHT_BEEF_RIB // já comprou pelo menos 1 produto categoria COSTELA
+  DETRACTORS_30D // CustomerReview DETRACTOR nos últimos 30 dias
+  PROMOTERS_30D // CustomerReview PROMOTER nos últimos 30 dias
 }
 
 enum CampaignStatus {
@@ -197,6 +199,12 @@ enum CampaignDeliveryStatus {
   SENT
   FAILED
   SKIPPED
+}
+
+enum NpsCategory {
+  DETRACTOR // score 0-6
+  PASSIVE // score 7-8
+  PROMOTER // score 9-10
 }
 
 // ============================================================
@@ -253,6 +261,7 @@ enum WhatsAppEvent {
   ORDER_REQUEST_APPROVED // admin aprovou encomenda
   ORDER_REQUEST_REJECTED // admin recusou
   ORDER_REQUEST_READY // encomenda PRONTA pra retirada/entrega
+  NPS_REQUEST // link de avaliação pós-entrega
   MANUAL // disparado pelo chat IA ou botão manual
   TEST // botão "Testar conexão" em /configuracoes
 }
@@ -600,6 +609,8 @@ model Settings {
   whatsappNotifyOrderRequestRejected Boolean @default(false)
   /// Avisa cliente quando encomenda vira PRONTA.
   whatsappNotifyOrderRequestReady    Boolean @default(false)
+  /// Envia link de avaliação pós-entrega (NPS) ao cliente.
+  whatsappNotifyNpsRequest           Boolean @default(false)
 
   // ----- Pagamento online (Asaas) -----
   /// Master switch — se false, opções de pagamento online ficam ocultas
@@ -802,6 +813,7 @@ model Customer {
   referralsReceived   RaffleReferral[]     @relation("ReferredReferrals")
   orderRequests       OrderRequest[]
   campaignDeliveries  CampaignDelivery[]
+  reviews             CustomerReview[]
 
   /// Cliente aceita receber comunicação de marketing (campanhas). Default
   /// true; futuro opt-out fica neste campo. Mensagens transacionais
@@ -1025,8 +1037,9 @@ model Coupon {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
-  sales     Sale[]
-  campaigns Campaign[]
+  sales           Sale[]
+  campaigns       Campaign[]
+  customerReviews CustomerReview[]
 
   @@index([active, validUntil])
 }
@@ -1244,6 +1257,11 @@ model Sale {
   /// SalesEvent.reservationTimeoutMinutes. Job libera disponibilidade.
   reservationExpiresAt DateTime?
 
+  /// NPS pós-entrega (Sprint 6). Token único gerado quando admin pede
+  /// avaliação; aparece na URL pública /avaliacao/[token].
+  npsToken  String?   @unique
+  npsSentAt DateTime?
+
   createdById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -1260,6 +1278,7 @@ model Sale {
   onlinePayment       OnlinePayment?
   orderRequest        OrderRequest?
   campaignAttribution CampaignOrderAttribution?
+  review              CustomerReview?
 
   @@index([occurredAt])
   @@index([status, occurredAt])
@@ -1591,6 +1610,42 @@ model Campaign {
   attributions CampaignOrderAttribution[]
 
   @@index([status, createdAt])
+}
+
+// ============================================================
+// NPS / REVIEWS (Sprint 6)
+// ============================================================
+
+/// Avaliação NPS pós-entrega. Link público gerado quando admin manda
+/// pedido pra avaliação; cliente abre /avaliacao/[npsToken], escolhe
+/// nota 0-10 e comentário. Categoria computada no submit.
+model CustomerReview {
+  id            String      @id @default(cuid())
+  /// 1:1 com Sale (review do pedido). Pode ser null pra reviews futuras
+  /// avulsas (não implementado agora).
+  saleId        String?     @unique
+  sale          Sale?       @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  /// Snapshot do cliente (mesmo se Customer for anonimizado depois).
+  customerId    String?
+  customer      Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerName  String
+  customerPhone String?
+  /// Score NPS 0-10. Categoria abaixo é derivada deste valor.
+  score         Int
+  category      NpsCategory
+  comment       String?     @db.Text
+
+  /// Notas internas do admin sobre a avaliação (não visível ao cliente).
+  adminNotes       String? @db.Text
+  /// Cupom oferecido em resposta (recuperar detrator, premiar promotor).
+  followupCouponId String?
+  followupCoupon   Coupon? @relation(fields: [followupCouponId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId, createdAt])
+  @@index([category, createdAt])
 }
 
 model CampaignDelivery {

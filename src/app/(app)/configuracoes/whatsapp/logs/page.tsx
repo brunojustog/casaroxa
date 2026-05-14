@@ -32,6 +32,7 @@ const EVENT_LABEL: Record<WhatsAppEvent, string> = {
   ORDER_REQUEST_APPROVED: "Encomenda aprovada",
   ORDER_REQUEST_REJECTED: "Encomenda recusada",
   ORDER_REQUEST_READY: "Encomenda pronta",
+  NPS_REQUEST: "Pedido de avaliação",
   MANUAL: "Manual",
   TEST: "Teste",
 };
