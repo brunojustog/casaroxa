@@ -449,6 +449,8 @@ export async function initiateOrderRequestDepositPayment(input: {
       id: true,
       number: true,
       customerId: true,
+      customerName: true,
+      customerPhone: true,
       depositRequiredCents: true,
       depositPaidAt: true,
     },
@@ -460,10 +462,28 @@ export async function initiateOrderRequestDepositPayment(input: {
   if (req.depositPaidAt) {
     throw new BusinessError("Sinal já foi pago.");
   }
-  if (!req.customerId) {
-    throw new BusinessError(
-      "Cliente não está cadastrado — não dá pra gerar cobrança online.",
-    );
+
+  // Fallback: encomendas antigas podem não ter customerId vinculado.
+  // Tenta upsert pelo telefone do request agora.
+  let customerId = req.customerId;
+  if (!customerId) {
+    try {
+      const { upsertCustomerFromCheckout } = await import("./customer.service");
+      customerId = await prisma.$transaction((tx) =>
+        upsertCustomerFromCheckout(tx, {
+          name: req.customerName,
+          phone: req.customerPhone,
+        }),
+      );
+      await prisma.orderRequest.update({
+        where: { id: req.id },
+        data: { customerId },
+      });
+    } catch {
+      throw new BusinessError(
+        "Não foi possível identificar o cliente. Confira seu telefone.",
+      );
+    }
   }
   if (req.depositRequiredCents < ASAAS_MIN_VALUE_CENTS) {
     throw new BusinessError(
@@ -491,7 +511,7 @@ export async function initiateOrderRequestDepositPayment(input: {
   const value = req.depositRequiredCents / 100;
 
   const { asaasCustomerId } = await getOrCreateAsaasCustomer(
-    req.customerId,
+    customerId,
     input.cpfCnpj,
   );
 
@@ -526,7 +546,7 @@ export async function initiateOrderRequestDepositPayment(input: {
   const created = await prisma.onlinePayment.create({
     data: {
       orderRequestId: req.id,
-      customerId: req.customerId,
+      customerId,
       asaasPaymentId: asaasPayment.id,
       asaasCustomerId,
       billingType: "PIX",

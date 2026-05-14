@@ -22,6 +22,7 @@ import { prisma } from "@/lib/prisma";
 import { toDecimal, sumDecimal } from "@/lib/decimal";
 import { BusinessError } from "@/server/auth-helpers";
 import { sendText } from "./whatsapp.service";
+import { upsertCustomerFromCheckout } from "./customer.service";
 import type {
   AdminOrderRequestData,
   ApproveOrderRequestData,
@@ -184,31 +185,55 @@ export async function createPublicOrderRequest(input: PublicOrderRequestData) {
 
   const items = await loadValidatedItems(input.items);
 
-  const created = await prisma.orderRequest.create({
-    data: {
-      customerName: input.customerName,
-      customerPhone: input.customerPhone,
-      requestedFor: input.requestedFor,
-      deliveryMode: input.deliveryMode,
-      address: input.deliveryMode === "DELIVERY" ? input.address : null,
-      addressNumber: input.deliveryMode === "DELIVERY" ? input.addressNumber : null,
-      addressComplement:
-        input.deliveryMode === "DELIVERY" ? input.addressComplement : null,
-      neighborhood: input.deliveryMode === "DELIVERY" ? input.neighborhood : null,
-      reference: input.deliveryMode === "DELIVERY" ? input.reference : null,
-      notes: input.notes,
-      source: "SITE",
-      status: "PENDENTE",
-      items: {
-        create: items.map((it) => ({
-          productId: it.productId,
-          comboId: it.comboId,
-          quantity: it.quantity,
-          unitPriceSnapshot: (it.unitPriceCents / 100).toFixed(2),
-        })),
+  const created = await prisma.$transaction(async (tx) => {
+    // Upsert do cliente — falha de telefone não bloqueia o pedido
+    let customerId: string | null = null;
+    try {
+      customerId = await upsertCustomerFromCheckout(tx, {
+        name: input.customerName,
+        phone: input.customerPhone,
+        address: input.deliveryMode === "DELIVERY" ? input.address : null,
+        addressNumber:
+          input.deliveryMode === "DELIVERY" ? input.addressNumber : null,
+        addressComplement:
+          input.deliveryMode === "DELIVERY" ? input.addressComplement : null,
+        neighborhood:
+          input.deliveryMode === "DELIVERY" ? input.neighborhood : null,
+        reference: input.deliveryMode === "DELIVERY" ? input.reference : null,
+      });
+    } catch {
+      customerId = null;
+    }
+
+    return tx.orderRequest.create({
+      data: {
+        customerName: input.customerName,
+        customerPhone: input.customerPhone,
+        customerId,
+        requestedFor: input.requestedFor,
+        deliveryMode: input.deliveryMode,
+        address: input.deliveryMode === "DELIVERY" ? input.address : null,
+        addressNumber:
+          input.deliveryMode === "DELIVERY" ? input.addressNumber : null,
+        addressComplement:
+          input.deliveryMode === "DELIVERY" ? input.addressComplement : null,
+        neighborhood:
+          input.deliveryMode === "DELIVERY" ? input.neighborhood : null,
+        reference: input.deliveryMode === "DELIVERY" ? input.reference : null,
+        notes: input.notes,
+        source: "SITE",
+        status: "PENDENTE",
+        items: {
+          create: items.map((it) => ({
+            productId: it.productId,
+            comboId: it.comboId,
+            quantity: it.quantity,
+            unitPriceSnapshot: (it.unitPriceCents / 100).toFixed(2),
+          })),
+        },
       },
-    },
-    select: { id: true, number: true },
+      select: { id: true, number: true },
+    });
   });
 
   // Confirmação automática ao cliente (fire and forget)
@@ -237,32 +262,55 @@ export async function createAdminOrderRequest(
   // Admin pode criar pra qualquer data (sem validação de leadTime)
   const items = await loadValidatedItems(input.items);
 
-  return prisma.orderRequest.create({
-    data: {
-      customerName: input.customerName,
-      customerPhone: input.customerPhone,
-      requestedFor: input.requestedFor,
-      deliveryMode: input.deliveryMode,
-      address: input.deliveryMode === "DELIVERY" ? input.address : null,
-      addressNumber: input.deliveryMode === "DELIVERY" ? input.addressNumber : null,
-      addressComplement:
-        input.deliveryMode === "DELIVERY" ? input.addressComplement : null,
-      neighborhood: input.deliveryMode === "DELIVERY" ? input.neighborhood : null,
-      reference: input.deliveryMode === "DELIVERY" ? input.reference : null,
-      notes: input.notes,
-      source: "ADMIN",
-      status: "PENDENTE",
-      createdById: userId,
-      items: {
-        create: items.map((it) => ({
-          productId: it.productId,
-          comboId: it.comboId,
-          quantity: it.quantity,
-          unitPriceSnapshot: (it.unitPriceCents / 100).toFixed(2),
-        })),
+  return prisma.$transaction(async (tx) => {
+    let customerId: string | null = null;
+    try {
+      customerId = await upsertCustomerFromCheckout(tx, {
+        name: input.customerName,
+        phone: input.customerPhone,
+        address: input.deliveryMode === "DELIVERY" ? input.address : null,
+        addressNumber:
+          input.deliveryMode === "DELIVERY" ? input.addressNumber : null,
+        addressComplement:
+          input.deliveryMode === "DELIVERY" ? input.addressComplement : null,
+        neighborhood:
+          input.deliveryMode === "DELIVERY" ? input.neighborhood : null,
+        reference: input.deliveryMode === "DELIVERY" ? input.reference : null,
+      });
+    } catch {
+      customerId = null;
+    }
+
+    return tx.orderRequest.create({
+      data: {
+        customerName: input.customerName,
+        customerPhone: input.customerPhone,
+        customerId,
+        requestedFor: input.requestedFor,
+        deliveryMode: input.deliveryMode,
+        address: input.deliveryMode === "DELIVERY" ? input.address : null,
+        addressNumber:
+          input.deliveryMode === "DELIVERY" ? input.addressNumber : null,
+        addressComplement:
+          input.deliveryMode === "DELIVERY" ? input.addressComplement : null,
+        neighborhood:
+          input.deliveryMode === "DELIVERY" ? input.neighborhood : null,
+        reference: input.deliveryMode === "DELIVERY" ? input.reference : null,
+        notes: input.notes,
+        source: "ADMIN",
+        status: "PENDENTE",
+        createdById: userId,
+        items: {
+          create: items.map((it) => ({
+            productId: it.productId,
+            comboId: it.comboId,
+            quantity: it.quantity,
+            unitPriceSnapshot: (it.unitPriceCents / 100).toFixed(2),
+          })),
+        },
       },
-    },
-    select: { id: true, number: true },
+      select: { id: true, number: true },
+    });
   });
 }
 
