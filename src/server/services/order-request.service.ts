@@ -395,11 +395,17 @@ export async function approveOrderRequest(
 
   // Notifica cliente fora da transação
   const businessName = await loadBusinessName();
+  const publicDomain = process.env.PUBLIC_DOMAIN;
+  const trackingUrl = publicDomain
+    ? `https://${publicDomain}/encomenda/${result.id}`
+    : null;
   const depositLine =
     result.depositRequiredCents && result.depositRequiredCents > 0
       ? invoiceUrl
         ? `\n💳 *Sinal:* R$ ${(result.depositRequiredCents / 100).toFixed(2).replace(".", ",")}\nLink pra pagar (PIX): ${invoiceUrl}`
-        : `\nSinal combinado: *R$ ${(result.depositRequiredCents / 100).toFixed(2).replace(".", ",")}*. A gente te passa o jeito de pagar.`
+        : trackingUrl
+          ? `\n💳 *Sinal:* R$ ${(result.depositRequiredCents / 100).toFixed(2).replace(".", ",")}\nGere o link de pagamento aqui: ${trackingUrl}`
+          : `\nSinal combinado: *R$ ${(result.depositRequiredCents / 100).toFixed(2).replace(".", ",")}*.`
       : "";
   void notifyCustomer({
     phone: result.customerPhone,

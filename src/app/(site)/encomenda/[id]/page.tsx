@@ -11,6 +11,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { getPublicOrderRequestTracking } from "@/server/services/order-request.service";
+import { RequestDepositPaymentForm } from "@/components/public/encomenda/RequestDepositPaymentForm";
 
 export const dynamic = "force-dynamic";
 
@@ -253,11 +254,19 @@ export default async function EncomendaTrackingPage({
               Pagar sinal agora (PIX)
             </a>
           )}
-          {!req.depositPaidAt && !req.depositPayment?.invoiceUrl && (
-            <p className="mt-1 text-xs text-slate-500">
-              Combine com a Casa Roxa pelo WhatsApp como pagar o sinal.
-            </p>
-          )}
+          {!req.depositPaidAt &&
+            !req.depositPayment?.invoiceUrl &&
+            req.status === "APROVADA" && (
+              <RequestDepositPaymentForm orderRequestId={req.id} />
+            )}
+          {!req.depositPaidAt &&
+            !req.depositPayment?.invoiceUrl &&
+            req.status !== "APROVADA" && (
+              <p className="mt-1 text-xs text-slate-500">
+                O link de pagamento aparece aqui assim que a Casa Roxa
+                confirmar sua encomenda.
+              </p>
+            )}
         </section>
       )}
 
