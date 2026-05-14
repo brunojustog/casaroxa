@@ -21,6 +21,7 @@ import {
   SALE_PROGRESS_ORDER,
 } from "@/lib/enums";
 import type { SaleProgress, SaleStatus } from "@prisma/client";
+import { ReorderButton } from "@/components/public/ReorderButton";
 
 type SaleData = {
   id: string;
@@ -288,6 +289,19 @@ export function OrderTrackingClient({
           se precisar.
         </p>
       </div>
+
+      {!isCancelled && (
+        <div className="rounded-xl border border-roxa-100 bg-roxa-50/40 p-4">
+          <p className="text-sm font-semibold text-roxa-900">
+            Gostou? Repete o pedido em um clique.
+          </p>
+          <p className="text-xs text-slate-600 mt-0.5 mb-3">
+            Adicionamos os mesmos itens ao seu carrinho — você só ajusta o que
+            quiser.
+          </p>
+          <ReorderButton saleId={saleId} variant="block" />
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link

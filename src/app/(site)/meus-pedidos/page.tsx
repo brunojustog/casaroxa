@@ -7,6 +7,7 @@ import { listRafflesForCustomer } from "@/server/services/raffle.service";
 import { MyOrdersLogin } from "@/components/public/auth/MyOrdersLogin";
 import { CouponCopyButton } from "@/components/public/auth/CouponCopyButton";
 import { LogoutButton } from "@/components/public/auth/LogoutButton";
+import { ReorderButton } from "@/components/public/ReorderButton";
 
 export const dynamic = "force-dynamic";
 
@@ -269,11 +270,11 @@ export default async function MyOrdersPage() {
               const isCancelled = s.status === "CANCELADA";
               return (
                 <li key={s.id}>
-                  <Link
-                    href={`/pedido/${s.id}`}
-                    className="flex items-center justify-between gap-3 p-4 hover:bg-roxa-50/30"
-                  >
-                    <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-3 p-4 hover:bg-roxa-50/30">
+                    <Link
+                      href={`/pedido/${s.id}`}
+                      className="flex-1 min-w-0"
+                    >
                       <p className="font-semibold text-slate-900">
                         Pedido #{s.number}
                       </p>
@@ -302,14 +303,18 @@ export default async function MyOrdersPage() {
                           </span>
                         )}
                       </div>
-                    </div>
-                    <div className="text-right shrink-0">
+                    </Link>
+                    <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
                       <p className="font-semibold tabular-nums text-slate-900">
                         {fmtBRL(total)}
                       </p>
-                      <ChevronRight className="ml-auto mt-1 h-4 w-4 text-slate-400" />
+                      {!isCancelled ? (
+                        <ReorderButton saleId={s.id} />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-slate-400" />
+                      )}
                     </div>
-                  </Link>
+                  </div>
                 </li>
               );
             })}
