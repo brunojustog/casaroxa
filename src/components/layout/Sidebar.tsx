@@ -65,6 +65,7 @@ const NAV: NavSection[] = [
     section: "Operação",
     items: [
       { href: "/cozinha",     label: "Cozinha",     icon: ChefHat },
+      { href: "/producao",    label: "Produção",    icon: ClipboardList, roles: ["ADMIN"] },
       { href: "/estoque",     label: "Estoque",     icon: Warehouse },
       { href: "/inventarios", label: "Inventário",  icon: ClipboardCheck },
       { href: "/compras",     label: "Compras",     icon: ShoppingCart, roles: ["ADMIN"] },
