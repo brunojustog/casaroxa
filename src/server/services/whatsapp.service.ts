@@ -36,7 +36,11 @@ export type SendTextInput = {
     | "whatsappNotifyOnDelivery"
     | "whatsappNotifyBirthday"
     | "whatsappNotifyLoyaltyRedeem"
-    | "whatsappNotifyPaymentReceived";
+    | "whatsappNotifyPaymentReceived"
+    | "whatsappNotifyOrderRequestReceived"
+    | "whatsappNotifyOrderRequestApproved"
+    | "whatsappNotifyOrderRequestRejected"
+    | "whatsappNotifyOrderRequestReady";
   /** Atraso de digitação em ms (default 1500). */
   typingDelayMs?: number;
 };
@@ -124,6 +128,10 @@ export async function isEventEnabled(
       whatsappNotifyBirthday: true,
       whatsappNotifyLoyaltyRedeem: true,
       whatsappNotifyPaymentReceived: true,
+      whatsappNotifyOrderRequestReceived: true,
+      whatsappNotifyOrderRequestApproved: true,
+      whatsappNotifyOrderRequestRejected: true,
+      whatsappNotifyOrderRequestReady: true,
     },
   });
   if (!settings || !settings.whatsappApiEnabled) return false;

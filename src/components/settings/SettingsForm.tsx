@@ -70,6 +70,10 @@ type Defaults = {
   whatsappNotifyBirthday: boolean;
   whatsappNotifyLoyaltyRedeem: boolean;
   whatsappNotifyPaymentReceived: boolean;
+  whatsappNotifyOrderRequestReceived: boolean;
+  whatsappNotifyOrderRequestApproved: boolean;
+  whatsappNotifyOrderRequestRejected: boolean;
+  whatsappNotifyOrderRequestReady: boolean;
   // Pagamento online (Asaas)
   asaasEnabled: boolean;
   asaasPaymentTtlHours: number;
@@ -119,6 +123,10 @@ const FACTORY_DEFAULTS: Defaults = {
   whatsappNotifyBirthday: false,
   whatsappNotifyLoyaltyRedeem: false,
   whatsappNotifyPaymentReceived: false,
+  whatsappNotifyOrderRequestReceived: false,
+  whatsappNotifyOrderRequestApproved: false,
+  whatsappNotifyOrderRequestRejected: false,
+  whatsappNotifyOrderRequestReady: false,
   asaasEnabled: false,
   asaasPaymentTtlHours: 24,
 };
@@ -170,6 +178,10 @@ function toState(d: Defaults) {
     whatsappNotifyBirthday: d.whatsappNotifyBirthday,
     whatsappNotifyLoyaltyRedeem: d.whatsappNotifyLoyaltyRedeem,
     whatsappNotifyPaymentReceived: d.whatsappNotifyPaymentReceived,
+    whatsappNotifyOrderRequestReceived: d.whatsappNotifyOrderRequestReceived,
+    whatsappNotifyOrderRequestApproved: d.whatsappNotifyOrderRequestApproved,
+    whatsappNotifyOrderRequestRejected: d.whatsappNotifyOrderRequestRejected,
+    whatsappNotifyOrderRequestReady: d.whatsappNotifyOrderRequestReady,
     asaasEnabled: d.asaasEnabled,
     asaasPaymentTtlHours: String(d.asaasPaymentTtlHours),
   };
@@ -789,6 +801,38 @@ function WhatsAppApiBlock({
             disabled={!state.whatsappApiEnabled}
             label="Pagamento recebido"
             hint="Avisa quando o cliente paga (PIX/cartão via Asaas)."
+          />
+          <ToggleRow
+            id="wnOrReceived"
+            checked={state.whatsappNotifyOrderRequestReceived}
+            onChange={(v) => set("whatsappNotifyOrderRequestReceived", v)}
+            disabled={!state.whatsappApiEnabled}
+            label="Encomenda recebida"
+            hint="Confirmação automática quando o cliente envia a encomenda pelo site."
+          />
+          <ToggleRow
+            id="wnOrApproved"
+            checked={state.whatsappNotifyOrderRequestApproved}
+            onChange={(v) => set("whatsappNotifyOrderRequestApproved", v)}
+            disabled={!state.whatsappApiEnabled}
+            label="Encomenda aprovada"
+            hint="Avisa o cliente quando você aprova a encomenda no painel."
+          />
+          <ToggleRow
+            id="wnOrRejected"
+            checked={state.whatsappNotifyOrderRequestRejected}
+            onChange={(v) => set("whatsappNotifyOrderRequestRejected", v)}
+            disabled={!state.whatsappApiEnabled}
+            label="Encomenda recusada"
+            hint="Manda o motivo da recusa pro cliente."
+          />
+          <ToggleRow
+            id="wnOrReady"
+            checked={state.whatsappNotifyOrderRequestReady}
+            onChange={(v) => set("whatsappNotifyOrderRequestReady", v)}
+            disabled={!state.whatsappApiEnabled}
+            label="Encomenda pronta"
+            hint="Avisa quando a encomenda fica PRONTA pra retirada/entrega."
           />
         </div>
       </div>

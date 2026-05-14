@@ -16,10 +16,12 @@ import {
   Prisma,
   SaleSource,
   SaleStatus,
+  WhatsAppEvent,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { toDecimal, sumDecimal } from "@/lib/decimal";
 import { BusinessError } from "@/server/auth-helpers";
+import { sendText } from "./whatsapp.service";
 import type {
   AdminOrderRequestData,
   ApproveOrderRequestData,
@@ -179,7 +181,7 @@ export async function createPublicOrderRequest(input: PublicOrderRequestData) {
 
   const items = await loadValidatedItems(input.items);
 
-  return prisma.orderRequest.create({
+  const created = await prisma.orderRequest.create({
     data: {
       customerName: input.customerName,
       customerPhone: input.customerPhone,
@@ -205,6 +207,24 @@ export async function createPublicOrderRequest(input: PublicOrderRequestData) {
     },
     select: { id: true, number: true },
   });
+
+  // Confirmação automática ao cliente (fire and forget)
+  const businessName = await loadBusinessName();
+  void notifyCustomer({
+    phone: input.customerPhone,
+    event: "ORDER_REQUEST_RECEIVED",
+    toggleField: "whatsappNotifyOrderRequestReceived",
+    message: [
+      `*${businessName}*`,
+      ``,
+      `Olá, ${input.customerName.split(/\s+/)[0]}! 👋`,
+      `Recebemos sua encomenda *ER-${created.number}* pra *${fmtDate(input.requestedFor)}*.`,
+      ``,
+      `Vamos confirmar em breve por aqui. Obrigado!`,
+    ].join("\n"),
+  });
+
+  return created;
 }
 
 export async function createAdminOrderRequest(
@@ -257,7 +277,7 @@ export async function approveOrderRequest(
   input: ApproveOrderRequestData,
   userId: string,
 ) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const req = await tx.orderRequest.findUnique({
       where: { id },
       include: {
@@ -326,7 +346,7 @@ export async function approveOrderRequest(
       },
     });
 
-    return tx.orderRequest.update({
+    const updated = await tx.orderRequest.update({
       where: { id },
       data: {
         status: "APROVADA",
@@ -336,9 +356,40 @@ export async function approveOrderRequest(
         adminNotes: input.adminNotes ?? null,
         saleId: sale.id,
       },
-      select: { id: true, saleId: true },
+      select: {
+        id: true,
+        saleId: true,
+        number: true,
+        customerName: true,
+        customerPhone: true,
+        requestedFor: true,
+        depositRequiredCents: true,
+      },
     });
+    return updated;
   });
+
+  // Notifica cliente fora da transação
+  const businessName = await loadBusinessName();
+  const depositLine =
+    result.depositRequiredCents && result.depositRequiredCents > 0
+      ? `\nSinal combinado: *R$ ${(result.depositRequiredCents / 100).toFixed(2).replace(".", ",")}*. A gente te passa o jeito de pagar.`
+      : "";
+  void notifyCustomer({
+    phone: result.customerPhone,
+    event: "ORDER_REQUEST_APPROVED",
+    toggleField: "whatsappNotifyOrderRequestApproved",
+    message: [
+      `*${businessName}*`,
+      ``,
+      `Boa, ${result.customerName.split(/\s+/)[0]}! ✅`,
+      `Sua encomenda *ER-${result.number}* foi *confirmada* pra *${fmtDate(result.requestedFor)}*.${depositLine}`,
+      ``,
+      `Qualquer dúvida, é só chamar por aqui.`,
+    ].join("\n"),
+  });
+
+  return { id: result.id, saleId: result.saleId };
 }
 
 export async function rejectOrderRequest(
@@ -350,11 +401,37 @@ export async function rejectOrderRequest(
   if (req.status !== "PENDENTE") {
     throw new BusinessError("Apenas encomendas pendentes podem ser recusadas.");
   }
-  return prisma.orderRequest.update({
+  const updated = await prisma.orderRequest.update({
     where: { id },
     data: { status: "RECUSADA", rejectionReason: input.rejectionReason },
-    select: { id: true },
+    select: {
+      id: true,
+      number: true,
+      customerName: true,
+      customerPhone: true,
+      requestedFor: true,
+    },
   });
+
+  // Avisa cliente
+  const businessName = await loadBusinessName();
+  void notifyCustomer({
+    phone: updated.customerPhone,
+    event: "ORDER_REQUEST_REJECTED",
+    toggleField: "whatsappNotifyOrderRequestRejected",
+    message: [
+      `*${businessName}*`,
+      ``,
+      `Olá, ${updated.customerName.split(/\s+/)[0]}.`,
+      `Não conseguimos atender sua encomenda *ER-${updated.number}* pra ${fmtDate(updated.requestedFor)}.`,
+      ``,
+      `Motivo: ${input.rejectionReason}`,
+      ``,
+      `Se quiser tentar outra data, é só chamar.`,
+    ].join("\n"),
+  });
+
+  return { id: updated.id };
 }
 
 /** Avança o status do fluxo pós-aprovação. */
@@ -362,7 +439,7 @@ export async function setOrderRequestStatus(
   id: string,
   next: OrderRequestStatus,
 ) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const req = await tx.orderRequest.findUnique({ where: { id } });
     if (!req) throw new BusinessError("Encomenda não encontrada.");
 
@@ -402,12 +479,42 @@ export async function setOrderRequestStatus(
       });
     }
 
-    return tx.orderRequest.update({
+    const updated = await tx.orderRequest.update({
       where: { id },
       data: { status: next },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        number: true,
+        customerName: true,
+        customerPhone: true,
+        deliveryMode: true,
+      },
     });
+    return updated;
   });
+
+  // Notifica cliente só quando PRONTA (entrega vai ser feita logo após — não duplica)
+  if (result.status === "PRONTA") {
+    const businessName = await loadBusinessName();
+    const pickupOrDelivery =
+      result.deliveryMode === "PICKUP"
+        ? "Pode vir buscar! 🛍"
+        : "Estamos saindo pra entrega! 🛵";
+    void notifyCustomer({
+      phone: result.customerPhone,
+      event: "ORDER_REQUEST_READY",
+      toggleField: "whatsappNotifyOrderRequestReady",
+      message: [
+        `*${businessName}*`,
+        ``,
+        `Sua encomenda *ER-${result.number}* está *pronta*, ${result.customerName.split(/\s+/)[0]}!`,
+        pickupOrDelivery,
+      ].join("\n"),
+    });
+  }
+
+  return { id: result.id, status: result.status };
 }
 
 /** Marca o sinal como pago. Útil quando admin confirma recebimento manual. */
@@ -422,6 +529,48 @@ export async function markDepositPaid(id: string) {
     data: { depositPaidAt: new Date() },
     select: { id: true },
   });
+}
+
+// ---------- Notificações WhatsApp ----------
+
+const fmtDate = (d: Date) =>
+  new Intl.DateTimeFormat("pt-BR", {
+    weekday: "short",
+    day: "2-digit",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+
+/** Fire-and-forget: nunca lança, sempre loga em WhatsAppMessageLog. */
+async function notifyCustomer(args: {
+  phone: string;
+  message: string;
+  event: WhatsAppEvent;
+  toggleField:
+    | "whatsappNotifyOrderRequestReceived"
+    | "whatsappNotifyOrderRequestApproved"
+    | "whatsappNotifyOrderRequestRejected"
+    | "whatsappNotifyOrderRequestReady";
+}) {
+  try {
+    await sendText({
+      phone: args.phone,
+      message: args.message,
+      event: args.event,
+      toggleField: args.toggleField,
+    });
+  } catch (e) {
+    console.error("[order-request notify]", e);
+  }
+}
+
+async function loadBusinessName(): Promise<string> {
+  const s = await prisma.settings.findUnique({
+    where: { id: 1 },
+    select: { businessName: true },
+  });
+  return s?.businessName ?? "Casa Roxa";
 }
 
 // ---------- Helpers ----------

@@ -220,6 +220,10 @@ enum WhatsAppEvent {
   OTP // código de verificação pra "Já sou cliente" no checkout
   RAFFLE_WIN // ganhador de sorteio
   PAYMENT_RECEIVED // pagamento online recebido (Asaas)
+  ORDER_REQUEST_RECEIVED // encomenda criada — confirmação automática
+  ORDER_REQUEST_APPROVED // admin aprovou encomenda
+  ORDER_REQUEST_REJECTED // admin recusou
+  ORDER_REQUEST_READY // encomenda PRONTA pra retirada/entrega
   MANUAL // disparado pelo chat IA ou botão manual
   TEST // botão "Testar conexão" em /configuracoes
 }
@@ -546,19 +550,27 @@ model Settings {
   // ----- WhatsApp API (wuzapi) -----
   /// Master switch — se false, todas as notificações ficam desabilitadas
   /// independente dos toggles abaixo.
-  whatsappApiEnabled            Boolean @default(false)
+  whatsappApiEnabled                 Boolean @default(false)
   /// Notifica cliente quando admin marca pedido como CONFIRMADO.
-  whatsappNotifyConfirmed       Boolean @default(false)
+  whatsappNotifyConfirmed            Boolean @default(false)
   /// Notifica cliente quando pedido vira PRONTO.
-  whatsappNotifyReady           Boolean @default(false)
+  whatsappNotifyReady                Boolean @default(false)
   /// Notifica cliente quando pedido vira SAIU_ENTREGA.
-  whatsappNotifyOnDelivery      Boolean @default(false)
+  whatsappNotifyOnDelivery           Boolean @default(false)
   /// Botão "WhatsApp" no card de aniversário envia direto via API.
-  whatsappNotifyBirthday        Boolean @default(false)
+  whatsappNotifyBirthday             Boolean @default(false)
   /// Avisa cliente quando bate 100 pts e ganha cupom de fidelidade.
-  whatsappNotifyLoyaltyRedeem   Boolean @default(false)
+  whatsappNotifyLoyaltyRedeem        Boolean @default(false)
   /// Avisa cliente quando o pagamento online é confirmado.
-  whatsappNotifyPaymentReceived Boolean @default(false)
+  whatsappNotifyPaymentReceived      Boolean @default(false)
+  /// Confirmação automática ao cliente quando encomenda é criada.
+  whatsappNotifyOrderRequestReceived Boolean @default(false)
+  /// Avisa cliente quando admin aprova a encomenda.
+  whatsappNotifyOrderRequestApproved Boolean @default(false)
+  /// Avisa cliente quando admin recusa (com motivo).
+  whatsappNotifyOrderRequestRejected Boolean @default(false)
+  /// Avisa cliente quando encomenda vira PRONTA.
+  whatsappNotifyOrderRequestReady    Boolean @default(false)
 
   // ----- Pagamento online (Asaas) -----
   /// Master switch — se false, opções de pagamento online ficam ocultas

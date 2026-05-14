@@ -28,6 +28,10 @@ const EVENT_LABEL: Record<WhatsAppEvent, string> = {
   OTP: "Código de verificação",
   RAFFLE_WIN: "Ganhador de sorteio",
   PAYMENT_RECEIVED: "Pagamento recebido",
+  ORDER_REQUEST_RECEIVED: "Encomenda recebida",
+  ORDER_REQUEST_APPROVED: "Encomenda aprovada",
+  ORDER_REQUEST_REJECTED: "Encomenda recusada",
+  ORDER_REQUEST_READY: "Encomenda pronta",
   MANUAL: "Manual",
   TEST: "Teste",
 };
