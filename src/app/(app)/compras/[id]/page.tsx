@@ -12,11 +12,13 @@ import {
   type EditorSupplier,
 } from "@/components/purchases/PurchaseEditor";
 import { PurchaseStatusActions } from "@/components/purchases/PurchaseStatusActions";
+import { PurchaseImpactPreview } from "@/components/purchases/PurchaseImpactPreview";
 import {
   PURCHASE_STATUS_LABEL,
   PURCHASE_STATUS_TONE,
   getPurchaseById,
 } from "@/server/services/purchase.service";
+import { getPurchaseImpactPreview } from "@/server/services/purchase-impact.service";
 import { listActiveSuppliers } from "@/server/services/supplier.service";
 import { getActiveIngredientsForStock } from "@/server/services/stock.service";
 import {
@@ -43,6 +45,7 @@ export default async function CompraDetalhePage({
   if (!purchase) notFound();
 
   const isDraft = purchase.status === "RASCUNHO";
+  const impacts = isDraft ? await getPurchaseImpactPreview(id) : [];
 
   const editorIngredients: EditorIngredient[] = ingredients.map((i) => ({
     id: i.id,
@@ -93,6 +96,8 @@ export default async function CompraDetalhePage({
       />
 
       <PurchaseStatusActions id={purchase.id} status={purchase.status} />
+
+      {isDraft && <PurchaseImpactPreview impacts={impacts} />}
 
       {isDraft ? (
         <PurchaseEditor
