@@ -26,7 +26,7 @@ RUN groupadd --system --gid 1001 nodejs && \
     useradd --system --uid 1001 --gid 1001 nextjs
 
 # Standalone output já agrupa node_modules necessários no /app/.next/standalone.
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+# docs-site não tem pasta public — só MDX renderizado, sem assets.
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
