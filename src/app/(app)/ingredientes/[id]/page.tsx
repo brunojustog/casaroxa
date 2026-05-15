@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, History, ListTree } from "lucide-react";
+import { ChevronLeft, ListTree } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD, EmptyState } from "@/components/ui/table";
 import { IngredientForm } from "@/components/ingredients/IngredientForm";
+import { PriceHistoryCard } from "@/components/ingredients/PriceHistoryCard";
 import {
   getIngredientById,
   getIngredientPriceHistory,
@@ -16,7 +17,7 @@ import {
   INGREDIENT_UNIT_LABEL,
   PRODUCT_CATEGORY_LABEL,
 } from "@/lib/enums";
-import { formatBRL, formatDateTime } from "@/lib/format";
+import { formatBRL } from "@/lib/format";
 import type { ProductCategory } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -88,37 +89,17 @@ export default async function EditarIngredientePage({
 
         {/* Painéis laterais */}
         <div className="space-y-6">
-          {/* Histórico de preço */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <History className="h-4 w-4 text-slate-500" />
-                Histórico de preço
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {history.length === 0 ? (
-                <p className="text-xs text-slate-500">Sem alterações registradas.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {history.slice(0, 10).map((h) => (
-                    <li key={h.id} className="rounded-md border border-slate-100 bg-slate-50 px-3 py-2 text-xs">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="text-slate-500">{formatDateTime(h.changedAt)}</span>
-                        {h.changedBy?.name && (
-                          <span className="text-slate-400">{h.changedBy.name}</span>
-                        )}
-                      </div>
-                      <div className="mt-1 flex items-center justify-between gap-2 tabular-nums">
-                        <span className="text-slate-500 line-through">{formatBRL(h.oldPrice)}</span>
-                        <span className="text-slate-900 font-medium">→ {formatBRL(h.newPrice)}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+          {/* Histórico de preço com sparkline + stats */}
+          <PriceHistoryCard
+            history={history.map((h) => ({
+              id: h.id,
+              oldPrice: h.oldPrice != null ? Number(h.oldPrice) : null,
+              newPrice: h.newPrice != null ? Number(h.newPrice) : null,
+              changedAt: h.changedAt,
+              changedBy: h.changedBy,
+            }))}
+            currentPrice={Number(ing.unitCost)}
+          />
 
           {/* Onde é usado */}
           <Card>
