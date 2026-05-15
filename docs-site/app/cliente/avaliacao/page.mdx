@@ -1,0 +1,49 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+import { BrowserFrame } from "@/components/mock/BrowserFrame"
+import { NpsScreen } from "@/components/mock/screens/NpsScreen"
+
+<ArticleLayout audience="Cliente" audienceHref="/cliente" audienceLabel="Guia do cliente" title="Avaliar pedido (NPS)">
+
+Depois que o pedido é entregue, o cliente pode receber uma **mensagem pedindo uma nota de 0 a 10** e um comentário opcional. A mensagem de obrigado se adapta à categoria da nota.
+
+## Quando o cliente recebe
+
+Quando o admin clica em **Enviar avaliação** num pedido entregue, o cliente recebe no WhatsApp:
+
+> Oi, [nome]! 👋
+> Aqui é da Casa Roxa. Como foi seu pedido #N?
+> Sua opinião conta MUITO pra gente melhorar:
+> casaroxa.com.br/avaliacao/[link único]
+> Leva 30 segundos. Obrigado!
+
+## A tela que ele vê
+
+<BrowserFrame url="casaroxa.com.br/avaliacao/abc123">
+  <NpsScreen />
+</BrowserFrame>
+
+O cliente vê o resumo do pedido, escolhe a nota nos botões coloridos (vermelho pras notas baixas, amarelo pras médias, verde pras altas) e pode deixar um comentário.
+
+## Como as notas são interpretadas
+
+| Nota | Categoria | Cor |
+|---|---|---|
+| 0 a 6 | **Detrator** | 🔴 vermelho |
+| 7 ou 8 | **Passivo** | 🟡 amarelo |
+| 9 ou 10 | **Promotor** | 🟢 verde |
+
+## Mensagem de obrigado (adapta à categoria)
+
+- **Promotor:** "Que demais, [nome]! 💜 Se quiser indicar alguém, te damos um cupom..."
+- **Passivo:** "Obrigado pela avaliação. Vamos usar isso pra melhorar."
+- **Detrator:** "Obrigado por compartilhar. Pode esperar contato da Casa Roxa pra resolver."
+
+## Pro lado de cá
+
+O admin acompanha tudo em **Avaliações**, com o **NPS** calculado automaticamente (% de promotores menos % de detratores). Detratores podem entrar em campanha de recuperação — o admin escolhe a audiência **"Detratores 30d"** ao criar uma campanha.
+
+<Callout kind="atencao">
+**O link de avaliação é único.** Funciona uma vez só. Se o cliente tentar avaliar de novo, ele vê "Você já avaliou este pedido".
+</Callout>
+
+</ArticleLayout>

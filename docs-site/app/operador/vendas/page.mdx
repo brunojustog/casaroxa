@@ -1,0 +1,53 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Operador" audienceHref="/operador" audienceLabel="Guia do operador" title="Atender e finalizar pedidos">
+
+A lista de pedidos fica em **Vendas**. Cada pedido tem cabeçalho, itens, pagamentos, status e progresso.
+
+## Duas coisas diferentes: Status e Progresso
+
+**Status** é o "grande estado" do pedido:
+
+- **Aberta** — sendo montada ou esperando ser concluída.
+- **Concluída** — fechada, já saiu do estoque.
+- **Cancelada** — descartada.
+
+**Progresso** é o que o cliente vê — em qual etapa o pedido dele está:
+
+- **Novo** → **Confirmado** → **Preparando** → **Pronto** → **Saiu pra entrega** → **Entregue**
+
+<Mermaid chart={`flowchart LR
+  N[Novo] --> C[Confirmado]
+  C --> P[Preparando]
+  P --> R[Pronto]
+  R --> S[Saiu pra entrega]
+  S --> EN[Entregue]
+  style N fill:#fef3c7
+  style EN fill:#d1fae5,stroke:#059669`} />
+
+## Avançar o progresso
+
+Na lista ou dentro do pedido, clique no botão do próximo passo. Quando você avança, o sistema:
+
+- Marca a hora exata daquela mudança
+- Dispara **WhatsApp pro cliente** (se o aviso correspondente estiver ligado nas configurações)
+- Atualiza a tela da cozinha em tempo real
+
+## Editar um pedido
+
+Só dá pra editar enquanto está **Aberta** — pode mexer em itens, pagamentos, observações. Quando você marca como **Concluída**, o sistema:
+
+- **Baixa o estoque** dos ingredientes (lê a ficha técnica de cada item e desconta o que foi usado)
+- Atualiza os totais (receita, custo, líquido)
+- Fecha o pedido
+
+## Cancelar
+
+- Pedido **Aberto** → cancela sem mexer em nada (não saiu nada do estoque mesmo).
+- Pedido **Concluído** → o sistema **devolve o estoque** automaticamente (lança o oposto do que tinha saído).
+
+<Callout kind="atencao">
+**Pedido pago online → confirme com admin antes de cancelar.** A Asaas precisa de **estorno manual** no painel deles — o sistema não devolve dinheiro sozinho.
+</Callout>
+
+</ArticleLayout>

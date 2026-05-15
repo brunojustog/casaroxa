@@ -1,0 +1,58 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Usuários e permissões">
+
+Existem **dois perfis** de usuário do sistema: **Admin** (acesso total) e **Operador** (acesso restrito ao que precisa pra atender pedidos). A permissão é checada em todo lugar — operador não consegue abrir tela que não é dele nem por URL direta.
+
+## Onde fica
+
+**Ferramentas → Usuários**.
+
+## Criar um operador
+
+1. Clica em **Novo usuário**.
+2. Preenche:
+   - **Nome**
+   - **Email** (será o login — precisa ser único)
+   - **Senha inicial** (o operador troca depois no primeiro acesso)
+   - **Perfil:** Operador
+3. Salvar.
+
+## O que cada perfil enxerga
+
+| Recurso | Admin | Operador |
+|---|---|---|
+| Cadastros (produtos, combos, fichas) | ✅ | ❌ |
+| Pedidos / Cozinha | ✅ | ✅ |
+| Estoque / Inventário | ✅ | ✅ |
+| Compras / NFe | ✅ | ❌ |
+| Clientes | ✅ | ✅ |
+| Campanhas | ✅ | ❌ |
+| Avaliações (NPS) | ✅ | ❌ |
+| Carrinhos abandonados | ✅ | ❌ |
+| Sorteios | ✅ | ❌ |
+| Encomendas e Pré-vendas | ✅ | ❌ |
+| Financeiro | ✅ | ❌ |
+| Assistente IA | ✅ | ✅ (versão restrita) |
+| Aprovações da IA | ✅ | ❌ |
+| Configurações | ✅ | ❌ |
+| Usuários | ✅ | ❌ |
+
+## Resetar senha
+
+**Não tem "esqueci minha senha"** automático. Se um operador esqueceu:
+
+1. Você vai em **Usuários** → clica no operador.
+2. Botão **Resetar senha**.
+3. Digita uma senha nova e passa pra ele.
+4. Ele entra com a nova e troca pra uma que só ele saiba.
+
+## Desativar em vez de excluir
+
+Quando um operador sai da equipe, **não delete** — desative (use o toggle "Ativo"). Excluir tira o histórico de quem fez o quê nos pedidos. Desativado, o login fica bloqueado mas o histórico fica preservado.
+
+<Callout kind="tech">
+A senha é guardada criptografada (hash bcrypt) — nem você nem ninguém consegue "ver" a senha de outro usuário, só resetar. A permissão é checada no roteamento de URL e em cada ação no servidor (defesa em duas camadas).
+</Callout>
+
+</ArticleLayout>

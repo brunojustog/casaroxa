@@ -1,0 +1,40 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Cliente" audienceHref="/cliente" audienceLabel="Guia do cliente" title="Meus pedidos">
+
+A área **Meus pedidos** é o "espaço do cliente" no site. Ele vê o histórico, os cupons disponíveis, os sorteios em que tá participando e pode **refazer um pedido antigo com um clique**.
+
+## Como entrar (sem senha)
+
+Não tem senha. O cliente:
+
+1. Vai em **Meus pedidos** no topo do site.
+2. Digita o telefone.
+3. Recebe **um código de 6 dígitos no WhatsApp**.
+4. Digita o código → entra.
+
+A sessão dura cerca de **30 dias** — depois disso, repete o processo.
+
+## O que aparece dentro
+
+- **Total já gasto** — soma de todos os pedidos concluídos dele.
+- **Cartão fidelidade** — pontos atuais e quanto falta pro próximo cupom.
+- **Cupons ativos** — qualquer cupom dele que ainda esteja válido e disponível.
+- **Sorteios** que ele tá participando, com link pro resultado.
+- **Histórico dos últimos 20 pedidos** com status, valor e cupom usado.
+
+## Pedir novamente (atalho)
+
+Cada pedido não-cancelado tem o botão **"Pedir de novo"**:
+
+1. Cliente clica.
+2. O sistema monta o carrinho com os mesmos itens.
+3. **Itens que não existem mais** (saíram do cardápio, ficaram inativos) aparecem destacados — o cliente decide se prossegue com o resto.
+4. **Preço usado é o atual**, não o do pedido antigo. Se o frango subiu R$ 2, o carrinho mostra o preço de hoje.
+5. Vai direto pro checkout, pronto pra finalizar.
+
+<Callout kind="tech">
+O link "Meus pedidos" é público no sentido de não exigir senha, mas o código por WhatsApp valida que quem está acessando tem mesmo o número. O código expira em 10 minutos. Cada pedido tem um identificador não-sequencial (não dá pra "chutar" outro pedido pela URL).
+</Callout>
+
+</ArticleLayout>

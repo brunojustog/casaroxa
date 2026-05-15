@@ -1,0 +1,87 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Operador" audienceHref="/operador" audienceLabel="Guia do operador" title="Primeiros passos no painel">
+
+Tudo que você precisa saber pra começar a atender pedidos no painel admin.
+
+## 1. Entrar
+
+1. Acesse [`gestao.casaroxa.com.br`](https://gestao.casaroxa.com.br).
+2. Use seu email + senha que o Bruno te passou.
+3. Esqueceu? Não tem "esqueci minha senha" automático — peça pro Bruno resetar.
+
+<Callout kind="atencao">
+O painel é em `gestao.casaroxa.com.br`. Se acessar `casaroxa.com.br` (sem o `gestao.`), você cai no cardápio público.
+</Callout>
+
+## 2. O que você vê na sidebar
+
+Como **operador**, seu menu mostra:
+
+| Seção | O que faz |
+|---|---|
+| **Cozinha** | KDS — Kanban de pedidos em tempo real |
+| **Estoque** | Saldo atual, alertas de mínimo |
+| **Inventário** | Contagens cíclicas |
+| **Vendas** | Lista de pedidos, atender, finalizar |
+| **Clientes** | CRM básico, histórico |
+| **Dashboard** | KPIs do dia/semana/mês |
+| **Assistente IA** | Conversa com sistema em linguagem natural |
+
+Você **não vê** (precisa de admin):
+- Cadastros (Produtos, Combos, Fichas, Ingredientes, Cupons, Sorteios, Pré-vendas, Encomendas, Fornecedores)
+- Compras (lançar NFe)
+- Financeiro (custos, DRE, simulador, cenários)
+- Campanhas, NPS, Carrinhos abandonados
+- Aprovações IA
+- Configurações
+- Usuários
+
+Se tentar URL direta, sistema te redireciona pra `/vendas`.
+
+## 3. Fluxo do dia
+
+**Manhã:**
+1. Abre o painel → vai pra **Cozinha**.
+2. Confere se WhatsApp tá conectado (ícone verde no header). Se não, avisa Bruno.
+3. Olha o **Dashboard** rapidamente — pedidos previstos, alertas de estoque.
+
+**Durante o dia:**
+1. Pedido entra → aparece no KDS como NOVO + push notification.
+2. Marca **Confirmado** → cliente recebe WhatsApp (se toggle ligado).
+3. Cozinha prepara → marca **Preparando** → **Pronto** → **Saiu pra entrega** → **Entregue**.
+4. Cada transição pode disparar WhatsApp automático.
+
+**Fim do dia:**
+1. Confere se todos os pedidos estão Entregue ou Cancelado.
+2. Pedido travado? Fala com Bruno.
+
+## 4. Dicas
+
+- **KDS auto-refresh** a cada 5s — não precisa F5.
+- **Push notification** com som quando entra pedido novo (permita na primeira vez).
+- **Buscar cliente rápido:** Clientes → digite parte do nome ou telefone.
+- **Voltar status:** se marcou errado, clica na barra de progresso e seleciona o status anterior.
+
+## 5. O que NÃO fazer
+
+- ❌ **Cancelar pedido sem confirmar com Bruno** — reverte estoque, e pagos online exigem estorno manual no Asaas.
+- ❌ **Editar pedido já pago online** — pode dessincronizar com Asaas.
+- ❌ **Responder WhatsApp pelo wuzapi** — ele só envia; resposta do cliente vai pro WhatsApp normal.
+- ❌ **Compartilhar sua senha** — cada operador tem login próprio.
+
+## 6. Quando chamar o Bruno
+
+| Situação | Por quê |
+|---|---|
+| Pedido pago online travou em "ABERTA" depois do webhook | Pode ter falha no Asaas |
+| Cupom estranho (preço zerado) | Confirmar legitimidade |
+| Cliente reclama de mensagem duplicada | Possível bug de toggle |
+| Encomenda nova chegou pelo site | Só admin aprova encomenda |
+| NPS muito baixo (0-3) | Detrator — Bruno decide ação |
+
+## 7. Sair com segurança
+
+No canto superior direito, clica no seu avatar → **Sair**. Sessão expira após X horas de inatividade — se cair na tela de login, é normal.
+
+</ArticleLayout>

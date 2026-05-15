@@ -1,0 +1,38 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Inventários e estoque mínimo">
+
+Inventário é a **contagem física** que você faz periodicamente pra conferir se o que o sistema diz que tem bate com o que realmente está na geladeira/prateleira. Diferença que aparecer vira movimento automaticamente — sobra entra como **ajuste**, falta entra como **perda**.
+
+## Onde fica
+
+**Operação → Inventário**.
+
+## Como fazer
+
+1. Clica em **Novo inventário**.
+2. O sistema lista todos os ingredientes com o saldo que ele acha que tem.
+3. Você (ou alguém da equipe) conta o físico e digita o valor real do lado.
+4. Clica em **Fechar** — o sistema gera os movimentos pra corrigir cada diferença e o inventário fica **trancado** (não dá pra editar mais).
+
+## Status
+
+<Mermaid chart={`flowchart LR
+  A[Aberta] -->|fechar| F[Fechada]
+  A -.->|cancelar| C[Cancelada]
+  style F fill:#d1fae5,stroke:#059669`} />
+
+Enquanto **Aberta**, você pode digitar e voltar depois — útil pra inventários grandes em que você conta a geladeira hoje e a despensa amanhã. Só feche quando estiver tudo conferido.
+
+## Estoque mínimo
+
+Pra cada ingrediente você pode configurar um **estoque mínimo**. Quando o saldo cai abaixo desse valor:
+
+- O ingrediente aparece destacado (badge vermelho) na tela de Estoque
+- Aparece como alerta no painel inicial
+
+<Callout kind="dica">
+Configure mínimo só pra ingrediente **crítico** — carnes principais, gás, embalagens. Pra coisa abundante (sal, açúcar, papel toalha) o alerta só vira ruído.
+</Callout>
+
+</ArticleLayout>

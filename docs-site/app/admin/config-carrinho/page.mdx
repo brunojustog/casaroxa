@@ -1,0 +1,29 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Carrinho abandonado — quando avisar">
+
+Define **quanto tempo esperar** entre o cliente preencher o telefone no checkout e o WhatsApp de recuperação sair pra ele.
+
+## Onde fica
+
+**Configurações → Carrinho abandonado**.
+
+## O que configurar
+
+- **Esperar antes de notificar (minutos)** — padrão **30**. Aceita de 5 a 1440 (24h).
+- **Aviso de WhatsApp "Carrinho abandonado"** — interruptor separado, na seção WhatsApp das configurações. Se estiver desligado, nada é enviado.
+
+O sistema verifica a cada 15 minutos quem está esperando há mais tempo do que o configurado e dispara as mensagens. Cada carrinho recebe uma só — não tem risco de mandar duas vezes.
+
+## Como escolher o tempo
+
+| Janela curta (5-15 min) | Janela média (30 min) | Janela longa (1-2h) |
+|---|---|---|
+| Mais recuperação | Equilibrado | Menos intrusivo |
+| Pode incomodar quem voltaria sozinho | **Padrão recomendado** | Cliente pode esquecer |
+
+<Callout kind="dica">
+**Comece com 30 minutos.** Se você ver que muito cliente reclama "acabei de sair e já mandaram WhatsApp", aumenta pra 60. Se ver que tá recuperando pouco, diminui pra 20.
+</Callout>
+
+</ArticleLayout>

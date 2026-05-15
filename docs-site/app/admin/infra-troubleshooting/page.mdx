@@ -1,0 +1,81 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Logs e troubleshooting">
+
+Onde olhar quando algo dá errado.
+
+## Logs do app
+
+```bash
+ssh root@<ip>
+docker service logs casaroxa_app --tail 200 --follow
+```
+
+Filtros úteis:
+```bash
+# Erros do Prisma
+docker service logs casaroxa_app | grep -i "PrismaClientUnknownRequestError"
+
+# Erros 500
+docker service logs casaroxa_app | grep -i "⨯ Error"
+```
+
+## Logs do Postgres
+
+```bash
+CID=$(docker ps -qf "name=casaroxa_postgres" | head -1)
+docker logs $CID --tail 100
+```
+
+## Health checks rápidos
+
+| Comando | O que verifica |
+|---|---|
+| `curl -I https://casaroxa.com.br/cardapio` | Site público responde |
+| `curl -I https://gestao.casaroxa.com.br/login` | Admin responde |
+| `df -h /` | Disco do host |
+| `docker service ls` | Services no swarm |
+| `docker service ps casaroxa_app` | Tasks do app (running/shutdown) |
+
+## Problemas comuns
+
+### Disco cheio
+**Sintoma:** Postgres em "recovery mode" / panic loop.
+**Causa:** containerd com muitas imagens antigas.
+**Fix:**
+```bash
+docker system prune -a -f --filter "until=72h"
+docker service update --force casaroxa_postgres
+```
+
+### WhatsApp não envia
+**Sintomas:** logs de WhatsApp todos SKIPPED.
+**Possíveis causas:**
+- Master switch `whatsappApiEnabled` desligado
+- Toggle individual desligado
+- wuzapi caiu — verificar `docker ps` no host onde roda
+- Número desconectou — refazer pareamento (QR Code em Configurações)
+
+### Cron não roda
+**Verifica:**
+```bash
+crontab -l                              # listou as 3 linhas?
+tail -100 /var/log/casaroxa-cron.log     # tem erro?
+```
+
+### Pagamento Asaas travado em ABERTA
+**Causa:** webhook do Asaas não chegou ou falhou.
+**Fix:** no painel Asaas, consulta o payment id e dispara webhook manualmente. Ou:
+```bash
+docker exec -it casaroxa_app sh
+# Dentro:
+node -e "..."  # script de force-check
+```
+
+## Onde pedir ajuda
+
+- Issues do código: GitHub repo `brunojustog/casaroxa`
+- Asaas: painel `console.asaas.com`
+- Hetzner: console + suporte por ticket
+
+</ArticleLayout>

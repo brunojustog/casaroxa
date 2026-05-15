@@ -1,0 +1,35 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Relatórios">
+
+Relatórios exportáveis em **CSV** (planilha) ou **PDF** (impressão). Use pra mandar pro contador, fazer análise externa ou prestação de contas.
+
+## Onde fica
+
+**Análise → Relatórios**.
+
+## Tipos disponíveis
+
+| Tipo | O que mostra |
+|---|---|
+| Vendas | Pedidos do período (status, total, cupom usado) |
+| CMV por produto | Quanto custou produzir cada produto vendido |
+| Fidelidade | Pontos emitidos vs pontos resgatados |
+| Sorteios | Inscrições, pagamentos, ganhadores |
+| Compras | Compras feitas, por fornecedor |
+| Estoque | Saldo atual + movimentos do período |
+
+## Exportar
+
+Cada relatório tem **dois botões**:
+
+- **CSV** — pra abrir no Excel ou Google Sheets.
+- **PDF** — pra imprimir ou anexar em e-mail.
+
+Os **filtros** que você aplicou na tela (data inicial, data final) viajam junto pra exportação — não precisa configurar duas vezes.
+
+<Callout kind="dica">
+**Pro contador, manda CSV de Vendas e Compras** todo dia 1º — ele importa direto no sistema dele e gera nota.
+</Callout>
+
+</ArticleLayout>

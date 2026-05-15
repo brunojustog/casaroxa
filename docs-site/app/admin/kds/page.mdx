@@ -1,0 +1,40 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+import { BrowserFrame } from "@/components/mock/BrowserFrame"
+import { AdminShell } from "@/components/mock/AdminShell"
+import { KdsScreen } from "@/components/mock/screens/KdsScreen"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="KDS — Tela de cozinha">
+
+KDS é a **tela da cozinha**. Mostra todos os pedidos do dia em produção num formato de quadro com colunas (estilo Kanban), e se atualiza sozinha a cada 5 segundos.
+
+<BrowserFrame url="gestao.casaroxa.com.br/cozinha">
+  <AdminShell active="Cozinha" title="Cozinha em tempo real" description="Os cards andam sozinhos">
+    <KdsScreen />
+  </AdminShell>
+</BrowserFrame>
+
+## Onde fica
+
+**Operação → Cozinha**. A ideia é deixar essa tela aberta num tablet ou TV da cozinha — não precisa atualizar a página, ela se atualiza sozinha.
+
+## O que aparece
+
+Pedidos que **ainda não foram entregues** e que foram feitos nas **últimas 24h**. Pedido concluído sai da tela automaticamente.
+
+## Avançar de etapa
+
+Cada card tem um botão pra avançar pro próximo passo:
+
+**Novo → Confirmado → Preparando → Pronto → Saiu pra entrega → Entregue**
+
+Em cada mudança, o sistema dispara o WhatsApp correspondente pro cliente (se o aviso correspondente estiver ligado).
+
+<Callout kind="dica">
+**Use o KDS em modo "burro".** A pessoa da cozinha não precisa fazer login, mexer em menu, nada — só clica nos botões dos cards. Se for usar um tablet velho da cozinha, pode deixar a tela travada nessa página.
+</Callout>
+
+<Callout kind="tech">
+A atualização é por polling a cada 5 segundos (não WebSocket). Os pedidos aparecem na ordem em que foram feitos (mais antigo primeiro), pra ninguém ficar esperando demais.
+</Callout>
+
+</ArticleLayout>

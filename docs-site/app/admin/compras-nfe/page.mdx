@@ -1,0 +1,73 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Compras e NFe XML">
+
+Onde você cadastra o que comprou de matéria-prima. Pode lançar manual ou importar a nota fiscal eletrônica (NFe) direto.
+
+## Como funciona, em uma linha
+
+Você sobe o XML da nota → o sistema lê os itens e tenta casar com seus ingredientes → você confere e confirma → o estoque sobe e o custo dos seus produtos é recalculado automaticamente.
+
+## Importar uma NFe
+
+1. Vá em **Cadastros → Importar → NFe**.
+2. Faça upload do XML que o fornecedor te mandou (geralmente por email).
+3. O sistema lê e te mostra um **preview**:
+   - **Fornecedor** que ele identificou (procura pelo CNPJ; se não achar, pelo nome).
+   - **Itens** da nota com a sugestão do ingrediente correspondente no seu cadastro.
+4. Pra cada item, você escolhe uma de três opções:
+   - **Usar este ingrediente** — confirma a sugestão (ou troca por outro).
+   - **Criar novo** — esse ingrediente ainda não estava cadastrado.
+   - **Pular** — não quer importar esse item.
+5. Confere o preview de impacto e confirma.
+
+## A memória do sistema (matching automático)
+
+Na **primeira vez** que você importa uma NFe com um ingrediente novo, precisa fazer a ligação manual. Ex: o fornecedor chamou no XML de *"FRANGO CONG ABATE FRESCO 1KG"*, e no seu cadastro tá *"Frango caipira"*.
+
+A partir da **segunda importação**, o sistema lembra. Quando vier de novo um item com nome parecido, ele já vem casado automaticamente — você só confere.
+
+Quanto mais você importa, mais "esperto" o sistema fica. Depois de algumas semanas, a maioria dos itens vai vir pronto e você só precisa conferir os valores.
+
+<Callout kind="dica">
+Se o fornecedor mandou um item que você nunca cadastrou, escolha **"Criar novo"** e preencha nome bonito, categoria e unidade. Esse cadastro vai pra **Ingredientes** e fica pra sempre — não precisa repetir.
+</Callout>
+
+## Preview de impacto — confira antes de confirmar
+
+Antes de você clicar em **Confirmar**, o sistema te mostra um quadro chamado **"Impacto se confirmar"** com:
+
+- Cada ingrediente que vai mudar de preço (subiu ou caiu), em valor e em %.
+- Quais produtos seus usam esse ingrediente.
+- Qual vai ser o novo custo de cada produto.
+- O novo CMV (custo dividido pela venda) comparado com a meta que você definiu.
+- **Sugestão de novo preço de venda** se o CMV ficar acima da meta.
+
+Se algum produto vai estourar o CMV, aparece um aviso amarelo no topo: *"Alguns produtos vão ficar com CMV acima do target. Considere reajustar."* Aí você decide se reajusta o preço de venda ou aceita a margem menor.
+
+## Confirmar a compra
+
+Quando você clica **Confirmar**, o sistema faz tudo de uma vez, sem deixar nada pela metade:
+
+1. **Estoque sobe** — cada item da nota entra no saldo.
+2. **Custos atualizam (se você marcou pra atualizar)** — o ingrediente passa a valer o novo preço, o histórico guarda o anterior, e todas as receitas, produtos e combos que usam esse ingrediente recalculam o custo automaticamente.
+3. **A compra fica marcada como confirmada** — não dá mais pra editar item ou valor.
+
+Se qualquer parte falhar (banco fora, internet caiu), nada é gravado — você reabre a compra como rascunho e tenta de novo.
+
+## Cancelar uma compra
+
+- **Se ainda é rascunho:** apaga sem efeito nenhum no estoque.
+- **Se já foi confirmada:** o sistema gera movimentos opostos pra anular o efeito no saldo de estoque. **Mas o preço do ingrediente não volta** — essa parte fica como histórico, porque desfazer mudaria todo o cálculo de margem retroativo.
+
+## Lançar manual (sem XML)
+
+Pra compras de feira, açougue ou qualquer fornecedor que não manda XML:
+
+**Compras → Nova compra** — preenche fornecedor, itens, custo unitário, lote e validade. Mesmo fluxo, sem o atalho do XML.
+
+<Callout kind="tech">
+**Por baixo dos panos:** tudo acontece em uma única transação no banco. A "cascata" que atualiza receita → produto → combo é orquestrada por um serviço central; cada produto guarda um **retrato do custo** (snapshot) no momento da venda, então mesmo se o ingrediente subir depois, o lucro do pedido antigo continua certo.
+</Callout>
+
+</ArticleLayout>

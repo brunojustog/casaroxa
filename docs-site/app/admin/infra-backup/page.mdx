@@ -1,0 +1,47 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Backup e restore">
+
+Backup do Postgres rodando automático no manager Hetzner. Storage off-site no Hetzner Storage Box.
+
+## Backup automático
+
+- **Schedule:** diário 03:00 UTC
+- **Script:** `/opt/casaroxa/backup.sh` no host Swarm
+- **Local:** `/var/backups/casa-roxa/` (mantém últimos 30 dias)
+- **Off-site:** sync diário pra Storage Box BX11
+
+## Tirar backup manual (admin)
+
+Antes de operações arriscadas (migração de schema, mudança massiva):
+
+```bash
+ssh root@<ip-vps>
+CID=$(docker ps -qf "name=casaroxa_postgres" | head -1)
+STAMP=$(date +%Y%m%d_%H%M%S)
+docker exec "$CID" pg_dump -U casaroxa casa_roxa | gzip > /var/backups/casa-roxa/manual_${STAMP}.sql.gz
+gunzip -t /var/backups/casa-roxa/manual_${STAMP}.sql.gz && echo OK
+```
+
+## Restore
+
+```bash
+# Pra restaurar full
+docker exec -i "$CID" psql -U casaroxa -d casa_roxa < /var/backups/casa-roxa/<arquivo>.sql
+
+# Pra restaurar só uma tabela
+pg_restore -d casa_roxa -t TabelaX <arquivo>
+```
+
+## Backup off-site
+
+`docs/BACKUP-RESTORE.md` no repo tem passo-a-passo completo. Resumo:
+- SSH key em Storage Box
+- `rsync` diário pra `u<XXXXXX>@u<XXXXXX>.your-storagebox.de:23`
+- Retenção: 30 dias locais + 90 dias off-site
+
+<Callout kind="atencao">
+Antes de cada migration de schema em prod, **sempre** tire backup manual. Migration additiva é segura mas humano erra.
+</Callout>
+
+</ArticleLayout>

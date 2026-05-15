@@ -1,0 +1,58 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="WhatsApp — conectar e configurar os avisos">
+
+A Casa Roxa usa um **WhatsApp próprio** (não é o WhatsApp Business API, é uma solução auto-hospedada). Cada tipo de aviso tem um interruptor separado, então você liga só o que quer.
+
+## Conectar pela primeira vez
+
+**Configurações → WhatsApp** → botão **Conectar WhatsApp**:
+
+1. O sistema mostra um **QR Code**.
+2. No celular onde está o WhatsApp da Casa Roxa: **Configurações → Aparelhos conectados → Conectar aparelho** e escaneia o código.
+3. Depois do pareamento, o status fica verde ✓ e o sistema já consegue mandar mensagens.
+
+## Interruptor mestre
+
+Tem um interruptor **"WhatsApp habilitado"** que controla tudo. Se desligar, **nenhuma mensagem sai**, mesmo que os interruptores individuais estejam ligados. Use isso pra parar tudo de uma vez se acontecer algo inesperado.
+
+## Os 11 avisos automáticos
+
+| Aviso | Quando dispara |
+|---|---|
+| Pedido confirmado | Quando você marca o pedido como confirmado |
+| Pedido pronto | Quando você marca como pronto |
+| Saiu pra entrega | Quando você marca que saiu |
+| Cupom de aniversário | Manualmente pelo painel, no dia do aniversariante |
+| Resgate fidelidade | Quando cliente bate 100 pontos e ganha cupom |
+| Pagamento recebido | Quando Asaas confirma o pagamento |
+| Encomenda recebida | Quando cliente manda uma encomenda pelo site |
+| Encomenda aprovada | Quando você aprova a encomenda |
+| Encomenda recusada | Quando você recusa a encomenda |
+| Encomenda pronta | Quando você marca a encomenda como pronta |
+| Pedido de avaliação (NPS) | Quando você clica "Enviar avaliação" |
+| Carrinho abandonado | Automaticamente, 30 min depois do cliente abandonar |
+
+Você pode ligar/desligar cada um separado. Recomendado: deixar todos ligados no começo e ir desligando se algum não fizer sentido pra sua operação.
+
+## Histórico de mensagens
+
+**Configurações → WhatsApp Logs** — você vê todas as mensagens que saíram, com:
+
+- Cliente e telefone de destino
+- Qual evento disparou
+- Status (Enviada, Falhou, Pulada)
+- O texto que foi enviado
+- Erro, se houver
+
+Útil pra debugar quando alguém reclama "não recebi nada".
+
+## Testar antes de campanha
+
+Tem um botão **"Testar conexão"** que manda uma mensagem de teste pro seu próprio número. Faz isso **antes** de disparar uma campanha grande — se o WhatsApp estiver desconectado, você descobre antes de torrar 300 disparos.
+
+<Callout kind="atencao">
+**Campanhas em massa têm pausa de 10 segundos entre mensagens** pra evitar bloqueio do WhatsApp. Mensagens transacionais (pedido confirmado, pagamento recebido, etc) saem na hora porque são uma de cada vez. Não tente acelerar — bloqueio derruba o número.
+</Callout>
+
+</ArticleLayout>

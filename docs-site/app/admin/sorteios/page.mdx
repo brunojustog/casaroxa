@@ -1,0 +1,62 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Sorteios e rifas">
+
+Rifa com **quantidade fechada de números** (ex.: 1 a 100). Pode ser **gratuita** (cliente só se inscreve) ou **paga** (PIX via Asaas). Aceita **vários prêmios** num mesmo sorteio.
+
+## Criar uma rifa
+
+**Cadastros → Sorteios → Nova rifa**:
+
+- **Nome** e descrição.
+- **Total de números** (ex.: 100).
+- **Preço por número** — `0` é grátis, qualquer valor maior cobra via PIX.
+- **Limite por cliente** (só pra rifa grátis) — quantos números cada um pode pegar, pra evitar uma pessoa pegando todos.
+- **Prêmios** — pode ser 1 só, ou vários (ex.: Dia das Mães com 4 ganhadores).
+- **Data de encerramento** — quando para de aceitar inscrição.
+
+## Status da rifa
+
+<Mermaid chart={`flowchart LR
+  D[Rascunho] -->|abrir| O[Aberta]
+  O -->|sortear| W[Sorteando]
+  W -->|finaliza| DR[Sorteada]
+  D -.->|cancelar| C[Cancelada]
+  O -.->|cancelar| C
+  style D fill:#f1f5f9
+  style O fill:#d1fae5,stroke:#059669
+  style DR fill:#fef3c7`} />
+
+Você cria como **Rascunho**. Quando estiver pronto, **abre** — o banner aparece no cardápio do cliente. Depois do encerramento (ou quando quiser), **sorteia**.
+
+## Como o cliente participa
+
+O cliente vê o banner amarelo no cardápio, clica e vai pra tela da rifa. Lá ele:
+
+1. Vê uma **grade visual** com todos os números (verdes os disponíveis, cinza os já comprados).
+2. Escolhe um ou mais.
+3. Se for paga, paga via PIX. Se for grátis, só confirma.
+
+## Múltiplos prêmios — como o sorteio acontece
+
+O sistema sorteia **do menor prêmio pro maior** (4º lugar primeiro, 1º lugar por último). Pra cada prêmio:
+
+1. Escolhe aleatoriamente um número entre os participantes confirmados.
+2. Marca quem ganhou.
+3. Mostra uma **animação de roleta** na tela ao vivo (todo mundo que tá assistindo vê).
+
+Quem já ganhou um prêmio sai do pool dos próximos — uma pessoa não leva dois.
+
+## Indique e ganhe
+
+O cliente compartilha o link da rifa com um código pessoal dele. Quando um amigo entra pelo link e se inscreve, o **indicador ganha 1 número bônus** automaticamente. Cresce sozinho.
+
+## Comprovante público
+
+Depois do pagamento confirmado (em rifa paga), o cliente recebe um link com **comprovante** dele — tem QR Code de validação. Útil pra ele imprimir ou compartilhar nas redes "olha, eu tô na rifa".
+
+<Callout kind="tech">
+O sorteio roda numa única transação no banco. Cada prêmio é sorteado de forma isolada e idempotente (se algo travar no meio, dá pra retomar sem duplicar ganhador). Pagamento usa o mesmo motor da Asaas que atende pedidos e encomendas (sistema polimórfico).
+</Callout>
+
+</ArticleLayout>

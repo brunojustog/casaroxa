@@ -1,0 +1,59 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+import { PublicSiteShell } from "@/components/mock/PublicSiteShell"
+import { CardapioScreen } from "@/components/mock/screens/CardapioScreen"
+
+<ArticleLayout audience="Cliente" audienceHref="/cliente" audienceLabel="Guia do cliente" title="Fazer um pedido">
+
+Esse é o fluxo padrão: cliente pedindo agora, pra retirar ou receber em casa hoje.
+
+## Onde acontece
+
+**casaroxa.com.br/cardapio**.
+
+## A tela que o cliente vê
+
+<PublicSiteShell active="Cardápio">
+  <CardapioScreen />
+</PublicSiteShell>
+
+Os **combos aparecem primeiro**. Os itens mais vendidos nos últimos 30 dias ganham um selo **"🔥 Mais pedido"** automaticamente. Quando um combo sai mais barato do que comprar tudo separado, aparece **"Economize R$ X"** em verde.
+
+## Passo a passo
+
+1. Cliente abre **casaroxa.com.br** e clica em **Cardápio**.
+2. Escolhe os itens e clica em **+** pra adicionar ao carrinho.
+3. O carrinho **fica salvo no celular** — pode fechar a página, voltar amanhã, continua lá.
+4. Clica em **Carrinho** no topo → vai pro checkout.
+5. Preenche **nome e telefone**. Opcionalmente:
+   - Pede **código por WhatsApp** pra carregar dados de pedido anterior (endereço, etc).
+   - Aplica **cupom** de desconto.
+6. Escolhe **Retirada** ou **Delivery** (com endereço).
+7. Se ele já tem endereço cadastrado mas está pedindo de outro lugar **hoje**, aparece um banner amarelo pedindo pra confirmar.
+8. Escolhe forma de pagamento:
+   - **PIX online** — QR Code e copia-cola na hora.
+   - **Cartão online** — janela do pagamento abre por cima.
+   - **Combinar pelo WhatsApp** — paga depois, na retirada ou entrega.
+9. Clica em **Confirmar pedido** → janela de confirmação aparece (revisa endereço, total, etc).
+10. Pedido criado → o site leva ele pra:
+    - **Tela de pagamento** (se PIX/cartão online), ou
+    - **WhatsApp** já com mensagem pronta (se "combinar"), e depois pra
+    - **Tela de sucesso**.
+
+## Acompanhar o pedido
+
+Logo após criar, o cliente **recebe um link no WhatsApp** pra acompanhar. Nessa tela ele vê:
+
+- **Status atual:** Recebido → Confirmado → Preparando → Pronto → Saiu pra entrega → Entregue.
+- **Itens do pedido** e total.
+- Botão **"Pedir novamente"** — repete o pedido com um clique.
+- Link pro comprovante.
+
+<Callout kind="dica">
+**Atalho pra cliente recorrente:** quem já pediu antes pode ir direto em **Meus pedidos** no topo. Digita o telefone, recebe um código no WhatsApp, e o checkout já vem pré-preenchido com tudo do último pedido.
+</Callout>
+
+<Callout kind="tech">
+O carrinho é salvo no navegador do cliente — não no servidor. Isso permite voltar dias depois e continuar de onde parou. As sugestões de upsell no checkout (ex.: "esqueceu a bebida?") seguem regras simples por categoria de produto, sem aprendizado de máquina por enquanto.
+</Callout>
+
+</ArticleLayout>

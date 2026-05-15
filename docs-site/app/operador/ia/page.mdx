@@ -1,0 +1,34 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Operador" audienceHref="/operador" audienceLabel="Guia do operador" title="Usar o assistente IA">
+
+O **Assistente IA** é um chat onde você pergunta em português comum e a inteligência artificial responde com os dados do sistema. Ele **só consulta** — não muda nada.
+
+## O que dá pra perguntar
+
+- "Quantos pedidos foram concluídos hoje?"
+- "Qual o ticket médio dessa semana?"
+- "Quais clientes não pediram nos últimos 30 dias?"
+- "Como está o estoque de costela?"
+- "Quais produtos têm CMV acima de 50%?"
+
+A IA responde com dados reais do banco. Tem acesso a vendas, clientes, ingredientes, estoque, KPIs.
+
+## O que NÃO faz (no perfil operador)
+
+- Criar cupom
+- Mudar preço de produto
+- Disparar campanha
+- Editar pedido
+
+Tudo isso exige admin. Se você pedir, a IA explica que não pode.
+
+<Callout kind="dica">
+Use a IA pra **descobrir** dados rápido, sem precisar abrir vários relatórios. Ex: "Top 3 produtos mais vendidos no mês". Ela calcula na hora.
+</Callout>
+
+<Callout kind="tech">
+Cada conversa com a IA tem um pequeno custo em dólar (ela é cobrada por mensagem na API da Anthropic). O admin vê o total acumulado em Relatórios.
+</Callout>
+
+</ArticleLayout>

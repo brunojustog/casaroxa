@@ -1,0 +1,103 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+import { BrowserFrame } from "@/components/mock/BrowserFrame"
+import { PublicSiteShell } from "@/components/mock/PublicSiteShell"
+import { CardapioScreen } from "@/components/mock/screens/CardapioScreen"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Cardápio: produtos, combos, fichas técnicas">
+
+Tudo que a Casa Roxa vende. Funciona em três camadas que se encaixam: **Ingrediente** (matéria-prima) → **Receita** (o que entra em cada prato) → **Produto** (item do cardápio) → **Combo** (agrupamento de produtos com preço próprio).
+
+## Como o cliente vê o cardápio
+
+<BrowserFrame url="casaroxa.com.br/cardapio">
+  <PublicSiteShell active="Cardápio">
+    <CardapioScreen />
+  </PublicSiteShell>
+</BrowserFrame>
+
+Três coisas que acontecem automaticamente, sem você configurar:
+
+- **Combos sempre aparecem primeiro**. A ideia é puxar o ticket pra cima oferecendo o combo antes do item solto.
+- **Selo "🔥 Mais pedido"** nos três itens mais vendidos dos últimos 30 dias.
+- **Selo "Economize R$ X"** quando o combo sai mais barato que comprar os itens separados.
+
+## Cadastrar um produto
+
+Vá em **Cadastros → Produtos → Novo produto** e preencha:
+
+**Obrigatórios:**
+- **Nome** — único, claro pro cliente (ex.: "Frango assado inteiro").
+- **Categoria** — Frango, Costela, Suínos, Acompanhamentos, Extras ou Bebidas.
+- **Tipo** — Simples, Acompanhamento, Extra, Bebida ou Carne pura. Define como o sistema trata em cálculos de combo.
+
+**Opcionais (mas recomendados):**
+- **Preço de venda** — sem isso, o produto **não aparece** no cardápio público.
+- **Meta de CMV** — quanto do preço de venda você aceita que seja custo. Padrão 50% pra carnes, configurável por categoria.
+- **Descrição** — texto que aparece no card pro cliente.
+- **Foto principal**, **galeria** (fotos extras na página de detalhe) e **vídeo do YouTube** (vira embed).
+- **Mostrar no cardápio público?** — botão que liga/desliga sem precisar apagar o produto.
+- **Estoque mínimo** — alerta quando o saldo cai abaixo desse número.
+
+## Fichas técnicas (receitas)
+
+A ficha técnica é a "receita" do produto — quais ingredientes ele leva e em que quantidade. **É o que torna o cálculo de custo real, não estimativa.**
+
+Quando o preço de um ingrediente muda, todo o cardápio recalcula sozinho:
+
+<Mermaid chart={`flowchart LR
+  I[Preço do ingrediente sobe] --> R[Receita atualiza]
+  R --> P[Produto atualiza]
+  P --> C[Combo atualiza]
+  style I fill:#fef3c7
+  style C fill:#d1fae5`} />
+
+Pra cadastrar:
+
+1. **Cadastros → Fichas Técnicas → Nova ficha**.
+2. Escolhe o produto.
+3. Adiciona linha por linha: ingrediente + quantidade + unidade.
+4. Salva.
+
+<Callout kind="atencao">
+Toda vez que você salva uma ficha, ela fica marcada como **"não revisada"**. A ideia é que outra pessoa (você no dia seguinte) confira antes de confiar no novo custo calculado. Tem uma tela própria de revisão das fichas pendentes.
+</Callout>
+
+## Combos
+
+Combo é um grupo de produtos com **preço próprio diferente** da soma. Útil pra:
+- Aumentar ticket médio ("Costela + acompanhamento + bebida por R$ X").
+- Mostrar economia óbvia ao cliente.
+- Empacotar produção do fim de semana.
+
+Pra cadastrar:
+
+1. **Cadastros → Combos → Novo combo**.
+2. Nome, categoria, descrição e **preço do combo**.
+3. Adiciona cada item: escolhe o produto e a quantidade.
+4. Salva.
+
+A **economia automática** aparece sem você precisar configurar: se o combo sai mais barato que comprar os itens separados, o cardápio público mostra "Economize R$ X" no card do combo.
+
+## Pra um item aparecer no cardápio público
+
+Três condições, **todas precisam estar verdadeiras**:
+
+- O produto/combo está **Ativo**.
+- A opção **Mostrar no cardápio** está ligada.
+- Tem **Preço de venda** preenchido (maior que zero).
+
+Se você quer testar um item antes de mostrar pro público: deixa "Mostrar no cardápio" desligado, mas você ainda consegue acessar a página de detalhe direto pelo link `/cardapio/produto/[id]` (ou `/combo/[id]`) — ele renderiza mesmo escondido.
+
+## Apagar produto ou combo
+
+O botão de excluir só funciona se o item **nunca foi usado** em receita, em outro combo, em venda, em compra, em movimento de estoque, em pré-venda ou em encomenda. É a regra: histórico é sagrado.
+
+Se já tem qualquer ligação: use o botão **Ativo / Inativo** pra remover do cardápio mantendo todos os pedidos antigos íntegros.
+
+<Callout kind="tech">
+**Cascata de custos:** existe um serviço central que orquestra a atualização Ingrediente → Receita → Produto → Combo dentro de uma única transação. Cada nível guarda um "retrato" (snapshot) do custo dos ingredientes no momento — assim os pedidos antigos preservam o lucro real, mesmo que o ingrediente suba depois.
+
+**Top mais pedido:** calculado por contagem de vendas concluídas nos últimos 30 dias. Recalcula a cada acesso à página, sem cache persistido.
+</Callout>
+
+</ArticleLayout>

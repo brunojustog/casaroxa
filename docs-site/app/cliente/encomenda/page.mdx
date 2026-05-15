@@ -1,0 +1,70 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+import { BrowserFrame } from "@/components/mock/BrowserFrame"
+import { PixCheckoutScreen } from "@/components/mock/screens/PixCheckoutScreen"
+
+<ArticleLayout audience="Cliente" audienceHref="/cliente" audienceLabel="Guia do cliente" title="Encomendar com antecedência">
+
+Encomenda é **pedido pra uma data futura** — não é pra hoje. Use quando o cliente quer reservar produção pra um dia específico: aniversário, almoço de família, evento.
+
+## Quando o cliente faz encomenda
+
+- "Quero 2 picanhas pra sábado às 18h"
+- "5 frangos pra domingo de manhã"
+- "Combo da família pra almoço de terça"
+
+A antecedência mínima padrão é **48 horas** (o admin ajusta esse número em Configurações).
+
+## Passo a passo
+
+1. Cliente acessa **casaroxa.com.br/encomenda** (link **Encomendar** no topo).
+2. Vê os itens disponíveis agrupados por categoria (combos primeiro).
+3. Escolhe quantidades.
+4. Preenche **nome, telefone, data e hora desejada**. O calendário já bloqueia visualmente datas dentro da janela mínima.
+5. Escolhe Retirada ou Delivery (com endereço).
+6. Envia.
+7. **Recebe imediatamente**:
+   - Uma **página de acompanhamento** com status **Pendente**.
+   - Uma **mensagem no WhatsApp** confirmando que recebemos a encomenda (se o aviso correspondente estiver ligado).
+
+Daí em diante, é o admin que vai **aprovar ou recusar**.
+
+## Fluxo da encomenda
+
+<Mermaid chart={`flowchart LR
+  P[Pendente] -->|admin aprova| A[Aprovada]
+  P -->|admin recusa| R[Recusada]
+  A -->|cozinha começa| E[Em produção]
+  E -->|fica pronta| T[Pronta]
+  T -->|cliente recebe| EN[Entregue]
+  A -.->|cancelar| C[Cancelada]
+  E -.->|cancelar| C
+  T -.->|cancelar| C
+  style P fill:#fef3c7,stroke:#d97706
+  style EN fill:#d1fae5,stroke:#059669
+  style R fill:#fee2e2,stroke:#dc2626
+  style C fill:#f1f5f9,stroke:#64748b`} />
+
+## Pagamento de sinal
+
+Se o admin pediu sinal ao aprovar, o cliente recebe um link no WhatsApp pra **pagar dentro do próprio site** (não precisa abrir outra aba nem ser redirecionado).
+
+<BrowserFrame url="casaroxa.com.br/encomenda/abc123">
+  <PixCheckoutScreen />
+</BrowserFrame>
+
+O cliente preenche o CPF, o sistema gera o **QR Code PIX** automaticamente e mostra ali mesmo, com botão pra copiar o código. A página fica olhando o pagamento sozinha — assim que cai, atualiza pra **"Recebemos seu sinal ✓"**.
+
+<Callout kind="dica">
+**Cliente sem CPF na hora?** Tudo bem — o pedido continua andando. A cobrança só é gerada no momento em que ele digitar o CPF na tela de acompanhamento.
+</Callout>
+
+## Receber a encomenda
+
+Quando o admin marca como **Pronta**, o cliente recebe um WhatsApp:
+
+- **Retirada:** "Pode vir buscar! 🛍"
+- **Delivery:** "Estamos saindo pra entrega! 🛵"
+
+A encomenda aprovada vira automaticamente um pedido na cozinha — o cliente consegue acompanhar o progresso de produção pelo mesmo link que ele tinha pra encomenda.
+
+</ArticleLayout>

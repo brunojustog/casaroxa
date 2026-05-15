@@ -1,0 +1,35 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Operador" audienceHref="/operador" audienceLabel="Guia do operador" title="Gerar cupom manual">
+
+O operador tem permissão limitada de cupom: pode gerar pra um cliente específico em casos pontuais — cliente reclamou, pedido atrasou, cortesia autorizada pelo admin.
+
+## Quando usar
+
+- Cliente reclamou de atraso → cupom de R$ 10 de desculpa.
+- Pedido teve erro de produção → cupom 20% na próxima.
+- Cortesia genérica autorizada pelo admin.
+
+## Como gerar
+
+1. Vai em **Cadastros → Cupons** (se estiver disponível no seu acesso).
+2. Clica em **Novo cupom**.
+3. Preencha:
+   - **Código** — algo curto e fácil de digitar (ex.: **DESCULPA10**, **JOAO15**).
+   - **Tipo** — **Percentual** (% de desconto) ou **Valor fixo** (R$ de desconto).
+   - **Valor** — 10 (% off) ou 10 (R$ off), dependendo do tipo.
+   - **Validade** — até quantos dias o cupom funciona.
+   - **Máximo de usos** — geralmente **1** quando é cupom individual.
+4. Salvar.
+
+O cliente digita o código no checkout pra aplicar o desconto.
+
+<Callout kind="atencao">
+**Cupom é global por padrão.** Qualquer pessoa que descobrir o código pode usar até bater o limite de usos. Pra restringir a uma pessoa só, deixa **Máximo de usos = 1**.
+</Callout>
+
+<Callout kind="dica">
+Inclua o **nome do cliente** no campo Descrição do cupom — assim ele aparece automaticamente na área "Meus pedidos" daquele cliente.
+</Callout>
+
+</ArticleLayout>

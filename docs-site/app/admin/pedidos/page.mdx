@@ -1,0 +1,51 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+import { BrowserFrame } from "@/components/mock/BrowserFrame"
+import { AdminShell } from "@/components/mock/AdminShell"
+import { KdsScreen } from "@/components/mock/screens/KdsScreen"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Pedidos e Cozinha">
+
+Duas telas conversam aqui: **Vendas** (a lista completa, com todos os filtros) e **Cozinha** (a tela viva da operação, em formato de quadro Kanban).
+
+## Cozinha (KDS)
+
+<BrowserFrame url="gestao.casaroxa.com.br/cozinha">
+  <AdminShell active="Cozinha" title="Cozinha em tempo real" description="Os cards andam sozinhos conforme o pedido evolui">
+    <KdsScreen />
+  </AdminShell>
+</BrowserFrame>
+
+A tela se atualiza sozinha a cada 5 segundos. Os cards andam de coluna conforme você marca o progresso lá no detalhe do pedido.
+
+## Lista de vendas
+
+Em **Operação → Vendas** você vê todas as vendas com filtros por status, origem (loja, WhatsApp, iFood, site) e data. O botão **Nova venda** abre o formulário pra registrar manualmente uma venda que não veio pelo site (atendimento por WhatsApp, balcão, etc).
+
+## Detalhe da venda
+
+Quando você abre uma venda, vê:
+
+- **Cabeçalho** editável (quando aconteceu, origem, cliente, observações)
+- **Itens** — adicionar ou remover (só enquanto está **Aberta**)
+- **Pagamentos** — registrar dinheiro, PIX, cartão ou misto
+- **Status e progresso** com botões pra avançar
+- **NPS** — quando vira **Entregue**, aparece o botão pra disparar a pesquisa de satisfação
+
+<Mermaid chart={`flowchart LR
+  A[Aberta] -->|fechar| C[Concluída]
+  A -->|cancelar| X[Cancelada]
+  C -->|cancelar| X
+  style A fill:#fef3c7
+  style C fill:#d1fae5,stroke:#059669
+  style X fill:#fee2e2`} />
+
+## Cancelar venda
+
+- **Aberta** → vira **Cancelada** sem mexer no estoque (nada saiu ainda).
+- **Concluída** → vira **Cancelada** e o sistema **devolve o estoque automaticamente** — pra cada item da venda, ele lança uma entrada equivalente.
+
+<Callout kind="atencao">
+**Cancelar venda já paga online não estorna automaticamente** o dinheiro no cartão/PIX. Faça o estorno manualmente no painel da Asaas. O sistema te lembra disso na hora do cancelamento.
+</Callout>
+
+</ArticleLayout>

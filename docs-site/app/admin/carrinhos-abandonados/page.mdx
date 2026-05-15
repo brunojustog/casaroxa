@@ -1,0 +1,54 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Carrinhos abandonados">
+
+Quando um cliente preenche o telefone no checkout mas **não finaliza o pedido**, o sistema guarda o que ele tinha no carrinho e, depois de um tempo, manda uma mensagem no WhatsApp lembrando — "ei, faltou só finalizar".
+
+## Como o sistema captura
+
+No momento em que o cliente está montando o pedido e digita um telefone válido **com itens no carrinho**, o sistema salva discretamente em segundo plano. Não precisa que ele clique em nada — só digitar o número já basta.
+
+- **Um carrinho aberto por telefone.** Se o mesmo número volta amanhã com itens diferentes, o carrinho é atualizado, não duplicado.
+- **Foto do momento.** O sistema guarda os itens que estavam ali (nome, preço, quantidade) — assim você sabe exatamente o que o cliente ia comprar.
+
+## Quando o lembrete dispara
+
+A cada 15 minutos, o sistema verifica os carrinhos abandonados há mais tempo do que o configurado (padrão **30 minutos**). Pra cada um, dispara um WhatsApp:
+
+> "Oi João! Vi que você estava montando um pedido na Casa Roxa: 2× Frango. Quer finalizar? https://casaroxa.com.br/checkout"
+
+E marca como **avisado** pra não mandar duas vezes.
+
+## Recuperação automática
+
+Se o cliente volta e finaliza, o sistema **liga sozinho** o pedido novo com o carrinho que tinha ficado parado, marcando como **recuperado**. Você consegue medir quanta receita veio dessa recuperação.
+
+## Tela de acompanhamento
+
+Em **/carrinhos-abandonados**:
+
+| Indicador | O que mede |
+|---|---|
+| Aguardando | Carrinhos que ainda não receberam aviso (estão dentro da janela de espera) |
+| Avisados | Já receberam o WhatsApp, esperando o cliente voltar |
+| Recuperados | Voltaram e fecharam o pedido |
+| Receita recuperada | Quanto faturou por causa desse lembrete |
+
+A tabela mostra cada carrinho com itens, total, status e horários — você consegue ver "o João abandonou 14h, foi avisado 14h30, voltou 15h45".
+
+## Quanto esperar antes de avisar
+
+**Configurações → Carrinho abandonado** — campo "Minutos antes de notificar" (5 a 1440 min).
+
+- **Muito curto** (5 min) — o cliente pode tá só comparando preço, fica chato.
+- **Muito longo** (12h) — ele já esqueceu, taxa de recuperação cai.
+
+<Callout kind="dica">
+**30 minutos é o ponto certo pra delivery.** Cliente que entrou, montou e saiu provavelmente teve um motivo (esqueceu, distração, dúvida) — o lembrete chega antes do humor passar mas depois dele resolver outra coisa.
+</Callout>
+
+<Callout kind="tech">
+A captura é feita por uma requisição em segundo plano disparada no checkout quando o telefone fica válido e há itens. A reconciliação (carrinho → venda) usa o telefone normalizado como chave. O envio em lote é limitado a 50 por execução pra evitar bloqueio do WhatsApp.
+</Callout>
+
+</ArticleLayout>

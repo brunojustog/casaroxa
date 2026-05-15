@@ -1,0 +1,67 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Cupons e promoções">
+
+Códigos de desconto que o cliente digita no checkout pra reduzir o valor do pedido.
+
+## Dois tipos de cupom
+
+**Desconto em porcentagem (%)**
+- Tira uma fatia do valor total. Exemplo: cupom de **10% off** num pedido de R$ 80 → cliente paga R$ 72.
+
+**Desconto em reais (R$ fixo)**
+- Tira um valor fixo. Exemplo: cupom de **R$ 5 off** num pedido de R$ 80 → cliente paga R$ 75.
+
+## Criar cupom
+
+Vá em **Cadastros → Cupons → Novo cupom** e preencha:
+
+- **Código** — texto que o cliente vai digitar (ex.: `MAIO15`). É único — não tem como ter dois cupons com mesmo código.
+- **Descrição interna** — pra você lembrar pra que serviu (ex.: "Recuperação detratores Q2"). Cliente não vê.
+- **Tipo e valor** — escolhe se é % ou R$ fixo, e quanto.
+- **Pedido mínimo (opcional)** — cupom só aplica se o pedido tiver pelo menos esse valor.
+- **Validade** — de quando até quando o cupom funciona. Fora desse intervalo, sistema recusa.
+- **Limite de usos (opcional)** — quantas vezes o cupom pode ser usado no total (somando todos os clientes). Deixe em branco se for ilimitado.
+- **Ativo** — botão pra ligar/desligar sem precisar apagar.
+
+## Onde o cupom é usado
+
+- **No checkout do site** — cliente digita no campo "Cupom" e o sistema aplica.
+- **Em campanhas** — quando você cria uma campanha com cupom, o sistema gera ele automaticamente e amarra os dois.
+- **Cartão fidelidade** — quando o cliente bate 100 pontos, vira cupom de R$ 10 sozinho.
+- **Aniversariantes** — botão no painel manda um cupom de aniversário automático.
+
+## Cupons automáticos
+
+**Fidelidade (100 pontos = R$ 10 off)**
+
+Cada R$ 1 que o cliente gasta em pedido concluído vira 1 ponto. Quando bate 100:
+1. Sistema cria um cupom de R$ 10 só pra ele.
+2. Zera os pontos.
+3. Manda mensagem no WhatsApp avisando (se você ligou o aviso de "Resgate fidelidade" nas configurações).
+
+**Aniversário**
+
+Quem fizer aniversário no dia aparece no Dashboard. Clica em "Enviar cupom" e o sistema:
+1. Cria um cupom de 15% off com o nome dele na descrição.
+2. Manda no WhatsApp (se você ligou o aviso de aniversário).
+
+## Como o cupom vira "venda atribuída" a uma campanha
+
+Quando você cria uma campanha com cupom, o sistema amarra os dois. A partir daí, **toda venda que usar esse cupom** conta como **venda gerada por essa campanha**.
+
+No detalhe da campanha aparece:
+- Quantos pedidos foram fechados com aquele cupom
+- Quanto de receita esses pedidos somam
+
+Isso te diz se a campanha valeu a pena.
+
+<Callout kind="dica">
+**Cupom não anula pedido mínimo da loja.** Mesmo com cupom de R$ 50, se o subtotal ficar abaixo do mínimo configurado (em Configurações), o pedido não passa. São dois mínimos diferentes: um do cupom (só pra usar ele) e outro da loja (pra fechar o pedido).
+</Callout>
+
+<Callout kind="tech">
+O contador de usos do cupom é incrementado dentro da mesma transação que cria a venda — então um cupom com limite de 10 usos nunca vai pra 11, mesmo se 2 clientes tentarem usar no mesmo segundo.
+</Callout>
+
+</ArticleLayout>

@@ -1,0 +1,29 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Fornecedores">
+
+Cadastro simples de fornecedores. Aparece como dropdown nas compras.
+
+## Onde fica
+
+`Sidebar → Cadastros → Fornecedores`
+
+## Campos
+
+- **Nome** (único)
+- **CNPJ** (opcional, único) — usado pra match automático na importação de NFe
+- **Contato** (pessoa, telefone, email)
+- **Notas** (livre)
+- **Ativo** — desativar não apaga, só remove do dropdown
+
+## Reconhecimento automático na NFe
+
+Quando você importa um XML de nota fiscal, o sistema tenta encontrar o fornecedor já cadastrado:
+
+1. Primeiro **pelo CNPJ** (correspondência exata).
+2. Se não achar, **pelo nome** (ignorando maiúsculas/minúsculas).
+3. Se nenhum dos dois bater, o sistema oferece **criar um fornecedor novo** já com os dados que vieram na nota.
+
+Assim você não precisa cadastrar fornecedor à mão — importa a primeira nota dele e o cadastro nasce sozinho.
+
+</ArticleLayout>

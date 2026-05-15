@@ -1,0 +1,92 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+import { BrowserFrame } from "@/components/mock/BrowserFrame"
+import { AdminShell } from "@/components/mock/AdminShell"
+import { PriceHistoryScreen } from "@/components/mock/screens/PriceHistoryScreen"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Ingredientes e fichas técnicas">
+
+Ingredientes são a matéria-prima: frango cru, costela, sal, alho, embalagem, gás. Cada um tem um preço de custo. **Quando esse preço muda, todo o cálculo de margem do cardápio é refeito sozinho.**
+
+## Cadastrar um ingrediente
+
+Vá em **Cadastros → Ingredientes → Novo** e preencha:
+
+- **Nome** — como você quer chamar ele (ex.: "Frango caipira"). É único.
+- **Categoria** — Carne, Tempero, Acompanhamento, Embalagem, Bebida, Limpeza, Gás ou Outro.
+- **Unidade** — Kg, grama, unidade, pacote, litro, ml, porção, botijão ou caixa. Escolha a unidade que faz sentido pro seu uso (se compra frango por kg, escolhe Kg).
+- **Custo unitário** — preço por unidade. Ex.: R$ 12,00 por kg de frango.
+- **Tamanho e preço do pacote (opcional)** — se compra em pacote, ajuda na hora de lançar a nota fiscal. Ex.: pacote de 5 kg por R$ 50.
+- **Fornecedor e marca (opcional)** — só pra você lembrar de onde compra.
+- **Estoque mínimo (opcional)** — quando o saldo cai abaixo desse número, o sistema te avisa.
+
+## Acompanhar o preço ao longo do tempo
+
+Na tela de cada ingrediente, no painel da direita, tem o **histórico de preço**:
+
+<BrowserFrame url="gestao.casaroxa.com.br/ingredientes/abc">
+  <AdminShell active="Ingredientes" title="Frango caipira" description="Carne · R$/kg">
+    <PriceHistoryScreen />
+  </AdminShell>
+</BrowserFrame>
+
+Você vê:
+- Um gráfico pequeno (sparkline) mostrando a evolução do preço.
+- O preço **atual**, o **mais baixo já registrado** e o **mais alto**.
+- A **variação total em %** desde que você cadastrou.
+- Quantas mudanças aconteceram nos **últimos 90 dias**.
+- A lista das mudanças, cada uma com um selo mostrando o quanto subiu ou caiu (vermelho se subiu, verde se caiu).
+
+O histórico é alimentado automaticamente em dois momentos:
+1. Quando você edita o custo no cadastro do ingrediente.
+2. Quando você confirma uma compra que tem o item marcado pra atualizar custo.
+
+## Fichas técnicas (receitas)
+
+A **ficha técnica** é o que faz o sistema calcular o custo real de cada prato — não estimativa, e sim baseado no que o prato leva de verdade.
+
+Pra cada produto do cardápio que tem mais de um ingrediente:
+
+1. Vá em **Cadastros → Fichas Técnicas → Nova**.
+2. Escolhe o produto (ex.: "Combo Costela Casal").
+3. Adiciona linhas com o ingrediente, a quantidade que leva, e a unidade.
+4. Salva.
+
+O sistema soma o custo das linhas e isso vira o **custo total do produto**.
+
+## A "cascata" — por que o cardápio inteiro atualiza junto
+
+Os custos do seu cardápio estão em cadeia:
+
+<Mermaid chart={`flowchart TD
+  I[Preço de um ingrediente mudou] --> R[As receitas que usam esse ingrediente recalculam]
+  R --> P[Os produtos dessas receitas atualizam o custo total]
+  P --> C[Os combos que contêm esses produtos recalculam]
+  style I fill:#fef3c7
+  style C fill:#d1fae5`} />
+
+Por isso, basta atualizar o **preço do frango** uma vez pra que **todos os pratos que usam frango** apareçam com o custo novo — e os combos com frango também. Você não precisa fazer nada item por item.
+
+Tudo acontece em uma única operação no banco: ou todo o cardápio atualiza junto, ou nada atualiza (não fica meio do caminho).
+
+## Apagar um ingrediente
+
+O botão de excluir só funciona se o ingrediente **não está sendo usado em lugar nenhum** (nenhuma receita, compra, movimento de estoque ou contagem). Senão, o sistema bloqueia pra não destruir histórico.
+
+Se quer "esconder" um ingrediente que não usa mais sem perder o histórico: use o botão **Ativo / Inativo**. Ele some das listas mas continua nos pedidos antigos.
+
+## Estoque mínimo
+
+Quando você define um valor mínimo, o sistema compara com o saldo atual a cada vez que você abre a lista de ingredientes. Item abaixo do mínimo recebe um selo amarelo "⚠️ Mínimo" e aparece destacado no Dashboard.
+
+## Quando reajustar o preço de venda
+
+Sempre que você confirma uma compra mais cara, o custo do produto sobe. Se o **CMV** (quanto o custo representa do preço de venda) ultrapassar a meta que você definiu (padrão 50% pra carnes, mas configurável por categoria), o sistema avisa:
+
+- No próprio **preview da compra**, antes de confirmar, aparece uma sugestão de novo preço.
+- Você decide se aplica, se mantém o preço atual (margem cai) ou se negocia com o fornecedor.
+
+<Callout kind="tech">
+Todos os custos no sistema usam aritmética decimal de precisão (não ponto flutuante), pra evitar perda de centavos em multiplicações encadeadas. Cada receita guarda um "retrato" (snapshot) do custo do ingrediente no momento da venda — assim o lucro de um pedido antigo continua certo mesmo que o ingrediente suba depois.
+</Callout>
+
+</ArticleLayout>

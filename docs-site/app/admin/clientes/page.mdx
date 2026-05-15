@@ -1,0 +1,50 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Clientes, fidelidade e aniversariantes">
+
+Aqui ficam todos os clientes que já compraram. O cadastro acontece **automaticamente** no primeiro pedido — você não precisa pedir pra ninguém preencher cadastro.
+
+## Onde fica
+
+**Operação → Clientes**.
+
+## Cadastro automático
+
+Quando alguém faz pedido (pelo site, WhatsApp ou balcão), o sistema:
+
+1. **Pega o telefone** e padroniza (tira espaços, parênteses, traços, DDI).
+2. **Procura se já existe** um cliente com esse número.
+3. Se existe, **atualiza** nome e endereço se vieram preenchidos.
+4. Se não existe, **cria novo**.
+
+Resultado: você nunca tem cliente duplicado por causa de "(14) 99999-1234" vs "14999991234".
+
+## Cartão fidelidade
+
+Pra cada **R$ 1 gasto** em pedido concluído, o cliente ganha **1 ponto**. Quando chega em **100 pontos**, o sistema cria automaticamente um **cupom de R$ 10 de desconto** pra ele.
+
+| Etapa | O que acontece |
+|---|---|
+| Pedido concluído | Cliente ganha pontos equivalentes ao valor gasto |
+| 100 pontos atingidos | Sistema cria cupom + manda WhatsApp avisando |
+| Cupom usado | Pontos zeram, ciclo recomeça |
+
+O cliente nunca "perde" pontos por não usar — o cupom existe até ele aplicar.
+
+## Aniversariantes
+
+Se você (ou o próprio cliente, lá em **Meus pedidos**) preencher a data de aniversário, no dia do aniversário ele recebe um **cupom automático** e um WhatsApp parabenizando.
+
+O painel inicial tem um bloco **"Aniversariantes do dia"** — útil pra acompanhar a régua.
+
+## Como o cliente entra em "Meus pedidos"
+
+Sem senha. Ele digita o telefone, recebe um **código de 6 dígitos no WhatsApp**, digita o código e entra. A sessão dura **30 dias** — depois disso, repete o processo.
+
+Mais leve que cadastro com senha, e o WhatsApp já valida que o número é dele.
+
+<Callout kind="tech">
+O telefone fica normalizado no formato internacional (5514999991234) — facilita integração com WhatsApp e evita duplicatas. O código de acesso expira em 10 minutos e fica criptografado no banco. Cada transação de pontos é registrada (ganho/uso) — dá pra auditar o cartão fidelidade de cada cliente.
+</Callout>
+
+</ArticleLayout>

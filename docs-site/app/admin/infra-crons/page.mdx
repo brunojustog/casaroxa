@@ -1,0 +1,49 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Crons em execução">
+
+4 crons no host manager (Hetzner). Todos protegidos por `CRON_TOKEN` no header.
+
+## Lista
+
+| Schedule | Endpoint | Função | Lote |
+|---|---|---|---|
+| `*/5 * * * *` | `/api/cron/cleanup-reservations` | Libera reservas de pré-venda expiradas (>2h ABERTA) | Sem limite |
+| `*/15 * * * *` | `/api/cron/recover-abandoned-carts` | WhatsApp pra carts >30 min | 50/lote |
+| `0 * * * *` | `/api/cron/expire-ai-actions` | Marca AiActionApproval PENDING >24h como EXPIRED | Sem limite |
+| `30 3 * * *` | `casaroxa-disk-cleanup.sh` | Limpeza Docker images >72h + alerta disco | n/a |
+
+## Onde está configurado
+
+`crontab -e` no usuário root do manager. Cada linha tem o token explícito (não usa env var pra evitar dependência de shell):
+
+```cron
+*/5 * * * * curl -sf -X POST -H "x-cron-token: <TOKEN>" https://gestao.casaroxa.com.br/api/cron/cleanup-reservations >> /var/log/casaroxa-cron.log 2>&1
+```
+
+## Logs
+
+`/var/log/casaroxa-cron.log` (rotacionado semanalmente, mantém 50k linhas).
+
+## Rodar manualmente
+
+Pra testar fora do schedule:
+
+```bash
+ssh root@<ip>
+curl -X POST -H "x-cron-token: $TOKEN" https://gestao.casaroxa.com.br/api/cron/<endpoint>
+```
+
+Resposta JSON inclui `{ok: true, ...}` com contadores (`released`, `notified`, `expired` etc).
+
+## Mudar CRON_TOKEN
+
+1. Gera novo token: `openssl rand -hex 32`
+2. Atualiza env do service: `docker service update --env-add "CRON_TOKEN=<novo>" casaroxa_app`
+3. Atualiza `crontab -e` substituindo o token nas 3 linhas
+
+<Callout kind="atencao">
+**Não compartilhar o token** — ele dá acesso de execução pros endpoints de cron.
+</Callout>
+
+</ArticleLayout>

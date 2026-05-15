@@ -1,0 +1,74 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Pré-vendas">
+
+Pré-venda é um **lote fechado coletivo** — uma data específica, quantidade limitada, e janelas de retirada/entrega definidas. Use pra **produção planejada do fim de semana**: cliente reserva durante a semana, você produz no dia certo.
+
+## Criar um evento de pré-venda
+
+Vá em **Cadastros → Pré-vendas → Nova pré-venda** e preencha:
+
+- **Nome** — como aparece pro cliente. Ex.: "Almoço de Sábado — Dia das Mães".
+- **Data do evento** — o dia em que tudo será retirado ou entregue.
+- **Período de inscrições** — de quando até quando o evento fica aberto pra pedidos (esse intervalo aparece no menu do site).
+- **Descrição** — texto livre pra explicar o evento (opcional).
+- **Tempo da reserva** — quanto tempo a vaga fica reservada depois que o cliente confirma. Padrão 120 min. Se ele não finaliza nesse tempo, a vaga libera pra outro.
+
+### Produtos do evento
+
+Pra cada produto ou combo do cardápio que vai entrar no lote:
+
+- **Limite de unidades** — quantas você consegue produzir.
+- **Preço especial (opcional)** — se quer cobrar diferente do preço normal só nesse evento.
+
+### Janelas de retirada e entrega
+
+Pra cada faixa de horário disponível:
+
+- **Tipo** — Retirada ou Delivery.
+- **Rótulo** — como o cliente vê. Ex.: "Sábado das 11h às 12h".
+- **Início e fim** do intervalo.
+- **Capacidade** — quantos pedidos cabem nessa janela. 0 = sem limite.
+
+## Fluxo de status
+
+<Mermaid chart={`flowchart LR
+  D[Rascunho] -->|abrir| O[Aberto]
+  O -->|fechar inscrições| C[Encerrado]
+  D -.->|cancelar| X[Cancelado]
+  O -.->|cancelar| X
+  style D fill:#f1f5f9
+  style O fill:#d1fae5,stroke:#059669
+  style C fill:#fef3c7,stroke:#d97706`} />
+
+Você cria como **Rascunho**. Quando estiver pronto, **Abre** — o evento aparece no menu do site. Quando o prazo de inscrição passar (ou você quiser fechar antes), passa pra **Encerrado** — cozinha começa a produzir.
+
+## Como funciona a reserva
+
+Quando o cliente confirma um pedido na pré-venda, três coisas acontecem ao mesmo tempo:
+
+1. A **quantidade reservada** do produto sobe (vai contra o limite que você definiu).
+2. A **vaga na janela** escolhida é ocupada.
+3. O **tempo de expiração** da reserva começa a correr.
+
+Se o cliente **não finalizar o pedido** (deixar o checkout sem pagar/confirmar) dentro do tempo configurado, o sistema **libera a vaga** automaticamente — outro cliente pode pegar. Esse loop roda a cada 5 minutos.
+
+## Só pode ter um evento aberto por vez
+
+Por design, só existe **um evento aberto** simultaneamente. Cliente vê esse no banner roxo do cardápio. Se você tenta abrir um segundo, o sistema avisa que precisa fechar o anterior antes.
+
+## Duplicar +7 dias (recorrência semanal)
+
+Toda pré-venda tem um botão **Duplicar +7 dias** no detalhe. Útil pra eventos que se repetem (todo sábado):
+
+- O sistema cria uma cópia em **rascunho** com todas as datas avançadas em uma semana.
+- Os contadores de quantidade vendida zeram.
+- Você revisa, ajusta o que precisa e abre.
+
+Sem ter que cadastrar tudo de novo.
+
+<Callout kind="tech">
+A reserva é guardada na própria venda, com um carimbo de expiração. O job de limpeza roda a cada 5 minutos: pega vendas que estão "abertas há mais tempo que o limite" e libera as contagens de produto e janela. A venda em si é mantida (vira "cancelada com motivo: reserva expirou").
+</Callout>
+
+</ArticleLayout>

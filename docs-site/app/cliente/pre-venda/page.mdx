@@ -1,0 +1,42 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Cliente" audienceHref="/cliente" audienceLabel="Guia do cliente" title="Pré-venda do fim de semana">
+
+Pré-venda = **lote fechado coletivo** com janela de retirada. Usado pra produção planejada do fim de semana: cliente reserva durante a semana, você produz no dia.
+
+## Quando aparece
+
+Quando há evento OPEN, um banner roxo aparece no topo de `/cardapio` apontando pra `/pre-venda`.
+
+## Como o cliente usa
+
+1. Clica no banner → vai pra `/pre-venda`.
+2. Vê produtos do lote com quantidade restante (ex: "8 disponíveis de 30").
+3. Escolhe quantidades — limitadas pela disponibilidade.
+4. Escolhe **janela de retirada/entrega** (ex: "Sáb 11h–12h — Retirada" com capacidade restante).
+5. Preenche dados e envia.
+
+## Reserva expirável
+
+<Callout kind="atencao">
+A reserva é criada **antes** do pagamento e tem validade. Se não finalizar o pedido em N minutos (configurável no evento, default 120min), reserva expira e libera vaga pra outro cliente.
+</Callout>
+
+<Mermaid chart={`flowchart LR
+  R[Reservou] -->|pagou em N min| C[CONFIRMADO]
+  R -->|não pagou| E[Expirou, vaga libera]
+  style R fill:#fef3c7,stroke:#d97706
+  style C fill:#d1fae5,stroke:#059669
+  style E fill:#fee2e2,stroke:#dc2626`} />
+
+## Diferença pra encomenda
+
+| Pré-venda | Encomenda |
+|---|---|
+| Lote coletivo (vários clientes mesma data) | Pedido individual |
+| Janelas fixas pré-definidas | Data/hora livre escolhida pelo cliente |
+| Sem aprovação manual | Admin aprova um a um |
+| Reserva expira | Sem expiração — admin decide quando aprovar |
+| Sem sinal | Pode ter sinal antecipado |
+
+</ArticleLayout>

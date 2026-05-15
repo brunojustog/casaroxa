@@ -1,0 +1,85 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+import { BrowserFrame } from "@/components/mock/BrowserFrame"
+import { AdminShell } from "@/components/mock/AdminShell"
+import { KdsScreen } from "@/components/mock/screens/KdsScreen"
+
+<ArticleLayout audience="Operador" audienceHref="/operador" audienceLabel="Guia do operador" title="Tela de cozinha (KDS)">
+
+A **tela de cozinha** é um quadro com colunas (estilo Kanban) que mostra todos os pedidos do dia em tempo real, separados por etapa. Atualiza sozinha a cada 5 segundos — não precisa apertar F5.
+
+## Onde fica
+
+Menu lateral **Operação → Cozinha** (ou direto em **gestao.casaroxa.com.br/cozinha**).
+
+## A tela
+
+<BrowserFrame url="gestao.casaroxa.com.br/cozinha">
+  <AdminShell active="Cozinha" title="Cozinha" description="Pedidos em produção · auto-refresh 5s">
+    <KdsScreen />
+  </AdminShell>
+</BrowserFrame>
+
+Cada coluna representa um estágio. Pedidos fluem da esquerda pra direita conforme você atualiza o status. Cada card mostra:
+
+- **Número do pedido** (ex: #142)
+- **Nome do cliente**
+- **Itens** (resumo)
+- **Tempo decorrido** (em minutos desde o pedido)
+
+## As etapas do pedido
+
+<Mermaid chart={`flowchart LR
+  N[Novo] --> C[Confirmado]
+  C --> P[Preparando]
+  P --> R[Pronto]
+  R --> S[Saiu pra entrega]
+  S --> E[Entregue]
+  style N fill:#f1f5f9
+  style E fill:#d1fae5,stroke:#059669`} />
+
+| Coluna | O que significa | Quando avançar |
+|---|---|---|
+| **Novos** | Pedido entrou, ninguém viu ainda | Quando você ler — marca **Confirmado** |
+| **Preparando** | Cozinha tá preparando | Quando começar a produzir de fato |
+| **Prontos** | Tá pronto pra retirada/entrega | Quando empacotar |
+| **Saiu p/ entrega** | Motoboy/entregador saiu (só delivery) | Quando o motoboy pegar a sacola |
+| **Entregue** | Cliente recebeu | Quando confirmar entrega/retirada |
+
+## Como mexer
+
+1. Clique no card → abre o detalhe do pedido.
+2. Na barra de progresso, clique no próximo passo.
+3. O sistema atualiza, o card sai dessa coluna e aparece na próxima.
+
+<Callout kind="dica">
+**Push notification:** quando entra pedido novo, o navegador toca um som e mostra banner. Permita notificações na primeira vez que abrir o painel.
+
+**Atualização automática:** não precisa F5. O KDS faz polling a cada 5s — você sempre vê o estado mais recente.
+</Callout>
+
+## Quando o cliente recebe WhatsApp
+
+Cada mudança de etapa pode disparar um WhatsApp automático pro cliente (o admin liga/desliga em **Configurações**):
+
+| Etapa | Mensagem |
+|---|---|
+| **Confirmado** | "Pedido confirmado" |
+| **Pronto** | "Pedido pronto" |
+| **Saiu pra entrega** | "Saiu pra entrega" |
+
+Se o aviso correspondente está desligado, a mensagem não sai. **Você não precisa fazer nada** — o sistema decide automaticamente.
+
+## Erros comuns
+
+| Situação | O que fazer |
+|---|---|
+| Card sumiu sem motivo | Provavelmente outro operador moveu — F5 mostra o estado correto |
+| Pedido travou em "Confirmado" há muito tempo | Confere se o cliente cancelou pelo WhatsApp; senão fala com o Bruno |
+| WhatsApp não chegou pro cliente | Confere se o WhatsApp está conectado no topo da tela — pode ter caído |
+| Pedido errado avançou | Volta uma etapa (clica num passo anterior na barra de progresso) |
+
+<Callout kind="tech">
+A tela consulta o servidor a cada 5 segundos pra trazer os pedidos das últimas 24h que ainda não foram entregues. Mudança de etapa atualiza o card na hora — você vê a transição instantaneamente.
+</Callout>
+
+</ArticleLayout>

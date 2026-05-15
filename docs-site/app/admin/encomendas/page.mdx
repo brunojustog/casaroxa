@@ -1,0 +1,113 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+import { BrowserFrame } from "@/components/mock/BrowserFrame"
+import { AdminShell } from "@/components/mock/AdminShell"
+import { EncomendaAdminScreen } from "@/components/mock/screens/EncomendaAdminScreen"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Encomendas">
+
+Encomenda é pedido pra **data futura**. Cliente pede com antecedência, você produz no dia. Diferente da **pré-venda** (lote coletivo que vários clientes pedem) e do **pedido normal** (pra entregar hoje).
+
+## Quando faz sentido
+
+- "Quero 2 picanhas pra sábado às 18h, aniversário."
+- "5 frangos pra domingo de manhã."
+- "Combo da família pra terça."
+
+## Como o cliente faz
+
+1. Clica em **Encomendar** no menu do site.
+2. Escolhe os produtos (combos primeiro).
+3. Preenche nome, WhatsApp e **data/hora desejada** — com no mínimo 48h de antecedência (esse valor é configurável).
+4. Escolhe Retirada ou Delivery.
+5. Envia.
+
+## A tela da encomenda no painel
+
+<BrowserFrame url="gestao.casaroxa.com.br/encomendas/abc123">
+  <EncomendaAdminScreen />
+</BrowserFrame>
+
+## Como funciona o fluxo
+
+<Mermaid chart={`flowchart LR
+  P[Pendente] -->|você aprova| A[Aprovada]
+  P -->|você recusa| R[Recusada]
+  A -->|cozinha começou| E[Em produção]
+  E -->|ficou pronta| T[Pronta]
+  T -->|cliente recebeu| EN[Entregue]
+  A -.->|cancelar| C[Cancelada]
+  E -.->|cancelar| C
+  T -.->|cancelar| C
+  style P fill:#fef3c7,stroke:#d97706
+  style EN fill:#d1fae5,stroke:#059669
+  style R fill:#fee2e2,stroke:#dc2626
+  style C fill:#f1f5f9,stroke:#64748b`} />
+
+## Aprovar uma encomenda
+
+Quando entra uma encomenda nova, você recebe uma **notificação no navegador**. Pra aprovar:
+
+1. Vai em **Cadastros → Encomendas**. As pendentes aparecem no topo com um aviso amarelo.
+2. Clica na encomenda. Confere cliente, data, modalidade, itens e total.
+3. Clica **Aprovar**.
+4. O sistema pergunta: **"Pedir sinal antecipado?"**
+   - **Sim:** digita o valor (ex.: R$ 50). O sistema **gera o link de pagamento PIX automaticamente** se o cliente já tem CPF cadastrado.
+   - **Não:** aprovação direta, sem cobrança antecipada.
+5. Pode adicionar uma observação interna (opcional, só você vê).
+
+O que acontece quando você aprova:
+- A encomenda passa pra **Aprovada**.
+- O sistema cria uma **venda** vinculada (vai aparecer na sua lista de vendas com origem "Outro").
+- O cliente recebe um **WhatsApp** confirmando, com o link pra acompanhar — e pagar o sinal, se for o caso.
+
+O link no WhatsApp aponta pra **dentro do site da Casa Roxa**, não pro Asaas. O cliente vê o QR Code do PIX direto na nossa página, com botão de copiar o código — sem precisar abrir outro site.
+
+## Recusar uma encomenda
+
+1. Clica **Recusar**.
+2. Digita o motivo (obrigatório, **o cliente vai ver**).
+3. Cliente recebe WhatsApp explicando.
+4. A encomenda fica marcada como recusada e não vira venda.
+
+## Como o sinal funciona
+
+Três cenários possíveis:
+
+**Cliente já tem CPF no cadastro**
+O sistema gera a cobrança PIX no Asaas automaticamente quando você aprova. Quando o cliente paga, o sistema marca como **pago** sozinho (pelo retorno automático do Asaas).
+
+**Cliente ainda não tem CPF**
+A cobrança não é gerada na hora porque o Asaas exige CPF. O cliente abre a tela de acompanhamento, preenche o CPF, e o link é gerado **na hora pra ele** — sem você precisar fazer nada.
+
+**Sinal pago em dinheiro ou PIX direto pra você (sem passar pelo Asaas)**
+Quando você receber, clica em **Confirmar sinal recebido** no painel da encomenda. Marca como pago manualmente.
+
+## Avançar o status
+
+Depois de aprovada, a encomenda passa por mais 3 estados até ficar pronta:
+
+- **Em produção** — você marca quando a cozinha começou. Não muda nada operacional, é só pra você acompanhar.
+- **Pronta** — encomenda finalizada. O sistema manda WhatsApp pro cliente: *"Pode vir buscar!"* (retirada) ou *"Estamos saindo pra entrega!"* (delivery).
+- **Entregue** — cliente recebeu. Fecha a venda.
+
+Cancelar em qualquer um desses estados também cancela a venda vinculada automaticamente.
+
+<Callout kind="dica">
+**Antes de começar a produzir**, vai em **Operação → Produção** e escolhe a data da encomenda. Ele te mostra a lista consolidada — todas as encomendas + pré-vendas daquele dia somadas, com a lista de compras já calculada baseada nas fichas técnicas. Imprime e leva pro açougue.
+</Callout>
+
+## Configurar a antecedência mínima
+
+Padrão é 48 horas. Pra mudar:
+
+1. **Configurações** → seção Encomendas.
+2. Campo **Antecedência mínima (horas)** — aceita de 1 a 720 (30 dias).
+3. Salva.
+
+Vale só pra encomendas vindas do site. Quando **você** cria uma encomenda manual (cliente ligou pedindo pra hoje), o sistema ignora esse limite — você é quem decide se aceita.
+
+<Callout kind="tech">
+A encomenda tem numeração própria (ER-1, ER-2…) separada da venda. O link de pagamento usa polimorfismo: o registro de cobrança no Asaas aponta tanto pra vendas comuns quanto pra encomendas (sinal) quanto pra sorteios pagos. Quando o webhook do Asaas chega confirmando pagamento, o sistema descobre qual caso é e marca o lugar certo.
+</Callout>
+
+</ArticleLayout>

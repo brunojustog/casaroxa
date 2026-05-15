@@ -1,0 +1,28 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Encomendas — antecedência mínima">
+
+Aqui você define **quanto tempo de antecedência** o cliente precisa dar pra fazer uma encomenda pelo site. Útil pra você não receber pedido de hoje pra hoje e não conseguir produzir a tempo.
+
+## Onde fica
+
+**Configurações → Encomendas → Antecedência mínima (horas)**.
+
+## Padrão: 48 horas
+
+Cliente que abre a página de encomenda no domingo às 10h só consegue escolher data **a partir de terça 10h**. O calendário do site já limita visualmente — ele nem vê opção inválida.
+
+## Limites
+
+- **Mínimo:** 1 hora (não recomendado — quase sem margem).
+- **Máximo:** 720 horas (30 dias).
+
+## Encomenda criada por você (admin)
+
+Se o cliente liga pedindo "preciso pra hoje", você consegue **criar a encomenda manualmente** pelo painel ignorando essa antecedência — é uma exceção pra casos especiais.
+
+<Callout kind="dica">
+**Comece com 48 horas.** Se aparecer muito pedido em cima da hora dando trabalho, aumenta pra 72h. Se cliente reclamar que "não consegue pedir pra logo", diminui pra 24h. É um botão que vale ajustar conforme a operação.
+</Callout>
+
+</ArticleLayout>

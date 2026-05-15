@@ -1,0 +1,60 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+import { BrowserFrame } from "@/components/mock/BrowserFrame"
+import { NpsScreen } from "@/components/mock/screens/NpsScreen"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="NPS pós-entrega">
+
+NPS é a pesquisa **"De 0 a 10, o quanto você recomendaria a Casa Roxa pra um amigo?"** com espaço pra comentário opcional. A resposta vira automaticamente uma **categoria** (detrator/passivo/promotor) que você pode usar pra disparar campanhas.
+
+## Como enviar a pesquisa
+
+No detalhe do pedido (em **Vendas**), quando ele está **Entregue**, aparece o botão **Enviar avaliação**. Ao clicar:
+
+1. O sistema gera um **link único** pra esse pedido.
+2. Dispara um **WhatsApp** pro cliente com o link.
+3. Quando ele clica, vai pra tela de avaliação.
+
+O link só funciona **uma vez** — se o cliente já respondeu, abre o agradecimento.
+
+## A tela que o cliente vê
+
+<BrowserFrame url="casaroxa.com.br/avaliacao/abc123">
+  <NpsScreen />
+</BrowserFrame>
+
+Botões de 0 a 10 coloridos (vermelho até verde), campo de comentário opcional, e um botão **Enviar**. Funciona bem no celular.
+
+## As três categorias
+
+| Nota | Categoria | O que fazer |
+|---|---|---|
+| 0 a 6 | **Detrator** | Recuperar — cupom de desculpa + contato pessoal |
+| 7 ou 8 | **Passivo** | Marketing leve, melhorar percepção |
+| 9 ou 10 | **Promotor** | Premiar + pedir indicação |
+
+## Painel de avaliações
+
+Em **/avaliacoes** você vê:
+
+- **NPS no topo** — % de promotores menos % de detratores. NPS 50+ é excelente, acima de 70 é nível Apple.
+- **Total de respostas** e quebra por categoria.
+- **Lista completa** com nome do cliente, nota, comentário e (se você anexou) o cupom de follow-up.
+
+## Fechar o ciclo com campanha
+
+Em **/campanhas/nova** existem duas audiências automáticas:
+
+- **Detratores 30d** — quem deu nota 6 ou menos nos últimos 30 dias.
+- **Promotores 30d** — quem deu 9 ou 10 nos últimos 30 dias.
+
+Exemplo prático: campanha **"Desculpa do mês"** pra detratores, com cupom **DESCULPA15** (15% off) e mensagem reconhecendo que algo não foi bem.
+
+<Callout kind="atencao">
+**Detrator com nota muito baixa (0 a 3) merece contato pessoal antes de campanha automática.** NPS é diagnóstico, não tratamento — se mandar só cupom genérico, o cliente sente que a reclamação foi ignorada.
+</Callout>
+
+<Callout kind="tech">
+A nota 0-10 vira categoria automaticamente pela regra clássica do NPS. O índice mostrado no topo é (% promotores) − (% detratores), em escala de -100 a +100.
+</Callout>
+
+</ArticleLayout>

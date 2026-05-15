@@ -1,0 +1,44 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Pagamentos online (Asaas)">
+
+A Casa Roxa usa a **Asaas** pra receber PIX e cartão direto do cliente. O cliente preenche os dados no checkout, paga, e o sistema confirma sozinho.
+
+## Como ligar
+
+**Configurações → Pagamento online**:
+
+- **Asaas habilitado** — o interruptor mestre. Se desligar, a opção "Pagar online" some do checkout (cliente só consegue pagar na retirada). Pagamentos já criados continuam funcionando — o cliente que recebeu um link de pagamento ainda consegue finalizar.
+- **Prazo pra pagar** — quantas horas o cliente tem antes do pagamento expirar (padrão 24h).
+
+## Coisas que ficam fora do painel
+
+A chave da API da Asaas (e o token do webhook) ficam num arquivo de configuração do servidor — não dá pra trocar pelo painel, porque envolve reiniciar o sistema. Quando precisar trocar (raro), peça pro responsável técnico.
+
+## Webhook (a confirmação automática)
+
+Quando o cliente paga lá na Asaas, ela "avisa" o nosso sistema chamando um endereço específico. Esse endereço está cadastrado no painel da Asaas.
+
+Quando o aviso chega, o sistema:
+
+1. Confere se o aviso é mesmo da Asaas (token de segurança)
+2. Acha o pagamento correspondente aqui
+3. Atualiza o status
+4. Se confirmou, marca o pedido como pago — pode ser uma venda comum, uma inscrição em sorteio, ou o sinal de uma encomenda
+5. Dispara o WhatsApp **"Pagamento recebido"** (se o aviso correspondente estiver ligado)
+
+## Taxas (referência aproximada da Asaas)
+
+| Forma | Taxa |
+|---|---|
+| PIX | ~0,99% |
+| Cartão de crédito | ~3,99% + R$ 0,40 por transação |
+| Valor mínimo de cobrança | R$ 5,00 (regra dos bancos) |
+
+Confira os valores atualizados direto no painel da Asaas — eles podem variar conforme volume e contrato.
+
+<Callout kind="atencao">
+**Estorno não é automático.** Se você cancelar uma venda que já foi paga online, o sistema cancela a venda mas **não devolve o dinheiro pro cliente**. Pra estornar, entra no painel da Asaas e faz manual. O sistema te lembra disso na hora do cancelamento.
+</Callout>
+
+</ArticleLayout>

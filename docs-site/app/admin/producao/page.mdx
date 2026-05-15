@@ -1,0 +1,79 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+import { BrowserFrame } from "@/components/mock/BrowserFrame"
+import { AdminShell } from "@/components/mock/AdminShell"
+import { ProductionPlanScreen } from "@/components/mock/screens/ProductionPlanScreen"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Planejamento de produção">
+
+Essa tela junta **todos os pedidos confirmados pra uma data** e te dá dois documentos prontos pra imprimir:
+
+1. **Lista de produção** — quanto fazer de cada prato
+2. **Lista de compras** — quanto comprar de cada ingrediente
+
+O segundo é calculado automaticamente a partir das fichas técnicas (se cada combo costela leva 1,2kg de costela, e você vai produzir 6 combos, o sistema já sabe que precisa de 7,2kg).
+
+## Como funciona
+
+<BrowserFrame url="gestao.casaroxa.com.br/producao?date=2026-05-17">
+  <AdminShell active="Produção" title="Planejamento de produção" description="Pedidos confirmados para sábado, 17 de maio de 2026">
+    <ProductionPlanScreen />
+  </AdminShell>
+</BrowserFrame>
+
+Você escolhe a **data alvo** no topo (vem preenchida com o próximo sábado). O sistema lê tudo na hora e mostra os dois cards lado a lado.
+
+## O que entra no plano
+
+| Origem | Quando entra |
+|---|---|
+| Pré-venda | Quando a data do evento bate com a data escolhida e a pré-venda está aberta ou encerrada |
+| Encomenda | Quando a data combinada com o cliente bate com a data escolhida e ela está aprovada, em produção ou pronta |
+
+**Vendas avulsas** (o cliente que pediu na hora, no balcão ou pelo site naquele dia) NÃO entram. Essas vão pro **KDS** — a tela da cozinha em tempo real. Aqui é planejamento de produção **futura**.
+
+## Lista de produção
+
+Cada item mostra:
+- **Quantidade total** (somando pré-venda + encomenda)
+- **De onde veio** ("Pré-venda: 8 · Encomenda: 4")
+
+Os itens aparecem em ordem alfabética.
+
+## Lista de compras
+
+O sistema **abre cada ficha técnica** pra somar o que precisa ser comprado:
+
+<Mermaid chart={`flowchart LR
+  C[Combo Costela Casal × 6] -->|tem dentro| P[Produto Costela × 6]
+  P -->|leva| I[Costela bovina × 8kg]
+  P -->|leva| I2[Mandioca × 3kg]
+  style I fill:#fef3c7
+  style I2 fill:#fef3c7`} />
+
+Pra cada prato da lista de produção, ele lê os ingredientes da receita, multiplica pela quantidade a produzir, e soma tudo por ingrediente. Combos são "explodidos" nos produtos que têm dentro antes de calcular ingredientes.
+
+## Imprimir
+
+O botão **Imprimir** abre o diálogo do navegador já com estilo otimizado pra papel:
+
+- Esconde menu e cabeçalho
+- Mostra título com a data
+- Lista produção + compras lado a lado
+
+Útil pra levar pro mercado e açougue sem precisar de celular ou tela.
+
+<Callout kind="dica">
+**O ciclo da semana:** aprove encomendas até quinta. Imprima a lista quinta à noite. Compre sexta cedo. Produza sábado. Repita.
+</Callout>
+
+## E as vendas avulsas do próprio dia?
+
+Se você comprou ingredientes pra atender 30 frangos (somando encomendas + pré-vendas) e durante o sábado entram mais 10 vendas no balcão, vai precisar de uma folga no estoque — o sistema **não reserva ingrediente pra venda avulsa**, ele só baixa o estoque depois que a venda é concluída.
+
+Recomendação: deixa sempre uma margem de segurança na compra (10-20% acima do planejado).
+
+<Callout kind="tech">
+O plano é calculado em memória a cada requisição, não fica salvo. O custo estimado da lista de compras usa o último custo conhecido de cada ingrediente — pode estar defasado se a compra mais recente ainda não foi confirmada.
+</Callout>
+
+</ArticleLayout>

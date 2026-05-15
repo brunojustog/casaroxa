@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, sans-serif;
+  background: #fafafa;
+}
+
+/* Prose styling pra MDX */
+.prose h1 { @apply font-serif text-4xl font-bold text-roxa-900 mt-2 mb-4; }
+.prose h2 { @apply font-serif text-2xl font-bold text-roxa-900 mt-10 mb-3 border-b border-roxa-100 pb-2; }
+.prose h3 { @apply font-serif text-xl font-semibold text-roxa-900 mt-6 mb-2; }
+.prose h4 { @apply font-semibold text-slate-800 mt-4 mb-1; }
+.prose p  { @apply text-slate-700 leading-relaxed my-3; }
+.prose ul { @apply list-disc pl-6 my-3 space-y-1.5 text-slate-700; }
+.prose ol { @apply list-decimal pl-6 my-3 space-y-1.5 text-slate-700; }
+.prose code { @apply bg-slate-100 text-roxa-800 px-1.5 py-0.5 rounded text-sm font-mono; }
+.prose pre  { @apply bg-slate-900 text-slate-100 p-4 rounded-md my-4 text-sm overflow-x-auto; }
+.prose pre code { @apply bg-transparent text-inherit p-0; }
+.prose blockquote { @apply border-l-4 border-roxa-300 bg-roxa-50/40 pl-4 py-1 my-4 text-slate-700 italic; }
+.prose table { @apply w-full my-4 border-collapse text-sm; }
+.prose table th { @apply text-left border-b-2 border-slate-200 px-3 py-2 bg-slate-50 font-semibold text-slate-700; }
+.prose table td { @apply border-b border-slate-100 px-3 py-2 text-slate-700; }
+.prose a { @apply text-roxa-700 hover:underline; }
+.prose strong { @apply font-semibold text-slate-900; }

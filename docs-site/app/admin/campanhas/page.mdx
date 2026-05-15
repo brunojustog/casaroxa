@@ -1,0 +1,113 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+import { BrowserFrame } from "@/components/mock/BrowserFrame"
+import { AdminShell } from "@/components/mock/AdminShell"
+import { CampaignFormScreen } from "@/components/mock/screens/CampaignFormScreen"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Campanhas e públicos">
+
+Disparos de marketing pra grupos pré-definidos de clientes, via WhatsApp. Cada campanha tem **mensagem**, **público alvo** e, opcionalmente, um **cupom** que vai junto na mensagem.
+
+## A tela de criar campanha
+
+<BrowserFrame url="gestao.casaroxa.com.br/campanhas/nova">
+  <AdminShell active="Campanhas" title="Nova campanha">
+    <CampaignFormScreen />
+  </AdminShell>
+</BrowserFrame>
+
+Quando você seleciona o público, **a contagem de clientes elegíveis aparece ao vivo** logo abaixo. Útil pra calibrar antes de salvar — se o público tá vazio, escolhe outro.
+
+## 8 públicos prontos pra usar
+
+**Aniversariantes do mês**
+Clientes que fazem aniversário no mês atual. Ideal pra cupom de aniversário.
+
+**Inativos há 30 dias**
+Clientes que já compraram antes mas não pediram nos últimos 30 dias. Ideal pra recuperar.
+
+**Recorrentes (3+ pedidos)**
+Quem já fez 3 ou mais pedidos. Cliente fiel. Bom pra ofertas exclusivas.
+
+**Alto ticket**
+Clientes cujo ticket médio é maior que a meta que você definiu. Ideal pra cross-sell de produtos mais caros.
+
+**Comprou frango**
+Já comprou pelo menos uma vez algo da categoria Frango. Bom pra novidade de frango.
+
+**Comprou costela**
+Mesma coisa, categoria Costela.
+
+**Detratores (NPS) — últimos 30 dias**
+Clientes que avaliaram nota 0–6. Ideal pra cupom de recuperação.
+
+**Promotores (NPS) — últimos 30 dias**
+Clientes que avaliaram 9–10. Ideal pra pedir indicação ou premiar.
+
+Em todos os casos, o sistema só inclui clientes **ativos**, **com WhatsApp preenchido** e que **não optaram por não receber marketing**.
+
+## Como criar
+
+1. Vai em **Operação → Campanhas → Nova campanha**.
+2. Dá um **nome interno** (só você vê). Ex.: "Aniversariantes Maio", "Recuperação detratores Q2".
+3. **Escolhe o público** — vê a contagem ao vivo embaixo.
+4. **Escreve a mensagem**. Pode usar:
+   - **\{nome\}** — vira o primeiro nome do cliente automaticamente.
+   - **\{cupom\}** — vira o código do cupom (se a campanha tem cupom).
+5. **Cupom (opcional)** — se quer atribuir vendas geradas pela campanha, cria o cupom aqui mesmo:
+   - **Código** (ex.: MAIO15).
+   - **Tipo e valor** (% ou R$ fixo).
+   - **Validade em dias**.
+   - **Limite de usos** (opcional).
+6. **Salvar** — campanha entra como **rascunho**. Não disparou ainda.
+
+## Disparar
+
+Na tela da campanha rascunho:
+
+1. **Confere a contagem** de clientes (que pode ter mudado desde quando você salvou).
+2. Clica **Disparar agora**. Sistema pede confirmação dupla.
+3. As mensagens saem **uma a uma, com 10 segundos de pausa entre cada**. Esse intervalo é proposital — pra não dar a aparência de spam pro WhatsApp e correr risco do número ser bloqueado.
+4. Status vai mudando: **Disparando** → **Enviada** quando todas processaram.
+
+Cada envio é rastreado individualmente. Você vê na tela quem recebeu, quem deu erro (telefone errado, por exemplo), e quem foi pulado.
+
+<Callout kind="atencao">
+**O ritmo de 10 segundos é importante.** Disparar 50 clientes leva uns 8 minutos. Não tente diminuir esse tempo — o WhatsApp banaliza envio em rajada e o número pode ser banido.
+</Callout>
+
+## Como o sistema sabe se a campanha deu venda
+
+Se a campanha tem cupom, sempre que o cliente usa esse cupom no checkout, o pedido é **automaticamente atribuído** à campanha. No detalhe da campanha você vê:
+
+- **Audiência** — quantos clientes foram contactados.
+- **Enviadas** — quantas mensagens saíram com sucesso.
+- **Vendas atribuídas** — quantos pedidos foram fechados usando o cupom.
+- **Receita atribuída** — quanto isso gerou de faturamento.
+
+É como medir se a campanha valeu o esforço.
+
+## Fluxo de status
+
+<Mermaid chart={`flowchart LR
+  D[Rascunho] -->|disparar| DI[Disparando]
+  DI -->|terminou todos| S[Enviada]
+  D -.->|excluir| X((×))
+  style D fill:#f1f5f9
+  style DI fill:#fef3c7
+  style S fill:#d1fae5`} />
+
+Uma vez **Disparando**, não dá pra cancelar — ele vai até o fim. Excluir só funciona enquanto é **Rascunho**.
+
+<Callout kind="dica">
+**Exemplo de mensagem boa pra detratores:**
+"Oi \{nome\}! Soubemos que sua última experiência não foi a melhor. Aceita uma segunda chance? Use o cupom *\{cupom\}* — 15% off no próximo pedido. ❤️"
+
+**Exemplo pra promotores:**
+"Oi \{nome\}! Que bom saber que você curtiu! 🎉 Como agradecimento, separamos um cupom *\{cupom\}* pra você ou pra indicar alguém: 10% off."
+</Callout>
+
+<Callout kind="tech">
+Os 8 públicos são definidos em código (não em tabela). Cada um é uma consulta com regras específicas (joins com vendas, cupons usados, avaliações, etc). Versão com construtor de público dinâmico fica pra depois da extração SaaS.
+</Callout>
+
+</ArticleLayout>

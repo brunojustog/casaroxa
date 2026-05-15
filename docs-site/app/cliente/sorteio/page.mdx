@@ -1,0 +1,33 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Cliente" audienceHref="/cliente" audienceLabel="Guia do cliente" title="Participar de sorteio">
+
+Sorteio (rifa) com pool fechado de números. Pode ser **gratuita** (1 cliente = 1 número) ou **paga** (R$ X por número via PIX).
+
+## Como participa
+
+1. Cliente vê banner amarelo no `/cardapio` quando há sorteio aberto.
+2. Clica → `/sorteio/[id]`.
+3. Vê grade visual com números: verde = disponível, cinza = já comprado, selecionado em destaque.
+4. Escolhe número(s).
+5. Se pago: paga via PIX (Asaas) e número é confirmado quando webhook chega.
+6. Recebe comprovante público com QR de validação.
+
+## Indique e ganhe
+
+Cliente compartilha link único `/sorteio/[id]?ref=[seuId]`. Quando amigo se inscreve via esse link, indicador ganha **1 número bônus** automaticamente.
+
+## Múltiplos prêmios
+
+Sorteio pode ter vários prêmios (ex: 4 ganhadores no Dia das Mães). Drawing é iterativo, do menor pro 1º lugar — admin vê animação de roleta no painel.
+
+## Conferir ganhador
+
+Após sorteio, página pública mostra:
+- Número sorteado pra cada prêmio
+- Nome do ganhador
+- QR de validação do comprovante
+
+Cliente pode acessar `/sorteio/[id]/comprovante/[paymentId]` (se pago) pra ver seu comprovante.
+
+</ArticleLayout>

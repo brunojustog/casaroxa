@@ -1,0 +1,100 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+import { BrowserFrame } from "@/components/mock/BrowserFrame"
+import { AdminShell } from "@/components/mock/AdminShell"
+import { AiApprovalsScreen } from "@/components/mock/screens/AiApprovalsScreen"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Aprovações da IA">
+
+Quando a inteligência artificial quer **fazer alguma coisa que muda o sistema** (criar um cupom, mudar um preço, mandar uma mensagem pro cliente), ela não executa sozinha. Ela cria uma **proposta**, que fica nessa tela esperando você aprovar ou rejeitar.
+
+## Por que existe
+
+A IA é rápida mas pode errar. Pra ações leves (consultar dados), tudo bem ela fazer direto — é o que o **Assistente IA** já faz. Mas pra ações que afetam:
+- **Clientes** (mandar mensagem),
+- **Receita** (ajustar preço de venda),
+- **Marca** (criar cupom),
+
+quem decide é você.
+
+## A tela
+
+<BrowserFrame url="gestao.casaroxa.com.br/aprovacoes-ia">
+  <AdminShell active="Aprovações IA" title="Aprovações da IA" description="Ações propostas pela IA aguardando sua decisão · expira em 24h">
+    <AiApprovalsScreen />
+  </AdminShell>
+</BrowserFrame>
+
+Cada card tem:
+- O **status** (Pendente, Executada, Rejeitada).
+- O **tipo de ação** (cupom, preço, mensagem, campanha).
+- O **resumo** — em uma frase, o que vai acontecer.
+- A **justificativa** que a IA deu — em itálico, com aspas.
+- O **tempo restante** antes de expirar (24h).
+- Os detalhes técnicos (expansível, se você quiser conferir antes de aprovar).
+- Os botões **Aprovar** e **Rejeitar**.
+
+## 4 tipos de ação que a IA pode propor
+
+**Criar cupom**
+Ex.: "Criar cupom DETRATOR10 (10% off) válido por 30 dias, máximo 50 usos".
+Risco baixo — se for ruim, você desativa o cupom.
+
+**Ajustar preço de venda de um produto**
+Ex.: "Aumentar Combo Costela Domingão de R$ 199,90 → R$ 215,00 porque o custo da costela subiu 7%".
+Risco médio — clientes podem pagar o preço novo a partir do momento que aprova.
+
+**Mandar mensagem WhatsApp pra um cliente específico**
+Ex.: "Mandar mensagem pra Maria oferecendo cupom de recuperação".
+Risco médio — se for mal calibrado, o cliente pode achar invasivo.
+
+**Disparar uma campanha já criada**
+Ex.: "Disparar a campanha 'Aniversariantes de Maio' (12 clientes)".
+Risco alto — atinge muitos clientes de uma vez.
+
+## Como decidir
+
+1. **Leia o resumo** — entende o que vai acontecer.
+2. **Leia a justificativa** — vê se faz sentido. Se a IA não explicou bem, rejeita.
+3. **Confira os detalhes técnicos** (clique pra expandir) se for ação de risco — confere valores, IDs, mensagens.
+4. **Aprove** ou **rejeite**.
+
+A aprovação tem **confirmação dupla** (sistema pergunta de novo "Tem certeza?"), porque na maioria dos casos não dá pra desfazer simples.
+
+## O que acontece depois de aprovar
+
+O sistema executa **na hora** e marca o resultado:
+
+- **Executada** ✅ — deu certo. O cupom foi criado, o preço foi mudado, a mensagem foi enviada, a campanha começou.
+- **Falhou** ❌ — algo deu errado durante a execução (ex.: produto deletado entre a proposta e a aprovação, Asaas fora do ar). O sistema mostra o erro e você decide se tenta de novo ou faz manual.
+
+## Fluxo completo
+
+<Mermaid chart={`flowchart LR
+  P[Pendente] -->|você aprova| A[Aprovada]
+  A -->|deu certo| E[Executada]
+  A -->|deu erro| F[Falhou]
+  P -->|você rejeita| R[Rejeitada]
+  P -->|24h sem ação| X[Expirada]
+  style P fill:#fef3c7,stroke:#d97706
+  style E fill:#d1fae5,stroke:#059669
+  style F fill:#fee2e2,stroke:#dc2626
+  style R fill:#f1f5f9,stroke:#64748b
+  style X fill:#f1f5f9,stroke:#64748b`} />
+
+## Expira em 24h
+
+Proposta pendente por mais de 24h é marcada como **Expirada** automaticamente. A ideia: sugestão velha provavelmente perdeu o contexto. Se depois você acha que era boa ideia, peça pra IA propor de novo.
+
+<Callout kind="atencao">
+**Aprovação é praticamente irreversível.** Cupom criado pode ser desativado, mas mensagem enviada não tem como "desenviar". Campanha disparada começa o loop e não para. Por isso a confirmação dupla — leia com calma antes de clicar.
+</Callout>
+
+## Estado atual
+
+Hoje (Maio/2026) o motor de aprovação está pronto e funcionando, mas o **Chat IA ainda não foi conectado pra propor ações por aqui** — ele continua só consultando dados. A próxima fase é justamente conectar: cada vez que você pedir algo no Chat que mude o sistema, a IA cria uma proposta que aparece nessa tela.
+
+<Callout kind="tech">
+A execução roda em transação no banco. Os argumentos da proposta são validados de novo no momento da execução (pra pegar mudanças que aconteceram entre a proposta e a aprovação). Idempotência: ação não-pendente não pode ser aprovada/rejeitada de novo.
+</Callout>
+
+</ArticleLayout>

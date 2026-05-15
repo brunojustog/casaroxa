@@ -1,0 +1,39 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Custos fixos e Resultado (DRE)">
+
+Aqui você lança suas **despesas que não dependem de vender** (aluguel, energia, contador, folha) e o sistema cruza com a receita pra te mostrar se o mês fechou no azul ou no vermelho.
+
+## Cadastrar um custo fixo
+
+**Financeiro → Custos Fixos → Novo**.
+
+Pra cada despesa:
+
+- **Categoria** — escolha uma das opções (Aluguel, Energia, Água, Internet, Folha, Impostos, Contador, Marketing, Equipamentos, Outros).
+- **Descrição** — pra você lembrar qual é. Ex.: "Aluguel ponto Centro".
+- **Valor** em reais.
+- **Frequência** — Mensal (o valor entra inteiro todo mês) ou Anual (o sistema divide por 12 e considera 1/12 a cada mês).
+- **Ativo** — desativar não apaga histórico, só tira dos cálculos atuais. Útil quando você cancela um contrato.
+
+## Resultado (DRE)
+
+**Financeiro → Resultado**. Escolha um período (mês, trimestre, ano) e veja:
+
+| Linha | O que é |
+|---|---|
+| Receita | O que entrou de vendas concluídas, **descontado** os cupons usados e a taxa que a Asaas cobrou |
+| Custo variável | Quanto custou produzir o que você vendeu (CMV real, baseado nas fichas) |
+| Custos fixos | Soma dos custos cadastrados acima, rateados pro período |
+| **Lucro** | Receita − Custo variável − Custos fixos |
+| **Margem** | Lucro dividido pela receita (em %) |
+
+## Histórico de mudanças
+
+Toda vez que você muda o valor de um custo (ex.: o aluguel subiu), o sistema guarda o valor antigo e o novo. Útil pra auditar quando, por exemplo, "por que a margem caiu em março" — pode ter sido reajuste do ponto.
+
+<Callout kind="dica">
+Cadastre **todos** os custos fixos logo no primeiro mês, mesmo os pequenos (R$ 50 de software, R$ 80 de IPTU rateado). O DRE só é confiável quando reflete a realidade — esquecer despesa pequena dá uma falsa sensação de margem alta.
+</Callout>
+
+</ArticleLayout>

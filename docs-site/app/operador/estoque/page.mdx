@@ -1,0 +1,42 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Operador" audienceHref="/operador" audienceLabel="Guia do operador" title="Lançar estoque e inventário">
+
+Você acompanha o **saldo dos ingredientes** em **Estoque** e faz **contagens** em **Inventário**.
+
+## Como o saldo é calculado
+
+O sistema **não guarda um número fixo de saldo** — ele recalcula na hora, somando o que entrou e subtraindo o que saiu:
+
+> Saldo = (entradas + ajustes positivos) − (saídas + perdas)
+
+Na tela de Estoque, o saldo de cada ingrediente aparece já calculado. Se estiver abaixo do **mínimo** configurado, vem com um badge vermelho avisando.
+
+## Os 4 tipos de movimento
+
+| Movimento | Quando acontece | Efeito |
+|---|---|---|
+| **Entrada** | Compra confirmada | Aumenta o estoque |
+| **Saída** | Venda concluída ou consumo manual | Diminui o estoque |
+| **Perda** | Descarte, vencimento, quebra | Diminui o estoque |
+| **Ajuste** | Diferença positiva na contagem | Aumenta o estoque |
+
+Você quase nunca lança movimento direto — eles vêm automaticamente das compras, das vendas e dos inventários.
+
+## Inventário (contagem)
+
+1. Vai em **Inventário → Novo inventário**.
+2. O sistema lista todos os ingredientes com o saldo que ele acha que tem.
+3. Você conta o físico e digita o saldo real do lado.
+4. Quando você **fecha o inventário**, o sistema cria os movimentos pra corrigir cada diferença automaticamente — se tinha 10 e contou 7, ele lança uma **perda** de 3.
+5. Inventário fechado fica **trancado** — não dá pra editar.
+
+<Callout kind="dica">
+**Faça inventário toda semana ou quinzena.** Diferença grande de uma vez é difícil de investigar — pode ser furto, perda não lançada, ficha técnica errada, ou tudo junto. Contagem frequente isola o problema.
+</Callout>
+
+<Callout kind="atencao">
+**Inventário fechado não pode ser cancelado** — os ajustes já foram lançados. Se errou na contagem, abre um novo inventário e corrige por cima.
+</Callout>
+
+</ArticleLayout>

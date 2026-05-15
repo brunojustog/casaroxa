@@ -1,0 +1,43 @@
+import { ArticleLayout } from "@/components/ArticleLayout"
+
+<ArticleLayout audience="Admin" audienceHref="/admin" audienceLabel="Guia do admin" title="Chat IA — conversar com o sistema">
+
+O **Assistente IA** é um chat onde você pergunta em português comum e a inteligência artificial consulta os dados do sistema pra te responder. Pensa nele como um analista que conhece tudo dos seus números e fica disponível 24h.
+
+## Onde fica
+
+**Ferramentas → Assistente IA**.
+
+## O que ele responde hoje
+
+| Tipo de pergunta | Exemplo |
+|---|---|
+| Vendas e faturamento | "Quanto faturei essa semana?" |
+| Pedidos | "Quais pedidos estão pendentes agora?" |
+| Produtos | "Qual produto mais vendeu nos últimos 30 dias?" |
+| Clientes | "Quem são meus 5 clientes de maior ticket médio?" |
+| Estoque | "Quais ingredientes estão abaixo do mínimo?" |
+| NPS | "Qual a média de avaliações nos últimos 30 dias?" |
+
+## O que ele **não** faz (por enquanto)
+
+- **Não cria, edita ou apaga nada.** Hoje ele só consulta. Nenhuma pergunta vai mexer no sistema.
+- **Não dispara WhatsApp nem campanha sozinho.** Pra isso existe a tela de [Aprovações da IA](/admin/aprovacoes-ia).
+
+## O que vem depois
+
+Em breve, o assistente vai poder **propor ações** (criar cupom, ajustar preço, mandar mensagem pra um cliente específico, disparar uma campanha). Cada proposta vai aparecer na tela de Aprovações da IA pra você aprovar ou rejeitar. **Nada executa sem você dizer "sim"**.
+
+## Tokens e custo
+
+Cada conversa consome um pouquinho de crédito da API da Anthropic (a empresa por trás do modelo Claude). O sistema registra cada chamada com o custo em dólar. Você vê o total acumulado em **Relatórios → IA**.
+
+<Callout kind="dica">
+**Pergunta específica gasta menos e responde melhor.** "Faturamento de maio" é melhor que "Como anda o negócio?". Quanto mais focada a pergunta, menos texto a IA precisa ler/escrever, mais barata fica e mais precisa é a resposta.
+</Callout>
+
+<Callout kind="tech">
+O modelo atual é Claude Opus 4.7. A IA tem acesso a "ferramentas" de leitura (consultas pré-aprovadas) que ela decide quando chamar — não vê o banco diretamente. O chat respeita o papel do usuário logado: operador vê menos do que admin.
+</Callout>
+
+</ArticleLayout>
