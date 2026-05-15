@@ -99,6 +99,7 @@ const NAV: NavSection[] = [
     section: "Ferramentas",
     items: [
       { href: "/assistente",    label: "Assistente IA", icon: Sparkles },
+      { href: "/aprovacoes-ia", label: "Aprovações IA", icon: Sparkles, roles: ["ADMIN"] },
       { href: "/importar",      label: "Importar",      icon: Upload, roles: ["ADMIN"] },
       { href: "/usuarios",      label: "Usuários",      icon: Users, roles: ["ADMIN"] },
       { href: "/configuracoes", label: "Configurações", icon: SettingsIcon, roles: ["ADMIN"] },

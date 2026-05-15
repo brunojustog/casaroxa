@@ -89,6 +89,7 @@ const ADMIN_PREFIXES = [
   "/campanhas",
   "/avaliacoes",
   "/carrinhos-abandonados",
+  "/aprovacoes-ia",
   "/api/auth",
   "/api/admin",
 ];

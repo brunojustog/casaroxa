@@ -219,6 +219,22 @@ enum IngredientAliasSource {
   MANUAL // admin cadastrou direto na ficha do ingrediente
 }
 
+enum AiActionKind {
+  CREATE_COUPON // criar Coupon novo
+  UPDATE_PRODUCT_PRICE // ajustar Product.salePrice
+  SEND_WHATSAPP_CUSTOMER // mandar WhatsApp manual pra 1 cliente
+  DISPATCH_CAMPAIGN // disparar campanha já criada (status DRAFT)
+}
+
+enum AiActionStatus {
+  PENDING // proposta, aguardando admin
+  APPROVED // admin aprovou, ainda não executou
+  EXECUTED // já rodou com sucesso
+  FAILED // admin aprovou mas a execução falhou
+  REJECTED // admin recusou
+  EXPIRED // passou de 24h sem ação
+}
+
 // ============================================================
 // AUTENTICAÇÃO
 // ============================================================
@@ -254,6 +270,7 @@ model User {
   orderRequestsCreated   OrderRequest[]           @relation("OrderRequestCreatedBy")
   orderRequestsApproved  OrderRequest[]           @relation("OrderRequestApprovedBy")
   campaignsCreated       Campaign[]               @relation("CampaignCreatedBy")
+  aiActionsDecided       AiActionApproval[]       @relation("AiActionDecidedBy")
 }
 
 // ============================================================
@@ -1748,4 +1765,50 @@ model CampaignOrderAttribution {
   createdAt  DateTime @default(now())
 
   @@index([campaignId])
+}
+
+// ============================================================
+// IA com aprovação humana (Sprint 9)
+// ============================================================
+
+/// Proposta de ação gerada pela IA. Em vez de executar direto, fica
+/// PENDING até admin aprovar ou rejeitar. TTL de 24h vira EXPIRED.
+///
+/// `payload` é JSON com a forma específica do `kind`:
+///   CREATE_COUPON         { code, type, value, maxUses?, validDays? }
+///   UPDATE_PRODUCT_PRICE  { productId, newPrice, reason }
+///   SEND_WHATSAPP_CUSTOMER { customerId, message }
+///   DISPATCH_CAMPAIGN     { campaignId }
+model AiActionApproval {
+  id             String         @id @default(cuid())
+  kind           AiActionKind
+  status         AiActionStatus @default(PENDING)
+  /// Texto humano descrevendo o que vai acontecer (mostrado na fila).
+  summary        String         @db.Text
+  /// Justificativa que a IA deu pra propor (opcional).
+  reasoning      String?        @db.Text
+  /// Argumentos da ação — formato depende de `kind`.
+  payload        Json
+  /// Resultado da execução (id do recurso criado, etc).
+  result         Json?
+  /// Mensagem de erro se status=FAILED.
+  failureMessage String?        @db.Text
+
+  /// ID da ChatConversation que originou (opcional).
+  conversationId String?
+  /// ID do ChatMessage específico (opcional).
+  messageId      String?
+
+  proposedAt  DateTime  @default(now())
+  expiresAt   DateTime
+  decidedAt   DateTime?
+  decidedById String?
+  decidedBy   User?     @relation("AiActionDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  executedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, proposedAt])
+  @@index([expiresAt])
 }
