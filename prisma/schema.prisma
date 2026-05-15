@@ -214,6 +214,11 @@ enum AbandonedCartStatus {
   EXPIRED // mais de N dias sem ação, purged
 }
 
+enum IngredientAliasSource {
+  XML_NFE // veio da importação de NFe
+  MANUAL // admin cadastrou direto na ficha do ingrediente
+}
+
 // ============================================================
 // AUTENTICAÇÃO
 // ============================================================
@@ -351,8 +356,26 @@ model Ingredient {
   stockMovements StockMovement[]
   purchaseItems  PurchaseItem[]
   inventoryItems InventoryItem[]
+  aliases        IngredientAlias[]
 
   @@index([category, active])
+}
+
+/// Apelido pra match automático no XML NFe. Quando admin confirma um
+/// match manual ("este xProd é o ingrediente X"), o sistema salva aqui
+/// pra acertar na próxima importação sem fuzzy.
+model IngredientAlias {
+  id             String                @id @default(cuid())
+  /// Texto da NFe normalizado (lowercase + trim + remove espaços duplos).
+  normalizedName String                @unique
+  /// Snapshot do nome original (pra UI mostrar o que veio).
+  rawName        String
+  ingredientId   String
+  ingredient     Ingredient            @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  source         IngredientAliasSource @default(XML_NFE)
+  createdAt      DateTime              @default(now())
+
+  @@index([ingredientId])
 }
 
 model IngredientPriceHistory {

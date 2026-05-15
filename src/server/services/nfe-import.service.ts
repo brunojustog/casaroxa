@@ -128,6 +128,20 @@ export type NfePreview = {
 // analyzeNfe — passo 1
 // ============================================================
 
+/**
+ * Normaliza um nome (xProd da NFe ou nome do ingrediente) pra chave de
+ * busca de alias. Lowercase + trim + colapsa espaços + remove
+ * acentos básicos. Idempotente.
+ */
+export function normalizeAliasName(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 export async function analyzeNfe(buffer: Buffer): Promise<NfePreview> {
   const parsed: ParsedNfe = parseNfe(buffer);
 
@@ -161,22 +175,54 @@ export async function analyzeNfe(buffer: Buffer): Promise<NfePreview> {
   }
 
   // ---- Match itens contra ingredientes ativos ----
-  const ingredients = await prisma.ingredient.findMany({
-    where: { active: true },
-    select: {
-      id: true,
-      name: true,
-      category: true,
-      unit: true,
-      unitCost: true,
-    },
-  });
+  const [ingredients, aliasRows] = await Promise.all([
+    prisma.ingredient.findMany({
+      where: { active: true },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        unit: true,
+        unitCost: true,
+      },
+    }),
+    prisma.ingredientAlias.findMany({
+      select: { normalizedName: true, ingredientId: true },
+    }),
+  ]);
+  const aliasMap = new Map(aliasRows.map((a) => [a.normalizedName, a.ingredientId]));
+  const ingredientById = new Map(ingredients.map((ing) => [ing.id, ing]));
   const ingTokens = ingredients.map((ing) => ({
     ing,
     tokens: tokenize(ing.name),
   }));
 
   const items: NfeItemPreview[] = parsed.items.map((item, idx) => {
+    // 1. Match exato via IngredientAlias (memória de matches anteriores)
+    const normalized = normalizeAliasName(item.xProd);
+    const aliasIngId = aliasMap.get(normalized);
+    if (aliasIngId) {
+      const ing = ingredientById.get(aliasIngId);
+      if (ing) {
+        const exact: IngredientSuggestion = {
+          ingredientId: ing.id,
+          name: ing.name,
+          category: ing.category,
+          unit: ing.unit,
+          unitCost: Number(ing.unitCost),
+          score: 1.0,
+        };
+        return {
+          index: idx,
+          raw: item,
+          suggestedUnit: mapUnitFromUCom(item.uCom),
+          suggestions: [exact],
+          bestMatch: exact,
+        };
+      }
+    }
+
+    // 2. Fallback: fuzzy match Jaccard
     const itemTokens = tokenize(item.xProd);
     const scored: IngredientSuggestion[] = ingTokens
       .map(({ ing, tokens }) => ({
@@ -225,6 +271,8 @@ export type ImportNfeItemDecision =
       lotNumber: string | null;
       expiryDate: Date | null;
       updateIngredientCost: boolean;
+      /** xProd original do XML — usado pra salvar alias automático. */
+      rawName?: string | null;
     }
   | {
       action: "create_new";
@@ -328,6 +376,25 @@ export async function importNfe(payload: ImportNfePayload, userId?: string) {
           throw new BusinessError(`Ingrediente "${ing.name}" está inativo.`);
         ingredientId = ing.id;
         updateIngredientCost = decision.updateIngredientCost;
+
+        // Salva alias automático: se o rawName veio diferente do nome
+        // canônico, guarda pra próxima importação acertar sem fuzzy.
+        if (decision.rawName) {
+          const normalized = normalizeAliasName(decision.rawName);
+          const ingNormalized = normalizeAliasName(ing.name);
+          if (normalized !== ingNormalized) {
+            await tx.ingredientAlias.upsert({
+              where: { normalizedName: normalized },
+              update: { ingredientId: ing.id, rawName: decision.rawName },
+              create: {
+                normalizedName: normalized,
+                rawName: decision.rawName,
+                ingredientId: ing.id,
+                source: "XML_NFE",
+              },
+            });
+          }
+        }
       } else {
         // create_new
         // se já existir um com mesmo nome, reutiliza

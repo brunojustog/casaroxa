@@ -53,6 +53,8 @@ const itemDecisionSchema = z.discriminatedUnion("action", [
     lotNumber: optionalString(60),
     expiryDate: optionalDate,
     updateIngredientCost: z.coerce.boolean().default(true),
+    /** xProd original — usado pra salvar IngredientAlias automático. */
+    rawName: z.string().trim().max(300).nullable().optional(),
   }),
   z.object({
     action: z.literal("create_new"),

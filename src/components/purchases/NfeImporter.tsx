@@ -199,7 +199,8 @@ export function NfeImporter({
             }
           : { action: "none" as const };
 
-    const itemDecisions = items.map((it) => {
+    const itemDecisions = items.map((it, idx) => {
+      const previewItem = preview?.items?.[idx];
       if (it.action === "skip") return { action: "skip" as const };
       if (it.action === "use_existing") {
         return {
@@ -210,6 +211,7 @@ export function NfeImporter({
           lotNumber: it.lotNumber || null,
           expiryDate: it.expiryDate || null,
           updateIngredientCost: it.updateIngredientCost,
+          rawName: previewItem?.raw?.xProd ?? null,
         };
       }
       return {
