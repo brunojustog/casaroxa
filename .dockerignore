@@ -11,6 +11,7 @@ docker-compose*.yml
 deploy
 README.md
 docs
+docs-site
 *.log
 npm-debug.log
 yarn-error.log
