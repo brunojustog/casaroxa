@@ -64,6 +64,7 @@ export async function getPublicMenuItem(
         imageUrl: true,
         portionLabel: true,
         category: true,
+        status: true,
         ingredientsPublic: true,
         gallery: true,
         youtubeUrl: true,
@@ -101,6 +102,7 @@ export async function getPublicMenuItem(
       youtubeUrl: p.youtubeUrl,
       savings: null,
       topPick: false,
+      sobEncomenda: p.status === "SOB_ENCOMENDA",
     };
   }
   const c = await prisma.combo.findFirst({
@@ -144,6 +146,7 @@ export async function getPublicMenuItem(
     youtubeUrl: c.youtubeUrl,
     savings: null,
     topPick: false,
+    sobEncomenda: false,
   };
 }
 
@@ -164,6 +167,9 @@ export type PublicMenuItem = {
   savings: number | null;
   /** Top N mais vendidos nos últimos 30 dias — ganha badge "Mais pedido". */
   topPick: boolean;
+  /** Product.status === SOB_ENCOMENDA: aparece no cardápio com badge e
+   *  CTA "Encomendar" (fluxo /encomenda) em vez do carrinho. */
+  sobEncomenda: boolean;
 };
 
 export type PublicMenuCategory = {
@@ -264,6 +270,7 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
         imageUrl: true,
         portionLabel: true,
         category: true,
+        status: true,
         ingredientsPublic: true,
         gallery: true,
         youtubeUrl: true,
@@ -306,6 +313,7 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
     youtubeUrl: p.youtubeUrl,
     savings: null,
     topPick: topPicks.productIds.has(p.id),
+    sobEncomenda: p.status === "SOB_ENCOMENDA",
   }));
 
   const comboItems: PublicMenuItem[] = combos.map((c) => ({
@@ -322,6 +330,7 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
     youtubeUrl: c.youtubeUrl,
     savings: comboSavings.get(c.id) ?? null,
     topPick: topPicks.comboIds.has(c.id),
+    sobEncomenda: false,
   }));
 
   // Dentro de cada categoria, ordena: topPick primeiro, depois savings desc, depois alfabético

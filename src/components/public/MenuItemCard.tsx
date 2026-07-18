@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Flame, ImageOff, PiggyBank } from "lucide-react";
+import { CalendarClock, Flame, ImageOff, PiggyBank } from "lucide-react";
 import { formatBRL } from "@/lib/format";
 import { MenuItemActions } from "./cart/MenuItemActions";
 import type { PublicMenuItem } from "@/server/services/public-menu.service";
@@ -32,6 +32,12 @@ export function MenuItemCard({ item }: { item: PublicMenuItem }) {
         {item.kind === "COMBO" && (
           <span className="absolute left-3 top-3 rounded-full bg-roxa-700 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-white shadow">
             Combo
+          </span>
+        )}
+        {item.sobEncomenda && (
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-amber-600 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-white shadow">
+            <CalendarClock className="h-3 w-3" />
+            Sob encomenda
           </span>
         )}
         {item.topPick && (
@@ -70,15 +76,25 @@ export function MenuItemCard({ item }: { item: PublicMenuItem }) {
               </span>
             )}
           </div>
-          <MenuItemActions
-            item={{
-              id: item.id,
-              kind: item.kind,
-              name: item.name,
-              price: item.price,
-              imageUrl: item.imageUrl,
-            }}
-          />
+          {item.sobEncomenda ? (
+            <Link
+              href="/encomenda"
+              className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700"
+            >
+              <CalendarClock className="h-4 w-4" />
+              Encomendar
+            </Link>
+          ) : (
+            <MenuItemActions
+              item={{
+                id: item.id,
+                kind: item.kind,
+                name: item.name,
+                price: item.price,
+                imageUrl: item.imageUrl,
+              }}
+            />
+          )}
         </div>
       </div>
     </article>

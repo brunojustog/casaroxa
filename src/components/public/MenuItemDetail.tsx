@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { ChevronLeft, ImageOff, UtensilsCrossed } from "lucide-react";
+import { CalendarClock, ChevronLeft, ImageOff, UtensilsCrossed } from "lucide-react";
 import { formatBRL } from "@/lib/format";
 import { youtubeEmbedUrl } from "@/lib/youtube";
 import { MenuItemActions } from "./cart/MenuItemActions";
@@ -52,6 +52,12 @@ export function MenuItemDetail({ item }: { item: PublicMenuItem }) {
             {item.kind === "COMBO" && (
               <span className="absolute left-4 top-4 rounded-full bg-roxa-700 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white shadow">
                 Combo
+              </span>
+            )}
+            {item.sobEncomenda && (
+              <span className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white shadow">
+                <CalendarClock className="h-3.5 w-3.5" />
+                Sob encomenda
               </span>
             )}
           </div>
@@ -121,16 +127,33 @@ export function MenuItemDetail({ item }: { item: PublicMenuItem }) {
             <span className="text-3xl font-bold tabular-nums text-roxa-700">
               {formatBRL(item.price)}
             </span>
-            <MenuItemActions
-              item={{
-                id: item.id,
-                kind: item.kind,
-                name: item.name,
-                price: item.price,
-                imageUrl: item.imageUrl,
-              }}
-            />
+            {item.sobEncomenda ? (
+              <Link
+                href="/encomenda"
+                className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-amber-700"
+              >
+                <CalendarClock className="h-4 w-4" />
+                Fazer encomenda
+              </Link>
+            ) : (
+              <MenuItemActions
+                item={{
+                  id: item.id,
+                  kind: item.kind,
+                  name: item.name,
+                  price: item.price,
+                  imageUrl: item.imageUrl,
+                }}
+              />
+            )}
           </div>
+
+          {item.sobEncomenda && (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              Este item é preparado sob encomenda. Faça seu pedido com
+              antecedência e a Casa Roxa confirma a data de retirada ou entrega.
+            </p>
+          )}
         </div>
       </div>
 
