@@ -78,7 +78,7 @@ export function MenuItemCard({ item }: { item: PublicMenuItem }) {
           </div>
           {item.sobEncomenda ? (
             <Link
-              href="/encomenda"
+              href={item.category === "EMPORIO" ? "/emporio/encomenda" : "/encomenda"}
               className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700"
             >
               <CalendarClock className="h-4 w-4" />

@@ -129,7 +129,7 @@ export function MenuItemDetail({ item }: { item: PublicMenuItem }) {
             </span>
             {item.sobEncomenda ? (
               <Link
-                href="/encomenda"
+                href={item.category === "EMPORIO" ? "/emporio/encomenda" : "/encomenda"}
                 className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-amber-700"
               >
                 <CalendarClock className="h-4 w-4" />

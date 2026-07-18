@@ -133,6 +133,11 @@ export default async function EncomendaDetailPage({
             <p className="font-medium text-slate-900">
               {fmtDateTime(req.requestedFor)}
             </p>
+            {req.kind === "EMPORIO" && (
+              <p className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                🚌 Empório — atendida na volta da viagem a Minas
+              </p>
+            )}
             <p className="text-slate-600">
               {req.deliveryMode === "PICKUP" ? "🛍 Retirada no local" : "🛵 Delivery"}
             </p>

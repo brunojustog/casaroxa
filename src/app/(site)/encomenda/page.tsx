@@ -15,7 +15,14 @@ export const metadata: Metadata = {
 export default async function EncomendaPage() {
   const [products, combos, settings] = await Promise.all([
     prisma.product.findMany({
-      where: { active: true, showInMenu: true, salePrice: { gt: 0 } },
+      // Empório fica de fora — tem fluxo próprio em /emporio/encomenda
+      // (atrelado às viagens de compra).
+      where: {
+        active: true,
+        showInMenu: true,
+        salePrice: { gt: 0 },
+        category: { not: "EMPORIO" },
+      },
       orderBy: { name: "asc" },
       select: {
         id: true,

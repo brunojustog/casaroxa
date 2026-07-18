@@ -49,6 +49,11 @@ enum ProductCategory {
   ACOMPANHAMENTOS
   EXTRAS
   BEBIDAS
+  /// Revenda do empório (queijos, doces, quitutes) — vitrine própria em
+  /// /emporio, encomenda atrelada às viagens de compra (SupplyTrip).
+  EMPORIO
+  /// Congelados (salgados, tortas, lasanhas) — encomenda semanal como assados.
+  CONGELADOS
 }
 
 enum ProductType {
@@ -612,6 +617,8 @@ model Settings {
   instagramUrl        String?
   /// URL do Facebook (https://...).
   facebookUrl         String?
+  /// Link de convite do grupo de WhatsApp do empório (avisos de viagens).
+  emporioWhatsappGroupUrl String?
   /// Habilita opção de retirada no checkout público.
   pickupEnabled       Boolean  @default(true)
   /// Habilita opção de delivery no checkout público.
@@ -1582,9 +1589,47 @@ model OrderRequest {
   items          OrderRequestItem[]
   depositPayment OnlinePayment?
 
+  /// SEMANAL = assados/congelados (data livre + leadTime). EMPORIO = itens de
+  /// revenda atrelados a uma viagem de compra (SupplyTrip).
+  kind         OrderRequestKind @default(SEMANAL)
+  supplyTripId String?
+  supplyTrip   SupplyTrip?      @relation(fields: [supplyTripId], references: [id], onDelete: SetNull)
+
   @@index([status, requestedFor])
   @@index([requestedFor])
   @@index([customerId])
+  @@index([supplyTripId])
+}
+
+enum OrderRequestKind {
+  SEMANAL
+  EMPORIO
+}
+
+enum SupplyTripStatus {
+  AGENDADA
+  CONCLUIDA
+  CANCELADA
+}
+
+/// Viagem de compra do empório (ida a Minas, ~2x/mês). O cliente encomenda
+/// itens do empório escolhendo uma viagem AGENDADA com cutoffAt futuro; a
+/// entrega/retirada acontece após tripDate.
+model SupplyTrip {
+  id       String           @id @default(cuid())
+  /// Data da viagem (busca da mercadoria).
+  tripDate DateTime
+  /// Data/hora limite pra receber encomendas desta viagem.
+  cutoffAt DateTime
+  status   SupplyTripStatus @default(AGENDADA)
+  notes    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderRequests OrderRequest[]
+
+  @@index([status, tripDate])
 }
 
 model OrderRequestItem {

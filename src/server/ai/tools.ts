@@ -112,7 +112,7 @@ const listProductsTool: ToolDefinition = {
       search: { type: "string" },
       category: {
         type: "string",
-        enum: ["FRANGO", "COSTELA", "SUINOS", "ACOMPANHAMENTOS", "EXTRAS", "BEBIDAS"],
+        enum: ["FRANGO", "COSTELA", "SUINOS", "ACOMPANHAMENTOS", "EXTRAS", "BEBIDAS", "EMPORIO", "CONGELADOS"],
       },
       limit: { type: "integer", default: 30 },
     },

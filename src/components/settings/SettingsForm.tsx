@@ -52,6 +52,7 @@ type Defaults = {
   openingHours: string | null;
   instagramUrl: string | null;
   facebookUrl: string | null;
+  emporioWhatsappGroupUrl: string | null;
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
   deliveryFeeNote: string | null;
@@ -110,6 +111,7 @@ const FACTORY_DEFAULTS: Defaults = {
   openingHours: null,
   instagramUrl: null,
   facebookUrl: null,
+  emporioWhatsappGroupUrl: null,
   pickupEnabled: true,
   deliveryEnabled: true,
   deliveryFeeNote: null,
@@ -165,6 +167,7 @@ function toState(d: Defaults) {
     openingHours: d.openingHours ?? "",
     instagramUrl: d.instagramUrl ?? "",
     facebookUrl: d.facebookUrl ?? "",
+    emporioWhatsappGroupUrl: d.emporioWhatsappGroupUrl ?? "",
     pickupEnabled: d.pickupEnabled,
     deliveryEnabled: d.deliveryEnabled,
     deliveryFeeNote: d.deliveryFeeNote ?? "",
@@ -382,6 +385,16 @@ export function SettingsForm({ initial }: { initial: Defaults }) {
               />
             </Field>
           </div>
+          <Field
+            label="Grupo de WhatsApp do empório (link de convite)"
+            hint="Aparece na página /emporio pra avisar clientes das viagens a Minas."
+          >
+            <Input
+              value={state.emporioWhatsappGroupUrl}
+              onChange={(e) => set("emporioWhatsappGroupUrl", e.currentTarget.value)}
+              placeholder="https://chat.whatsapp.com/..."
+            />
+          </Field>
 
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
             <h4 className="text-sm font-semibold text-slate-700">Modalidades de pedido</h4>

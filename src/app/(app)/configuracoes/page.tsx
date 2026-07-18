@@ -54,6 +54,7 @@ export default async function ConfiguracoesPage() {
               openingHours: settings.openingHours,
               instagramUrl: settings.instagramUrl,
               facebookUrl: settings.facebookUrl,
+              emporioWhatsappGroupUrl: settings.emporioWhatsappGroupUrl,
               pickupEnabled: settings.pickupEnabled,
               deliveryEnabled: settings.deliveryEnabled,
               deliveryFeeNote: settings.deliveryFeeNote,

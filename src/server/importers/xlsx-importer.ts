@@ -134,6 +134,8 @@ const PRODUCT_CATEGORY_MAP: Record<string, ProductCategory> = {
   suino: "SUINOS", suinos: "SUINOS", porco: "SUINOS",
   acompanhamento: "ACOMPANHAMENTOS", acompanhamentos: "ACOMPANHAMENTOS", side: "ACOMPANHAMENTOS",
   extra: "EXTRAS", extras: "EXTRAS", molho: "EXTRAS",
+  emporio: "EMPORIO", empório: "EMPORIO",
+  congelado: "CONGELADOS", congelados: "CONGELADOS",
   bebida: "BEBIDAS", bebidas: "BEBIDAS",
 };
 

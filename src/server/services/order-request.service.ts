@@ -176,16 +176,37 @@ async function loadValidatedItems(
 }
 
 export async function createPublicOrderRequest(input: PublicOrderRequestData) {
-  const settings = await prisma.settings.findUnique({
-    where: { id: 1 },
-    select: { orderLeadTimeHours: true },
-  });
-  const leadHours = settings?.orderLeadTimeHours ?? 48;
-  const minDate = new Date(Date.now() + leadHours * 60 * 60 * 1000);
-  if (input.requestedFor < minDate) {
-    throw new BusinessError(
-      `A data desejada precisa ser pelo menos ${leadHours}h adiante.`,
-    );
+  let requestedFor = input.requestedFor;
+  let supplyTripId: string | null = null;
+
+  if (input.kind === "EMPORIO") {
+    // Encomenda do empório é atrelada a uma viagem de compra — a data de
+    // atendimento é a da viagem, não uma escolha livre do cliente.
+    const trip = input.supplyTripId
+      ? await prisma.supplyTrip.findUnique({ where: { id: input.supplyTripId } })
+      : null;
+    if (!trip || trip.status !== "AGENDADA") {
+      throw new BusinessError("Viagem indisponível. Recarregue a página e tente de novo.");
+    }
+    if (trip.cutoffAt <= new Date()) {
+      throw new BusinessError(
+        "O prazo de pedidos desta viagem já fechou. Escolha a próxima viagem.",
+      );
+    }
+    requestedFor = trip.tripDate;
+    supplyTripId = trip.id;
+  } else {
+    const settings = await prisma.settings.findUnique({
+      where: { id: 1 },
+      select: { orderLeadTimeHours: true },
+    });
+    const leadHours = settings?.orderLeadTimeHours ?? 48;
+    const minDate = new Date(Date.now() + leadHours * 60 * 60 * 1000);
+    if (input.requestedFor < minDate) {
+      throw new BusinessError(
+        `A data desejada precisa ser pelo menos ${leadHours}h adiante.`,
+      );
+    }
   }
 
   const items = await loadValidatedItems(input.items);
@@ -215,7 +236,9 @@ export async function createPublicOrderRequest(input: PublicOrderRequestData) {
         customerName: input.customerName,
         customerPhone: input.customerPhone,
         customerId,
-        requestedFor: input.requestedFor,
+        requestedFor,
+        kind: input.kind,
+        supplyTripId,
         deliveryMode: input.deliveryMode,
         address: input.deliveryMode === "DELIVERY" ? input.address : null,
         addressNumber:
@@ -251,7 +274,9 @@ export async function createPublicOrderRequest(input: PublicOrderRequestData) {
       `*${businessName}*`,
       ``,
       `Olá, ${input.customerName.split(/\s+/)[0]}! 👋`,
-      `Recebemos sua encomenda *ER-${created.number}* pra *${fmtDate(input.requestedFor)}*.`,
+      input.kind === "EMPORIO"
+        ? `Recebemos sua encomenda do empório *ER-${created.number}*! Ela será atendida na viagem a Minas de *${fmtDate(requestedFor)}*.`
+        : `Recebemos sua encomenda *ER-${created.number}* pra *${fmtDate(requestedFor)}*.`,
       ``,
       `Vamos confirmar em breve por aqui. Obrigado!`,
     ].join("\n"),

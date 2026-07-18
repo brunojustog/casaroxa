@@ -1,11 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarClock, ShoppingBasket, Store } from "lucide-react";
+import {
+  ArrowRight,
+  Bus,
+  CalendarClock,
+  MessageCircle,
+  ShoppingBasket,
+  Store,
+} from "lucide-react";
 import { MenuItemCard } from "@/components/public/MenuItemCard";
 import {
   getEmporioMenu,
   getSiteSettings,
 } from "@/server/services/public-menu.service";
+import { listOpenSupplyTrips } from "@/server/services/supply-trip.service";
 
 export const dynamic = "force-dynamic";
 
@@ -29,9 +37,27 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function EmporioPage() {
-  const items = await getEmporioMenu();
+  const [items, trips, settings] = await Promise.all([
+    getEmporioMenu(),
+    listOpenSupplyTrips(2),
+    getSiteSettings(),
+  ]);
   const disponiveis = items.filter((i) => !i.sobEncomenda);
   const sobEncomenda = items.filter((i) => i.sobEncomenda);
+  const nextTrip = trips[0] ?? null;
+  const fmtTrip = (d: Date) =>
+    new Intl.DateTimeFormat("pt-BR", {
+      weekday: "long",
+      day: "2-digit",
+      month: "2-digit",
+    }).format(d);
+  const fmtCutoff = (d: Date) =>
+    new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(d);
 
   return (
     <div className="space-y-10">
@@ -52,6 +78,66 @@ export default async function EmporioPage() {
           </p>
         </div>
       </header>
+
+      {/* Próxima viagem + encomenda + grupo */}
+      <section className="rounded-xl border-2 border-amber-300 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-700">
+              <Bus className="h-5 w-5" />
+            </div>
+            <div>
+              {nextTrip ? (
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+                    Próxima viagem a Minas
+                  </p>
+                  <p className="font-serif text-xl font-bold capitalize text-roxa-900">
+                    {fmtTrip(nextTrip.tripDate)}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    Pedidos até {fmtCutoff(nextTrip.cutoffAt)}
+                    {trips[1] &&
+                      ` · seguinte: ${fmtTrip(trips[1].tripDate)}`}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+                    Viagens a Minas
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    Próxima data ainda não marcada — entre no grupo pra ser
+                    avisado.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {nextTrip && (
+              <Link
+                href="/emporio/encomenda"
+                className="inline-flex items-center gap-2 rounded-md bg-amber-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-amber-700"
+              >
+                Fazer encomenda
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            )}
+            {settings.emporioWhatsappGroupUrl && (
+              <a
+                href={settings.emporioWhatsappGroupUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-md border border-green-600 bg-white px-5 py-3 text-sm font-semibold text-green-700 hover:bg-green-50"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Grupo do empório
+              </a>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* Como funciona */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -78,9 +164,12 @@ export default async function EmporioPage() {
               Sob encomenda
             </h2>
             <p className="mt-1 text-sm text-slate-600">
-              Itens com o selo &ldquo;Sob encomenda&rdquo; são pedidos com
-              antecedência —{" "}
-              <Link href="/encomenda" className="font-medium text-amber-800 underline">
+              Itens com o selo &ldquo;Sob encomenda&rdquo; chegam na próxima
+              viagem a Minas —{" "}
+              <Link
+                href="/emporio/encomenda"
+                className="font-medium text-amber-800 underline"
+              >
                 faça sua encomenda aqui
               </Link>
               .

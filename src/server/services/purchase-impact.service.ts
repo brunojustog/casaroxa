@@ -76,7 +76,10 @@ export async function getPurchaseImpactPreview(
       case "ACOMPANHAMENTOS":
         return Number(settings?.defaultCmvSides ?? 0.35);
       case "EXTRAS":
+      case "EMPORIO":
         return Number(settings?.defaultCmvExtras ?? 0.35);
+      case "CONGELADOS":
+        return Number(settings?.defaultCmvSides ?? 0.35);
       case "BEBIDAS":
         return Number(settings?.defaultCmvBeverages ?? 0.7);
       default:

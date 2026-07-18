@@ -7,58 +7,31 @@ import Image from "next/image";
 import {
   AlertTriangle,
   ArrowLeft,
+  Bus,
   Calendar,
-  ChevronDown,
+  CalendarClock,
   Clock,
   ImageOff,
   Minus,
-  Package,
   Plus,
   ShoppingBag,
 } from "lucide-react";
 
-type CategoryKey =
-  | "COMBOS"
-  | "FRANGO"
-  | "COSTELA"
-  | "SUINOS"
-  | "ACOMPANHAMENTOS"
-  | "CONGELADOS"
-  | "EXTRAS"
-  | "BEBIDAS"
-  | "EMPORIO"; // não aparece aqui (fluxo próprio), mas o tipo cobre o enum
-
-type CatalogItem = {
-  kind: "PRODUTO" | "COMBO";
+type EmporioItem = {
   id: string;
   name: string;
   description: string | null;
   imageUrl: string | null;
   priceCents: number;
-  category: CategoryKey;
+  portionLabel: string | null;
+  sobEncomenda: boolean;
 };
 
-const CATEGORY_ORDER: CategoryKey[] = [
-  "COMBOS",
-  "FRANGO",
-  "COSTELA",
-  "SUINOS",
-  "ACOMPANHAMENTOS",
-  "CONGELADOS",
-  "EXTRAS",
-  "BEBIDAS",
-];
-
-const CATEGORY_LABEL: Record<CategoryKey, string> = {
-  COMBOS: "Combos",
-  FRANGO: "Frangos",
-  COSTELA: "Costela",
-  SUINOS: "Suínos",
-  ACOMPANHAMENTOS: "Acompanhamentos",
-  CONGELADOS: "Congelados",
-  EXTRAS: "Extras",
-  BEBIDAS: "Bebidas",
-  EMPORIO: "Empório",
+type Trip = {
+  id: string;
+  tripDate: string; // ISO
+  cutoffAt: string; // ISO
+  notes: string | null;
 };
 
 const fmt = (cents: number) =>
@@ -67,64 +40,44 @@ const fmt = (cents: number) =>
     currency: "BRL",
   }).format(cents / 100);
 
-function toLocalInput(d: Date) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+const fmtTripDate = (iso: string) =>
+  new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+  }).format(new Date(iso));
 
-function keyOf(it: CatalogItem) {
-  return `${it.kind}:${it.id}`;
-}
+const fmtCutoff = (iso: string) =>
+  new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
 
-export function EncomendaClient({
+export function EmporioEncomendaClient({
   catalog,
-  leadHours,
+  trips,
   deliveryEnabled,
   pickupEnabled,
 }: {
-  catalog: CatalogItem[];
-  leadHours: number;
+  catalog: EmporioItem[];
+  trips: Trip[];
   deliveryEnabled: boolean;
   pickupEnabled: boolean;
 }) {
   const router = useRouter();
 
-  // Data padrão: hoje + leadHours arredondado para próxima hora cheia
-  const defaultDate = useMemo(() => {
-    const d = new Date();
-    d.setHours(d.getHours() + leadHours + 1, 0, 0, 0);
-    return toLocalInput(d);
-  }, [leadHours]);
-
-  const minDate = useMemo(() => {
-    const d = new Date();
-    d.setHours(d.getHours() + leadHours, 0, 0, 0);
-    return toLocalInput(d);
-  }, [leadHours]);
-
+  const [tripId, setTripId] = useState(trips[0]?.id ?? "");
   const [qty, setQty] = useState<Record<string, number>>({});
-
-  // Acordeão das categorias: a primeira com itens começa aberta, o resto
-  // recolhido — o usuário expande só o que interessa.
-  const firstCat = useMemo(
-    () => CATEGORY_ORDER.find((c) => catalog.some((it) => it.category === c)),
-    [catalog],
-  );
-  const [openCats, setOpenCats] = useState<Partial<Record<CategoryKey, boolean>>>({});
-  const isCatOpen = (c: CategoryKey) => openCats[c] ?? c === firstCat;
-  const toggleCat = (c: CategoryKey) =>
-    setOpenCats((cur) => ({ ...cur, [c]: !(cur[c] ?? c === firstCat) }));
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [requestedFor, setRequestedFor] = useState(defaultDate);
   const initialMode: "PICKUP" | "DELIVERY" = pickupEnabled
     ? "PICKUP"
     : deliveryEnabled
       ? "DELIVERY"
       : "PICKUP";
-  const [deliveryMode, setDeliveryMode] = useState<"PICKUP" | "DELIVERY">(
-    initialMode,
-  );
+  const [deliveryMode, setDeliveryMode] = useState<"PICKUP" | "DELIVERY">(initialMode);
   const [address, setAddress] = useState("");
   const [addressNumber, setAddressNumber] = useState("");
   const [addressComplement, setAddressComplement] = useState("");
@@ -134,47 +87,48 @@ export function EncomendaClient({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const selectedTrip = trips.find((t) => t.id === tripId) ?? null;
+
   const cartItems = useMemo(
     () =>
       catalog
-        .map((it) => ({ item: it, quantity: qty[keyOf(it)] ?? 0 }))
+        .map((it) => ({ item: it, quantity: qty[it.id] ?? 0 }))
         .filter((x) => x.quantity > 0),
     [catalog, qty],
   );
-
   const subtotalCents = cartItems.reduce(
     (acc, c) => acc + c.item.priceCents * c.quantity,
     0,
   );
   const count = cartItems.reduce((acc, c) => acc + c.quantity, 0);
 
-  function inc(it: CatalogItem) {
-    setQty((cur) => ({ ...cur, [keyOf(it)]: (cur[keyOf(it)] ?? 0) + 1 }));
+  function inc(it: EmporioItem) {
+    setQty((cur) => ({ ...cur, [it.id]: (cur[it.id] ?? 0) + 1 }));
   }
-  function dec(it: CatalogItem) {
+  function dec(it: EmporioItem) {
     setQty((cur) => {
-      const current = cur[keyOf(it)] ?? 0;
+      const current = cur[it.id] ?? 0;
       if (current <= 0) return cur;
       if (current === 1) {
-        const { [keyOf(it)]: _omit, ...rest } = cur;
+        const { [it.id]: _omit, ...rest } = cur;
         void _omit;
         return rest;
       }
-      return { ...cur, [keyOf(it)]: current - 1 };
+      return { ...cur, [it.id]: current - 1 };
     });
   }
 
   const isDelivery = deliveryMode === "DELIVERY";
   const canSubmit =
     count > 0 &&
+    !!selectedTrip &&
     customerName.trim().length > 0 &&
     customerPhone.trim().length > 0 &&
-    !!requestedFor &&
     (!isDelivery || (address.trim().length > 0 && neighborhood.trim().length > 0));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canSubmit || submitting) return;
+    if (!canSubmit || submitting || !selectedTrip) return;
     setError(null);
     setSubmitting(true);
     try {
@@ -182,9 +136,11 @@ export function EncomendaClient({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          kind: "EMPORIO",
+          supplyTripId: selectedTrip.id,
+          requestedFor: selectedTrip.tripDate,
           customerName,
           customerPhone,
-          requestedFor,
           deliveryMode,
           address: isDelivery ? address : undefined,
           addressNumber: isDelivery ? addressNumber : undefined,
@@ -193,8 +149,8 @@ export function EncomendaClient({
           reference: isDelivery ? reference : undefined,
           notes,
           items: cartItems.map((c) => ({
-            productId: c.item.kind === "PRODUTO" ? c.item.id : null,
-            comboId: c.item.kind === "COMBO" ? c.item.id : null,
+            productId: c.item.id,
+            comboId: null,
             quantity: c.quantity,
           })),
         }),
@@ -212,131 +168,138 @@ export function EncomendaClient({
     }
   }
 
+  const disponiveis = catalog.filter((i) => !i.sobEncomenda);
+  const sobEncomenda = catalog.filter((i) => i.sobEncomenda);
+
+  function ItemRow({ it }: { it: EmporioItem }) {
+    const current = qty[it.id] ?? 0;
+    return (
+      <li className="flex items-start gap-3 p-4">
+        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-roxa-50">
+          {it.imageUrl ? (
+            <Image
+              src={it.imageUrl}
+              alt={it.name}
+              fill
+              sizes="80px"
+              className="object-cover"
+              unoptimized
+            />
+          ) : (
+            <div className="grid h-full w-full place-items-center text-roxa-300">
+              <ImageOff className="h-6 w-6" />
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0 space-y-1">
+          <p className="font-semibold text-slate-900">{it.name}</p>
+          {it.portionLabel && (
+            <p className="text-xs text-slate-500">{it.portionLabel}</p>
+          )}
+          <p className="text-sm font-semibold text-roxa-700">{fmt(it.priceCents)}</p>
+        </div>
+        <div className="flex items-center gap-1 rounded-md border border-roxa-200">
+          <button
+            type="button"
+            onClick={() => dec(it)}
+            disabled={current === 0}
+            className="p-2 text-roxa-700 hover:bg-roxa-50 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Diminuir"
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </button>
+          <span className="min-w-[2ch] text-center text-sm font-semibold tabular-nums">
+            {current}
+          </span>
+          <button
+            type="button"
+            onClick={() => inc(it)}
+            className="p-2 text-roxa-700 hover:bg-roxa-50"
+            aria-label="Aumentar"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </li>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
-        {/* Items agrupados por categoria */}
-        {(() => {
-          const byCat = new Map<CategoryKey, CatalogItem[]>();
-          for (const it of catalog) {
-            const arr = byCat.get(it.category) ?? [];
-            arr.push(it);
-            byCat.set(it.category, arr);
-          }
-          const sections = CATEGORY_ORDER.filter((c) => (byCat.get(c)?.length ?? 0) > 0);
-          if (sections.length === 0) return null;
-          return (
-            <div className="space-y-5">
-              {sections.map((cat) => {
-                const items = byCat.get(cat) ?? [];
-                const open = isCatOpen(cat);
-                const selectedInCat = items.reduce(
-                  (acc, it) => acc + (qty[keyOf(it)] ?? 0),
-                  0,
-                );
-                return (
-                  <section
-                    key={cat}
-                    className="rounded-xl border border-roxa-100 bg-white shadow-sm"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggleCat(cat)}
-                      aria-expanded={open}
-                      className={`flex w-full items-center justify-between gap-3 px-5 py-3 text-left transition hover:bg-roxa-50/60 ${
-                        open ? "border-b border-roxa-100" : ""
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <h2 className="font-serif text-lg font-semibold text-roxa-900">
-                          {CATEGORY_LABEL[cat]}
-                        </h2>
-                        {selectedInCat > 0 && (
-                          <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-bold text-green-800">
-                            {selectedInCat} selecionado{selectedInCat === 1 ? "" : "s"}
-                          </span>
-                        )}
-                      </span>
-                      <span className="flex items-center gap-2 text-xs text-slate-500">
-                        {items.length} {items.length === 1 ? "item" : "itens"}
-                        <ChevronDown
-                          className={`h-4 w-4 text-roxa-700 transition-transform ${
-                            open ? "rotate-180" : ""
-                          }`}
-                        />
-                      </span>
-                    </button>
-                    {open && (
-                    <ul className="divide-y divide-roxa-50">
-                      {items.map((it) => {
-                        const current = qty[keyOf(it)] ?? 0;
-                        return (
-                          <li
-                            key={keyOf(it)}
-                            className="flex items-start gap-3 p-4"
-                          >
-                            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-roxa-50">
-                              {it.imageUrl ? (
-                                <Image
-                                  src={it.imageUrl}
-                                  alt={it.name}
-                                  fill
-                                  sizes="80px"
-                                  className="object-cover"
-                                  unoptimized
-                                />
-                              ) : (
-                                <div className="grid h-full w-full place-items-center text-roxa-300">
-                                  <ImageOff className="h-6 w-6" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0 space-y-1">
-                              <p className="font-semibold text-slate-900">
-                                {it.name}
-                              </p>
-                              {it.description && (
-                                <p className="text-xs text-slate-600 line-clamp-2">
-                                  {it.description}
-                                </p>
-                              )}
-                              <p className="text-sm font-semibold text-roxa-700">
-                                {fmt(it.priceCents)}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-1 rounded-md border border-roxa-200">
-                              <button
-                                type="button"
-                                onClick={() => dec(it)}
-                                disabled={current === 0}
-                                className="p-2 text-roxa-700 hover:bg-roxa-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                aria-label="Diminuir"
-                              >
-                                <Minus className="h-3.5 w-3.5" />
-                              </button>
-                              <span className="min-w-[2ch] text-center text-sm font-semibold tabular-nums">
-                                {current}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => inc(it)}
-                                className="p-2 text-roxa-700 hover:bg-roxa-50"
-                                aria-label="Aumentar"
-                              >
-                                <Plus className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    )}
-                  </section>
-                );
-              })}
-            </div>
-          );
-        })()}
+        {/* Escolha da viagem */}
+        <section className="rounded-xl border-2 border-amber-200 bg-amber-50/60 p-5 space-y-3">
+          <h2 className="flex items-center gap-2 font-serif text-xl font-semibold text-roxa-900">
+            <Bus className="h-5 w-5 text-amber-700" />
+            Escolha a viagem
+          </h2>
+          <p className="text-sm text-slate-700">
+            Buscamos a mercadoria em Minas nas datas abaixo. Sua encomenda é
+            atendida na volta da viagem escolhida.
+          </p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {trips.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTripId(t.id)}
+                className={
+                  t.id === tripId
+                    ? "rounded-lg border-2 border-amber-600 bg-white p-3 text-left shadow-sm"
+                    : "rounded-lg border border-amber-200 bg-white/70 p-3 text-left hover:border-amber-400"
+                }
+              >
+                <span className="block text-sm font-bold capitalize text-roxa-900">
+                  {fmtTripDate(t.tripDate)}
+                </span>
+                <span className="mt-0.5 block text-xs text-slate-600">
+                  Pedidos até {fmtCutoff(t.cutoffAt)}
+                </span>
+                {t.notes && (
+                  <span className="mt-0.5 block text-xs text-amber-800">{t.notes}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Itens */}
+        {disponiveis.length > 0 && (
+          <section className="rounded-xl border border-roxa-100 bg-white shadow-sm">
+            <header className="border-b border-roxa-100 px-5 py-3">
+              <h2 className="font-serif text-lg font-semibold text-roxa-900">
+                À pronta entrega
+                <span className="ml-2 text-xs font-sans font-normal text-slate-500">
+                  também disponíveis na loja
+                </span>
+              </h2>
+            </header>
+            <ul className="divide-y divide-roxa-50">
+              {disponiveis.map((it) => (
+                <ItemRow key={it.id} it={it} />
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {sobEncomenda.length > 0 && (
+          <section className="rounded-xl border border-amber-200 bg-white shadow-sm">
+            <header className="flex items-center gap-2 border-b border-amber-100 px-5 py-3">
+              <CalendarClock className="h-4 w-4 text-amber-700" />
+              <h2 className="font-serif text-lg font-semibold text-roxa-900">
+                Sob encomenda
+                <span className="ml-2 text-xs font-sans font-normal text-slate-500">
+                  chegam na viagem escolhida
+                </span>
+              </h2>
+            </header>
+            <ul className="divide-y divide-amber-50">
+              {sobEncomenda.map((it) => (
+                <ItemRow key={it.id} it={it} />
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* Cliente */}
         <section className="rounded-xl border border-roxa-100 bg-white p-5 shadow-sm space-y-4">
@@ -364,27 +327,6 @@ export function EncomendaClient({
               />
             </Field>
           </div>
-        </section>
-
-        {/* Data + modalidade */}
-        <section className="rounded-xl border border-roxa-100 bg-white p-5 shadow-sm space-y-4">
-          <h2 className="font-serif text-xl font-semibold text-roxa-900">
-            Quando e como
-          </h2>
-          <Field
-            label="Data e hora desejada"
-            required
-            hint={`Pedido com pelo menos ${leadHours}h de antecedência.`}
-          >
-            <input
-              type="datetime-local"
-              required
-              min={minDate}
-              value={requestedFor}
-              onChange={(e) => setRequestedFor(e.currentTarget.value)}
-              className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-roxa-500 focus:outline-none focus:ring-1 focus:ring-roxa-500"
-            />
-          </Field>
           <div className="flex flex-wrap gap-3">
             {pickupEnabled && (
               <ModeButton
@@ -457,7 +399,7 @@ export function EncomendaClient({
               </Field>
             </div>
           )}
-          <Field label="Observações" hint="Ocasião, restrições, troca de item, etc.">
+          <Field label="Observações">
             <textarea
               rows={3}
               value={notes}
@@ -470,10 +412,10 @@ export function EncomendaClient({
 
       {/* Resumo */}
       <aside className="lg:sticky lg:top-20 lg:self-start space-y-4">
-        <div className="rounded-xl border-2 border-roxa-200 bg-white p-5 shadow-sm">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-roxa-700 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
-            <Package className="h-3 w-3" />
-            Encomenda
+        <div className="rounded-xl border-2 border-amber-300 bg-white p-5 shadow-sm">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+            <Bus className="h-3 w-3" />
+            Empório
           </div>
           <h2 className="mt-2 font-serif text-xl font-semibold text-roxa-900">Resumo</h2>
 
@@ -484,7 +426,7 @@ export function EncomendaClient({
           ) : (
             <ul className="mt-4 space-y-1.5">
               {cartItems.map((c) => (
-                <li key={keyOf(c.item)} className="flex justify-between gap-2 text-sm">
+                <li key={c.item.id} className="flex justify-between gap-2 text-sm">
                   <span className="text-slate-700">
                     {c.quantity}× {c.item.name}
                   </span>
@@ -501,22 +443,15 @@ export function EncomendaClient({
             <span className="tabular-nums">{fmt(subtotalCents)}</span>
           </div>
 
-          {requestedFor && (
-            <div className="mt-3 inline-flex items-start gap-2 rounded-md bg-roxa-50 px-3 py-2 text-xs text-roxa-900 w-full">
+          {selectedTrip && (
+            <div className="mt-3 inline-flex w-full items-start gap-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
               <Calendar className="h-3.5 w-3.5 shrink-0 mt-0.5" />
               <span>
-                Para{" "}
-                <strong>
-                  {new Intl.DateTimeFormat("pt-BR", {
-                    weekday: "short",
-                    day: "2-digit",
-                    month: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }).format(new Date(requestedFor))}
-                </strong>
-                <span className="block text-[11px] text-roxa-800 mt-0.5">
-                  {isDelivery ? "Delivery" : "Retirada no local"}
+                Viagem de{" "}
+                <strong className="capitalize">{fmtTripDate(selectedTrip.tripDate)}</strong>
+                <span className="block text-[11px] mt-0.5">
+                  Pedidos até {fmtCutoff(selectedTrip.cutoffAt)} ·{" "}
+                  {isDelivery ? "Delivery" : "Retirada no local"} após a volta
                 </span>
               </span>
             </div>
@@ -544,17 +479,17 @@ export function EncomendaClient({
             <ShoppingBag className="h-4 w-4" />
             {submitting ? "Enviando…" : "Enviar encomenda"}
           </button>
-          <p className="mt-2 inline-flex items-center justify-center gap-1 w-full text-center text-[11px] leading-relaxed text-slate-500">
+          <p className="mt-2 inline-flex w-full items-center justify-center gap-1 text-center text-[11px] leading-relaxed text-slate-500">
             <Clock className="h-3 w-3" /> Resposta em algumas horas pelo WhatsApp.
           </p>
         </div>
 
         <Link
-          href="/cardapio"
+          href="/emporio"
           className="flex items-center justify-center gap-1.5 text-sm text-slate-500 hover:text-roxa-700"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Voltar ao cardápio
+          Voltar ao empório
         </Link>
       </aside>
     </form>
@@ -564,13 +499,11 @@ export function EncomendaClient({
 function Field({
   label,
   required,
-  hint,
   className,
   children,
 }: {
   label: string;
   required?: boolean;
-  hint?: string;
   className?: string;
   children: React.ReactNode;
 }) {
@@ -581,7 +514,6 @@ function Field({
         {required && <span className="ml-0.5 text-red-500">*</span>}
       </label>
       {children}
-      {hint && <p className="text-[11px] text-slate-500">{hint}</p>}
     </div>
   );
 }

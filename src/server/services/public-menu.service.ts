@@ -180,12 +180,15 @@ export type PublicMenuCategory = {
   items: PublicMenuItem[];
 };
 
+// EMPORIO fica de fora do cardápio principal de propósito — tem vitrine
+// própria em /emporio (getEmporioMenu).
 const CATEGORY_ORDER: Array<ProductCategory | "COMBOS"> = [
   "COMBOS", // Combos primeiro — orientação a ticket
   "FRANGO",
   "COSTELA",
   "SUINOS",
   "ACOMPANHAMENTOS",
+  "CONGELADOS",
   "EXTRAS",
   "BEBIDAS",
 ];
@@ -260,6 +263,7 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
         showInMenu: true,
         active: true,
         salePrice: { gt: 0 },
+        category: { not: "EMPORIO" },
       },
       orderBy: [{ category: "asc" }, { name: "asc" }],
       select: {
@@ -368,7 +372,7 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
 }
 
 /**
- * Vitrine do Empório: produtos de revenda (categoria EXTRAS) com preço e
+ * Vitrine do Empório: produtos de revenda (categoria EMPORIO) com preço e
  * visíveis no menu. Disponíveis primeiro, sob encomenda no fim — cada grupo
  * em ordem alfabética.
  */
@@ -378,7 +382,7 @@ export async function getEmporioMenu(): Promise<PublicMenuItem[]> {
       showInMenu: true,
       active: true,
       salePrice: { gt: 0 },
-      category: "EXTRAS",
+      category: "EMPORIO",
     },
     orderBy: [{ name: "asc" }],
     select: {
@@ -423,6 +427,7 @@ export type PublicSiteSettings = {
   businessName: string;
   siteSlogan: string | null;
   whatsappNumber: string | null;
+  emporioWhatsappGroupUrl: string | null;
   address: string | null;
   addressNeighborhood: string | null;
   openingHours: string | null;
@@ -447,6 +452,7 @@ export async function getSiteSettings(): Promise<PublicSiteSettings> {
       businessName: true,
       siteSlogan: true,
       whatsappNumber: true,
+      emporioWhatsappGroupUrl: true,
       address: true,
       addressNeighborhood: true,
       openingHours: true,
@@ -469,6 +475,7 @@ export async function getSiteSettings(): Promise<PublicSiteSettings> {
     businessName: s?.businessName ?? "Casa Roxa Assados",
     siteSlogan: s?.siteSlogan ?? null,
     whatsappNumber: s?.whatsappNumber ?? null,
+    emporioWhatsappGroupUrl: s?.emporioWhatsappGroupUrl ?? null,
     address: s?.address ?? null,
     addressNeighborhood: s?.addressNeighborhood ?? null,
     openingHours: s?.openingHours ?? null,

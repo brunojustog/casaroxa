@@ -71,6 +71,7 @@ function serializeSettings(s: Awaited<ReturnType<typeof getSettings>>) {
     openingHours: s.openingHours,
     instagramUrl: s.instagramUrl,
     facebookUrl: s.facebookUrl,
+    emporioWhatsappGroupUrl: s.emporioWhatsappGroupUrl,
     pickupEnabled: s.pickupEnabled,
     deliveryEnabled: s.deliveryEnabled,
     deliveryFeeNote: s.deliveryFeeNote,

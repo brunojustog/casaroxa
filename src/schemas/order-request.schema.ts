@@ -28,6 +28,9 @@ const baseSchema = z
     customerName: requiredString("Nome", 120),
     customerPhone: requiredString("Telefone", 40),
     requestedFor: z.coerce.date(),
+    /** SEMANAL = assados/congelados (data livre). EMPORIO = atrelada a viagem. */
+    kind: z.enum(["SEMANAL", "EMPORIO"]).default("SEMANAL"),
+    supplyTripId: optionalString(60),
     deliveryMode: z.enum(["PICKUP", "DELIVERY"]),
     address: optionalString(300),
     addressNumber: optionalString(40),
@@ -38,6 +41,13 @@ const baseSchema = z
     items: z.array(orderRequestItemSchema).min(1, "Adicione pelo menos um item."),
   })
   .superRefine((data, ctx) => {
+    if (data.kind === "EMPORIO" && !data.supplyTripId) {
+      ctx.addIssue({
+        path: ["supplyTripId"],
+        code: z.ZodIssueCode.custom,
+        message: "Escolha a viagem em que a encomenda será atendida.",
+      });
+    }
     if (data.deliveryMode === "DELIVERY") {
       if (!data.address) {
         ctx.addIssue({

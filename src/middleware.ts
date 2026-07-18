@@ -87,6 +87,7 @@ const ADMIN_PREFIXES = [
   "/sorteios",
   "/pre-vendas",
   "/encomendas",
+  "/viagens",
   "/producao",
   "/campanhas",
   "/avaliacoes",

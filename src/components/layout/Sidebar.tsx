@@ -29,6 +29,7 @@ import {
   CalendarDays,
   Megaphone,
   Star,
+  Bus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@prisma/client";
@@ -61,6 +62,7 @@ const NAV: NavSection[] = [
       { href: "/sorteios",        label: "Sorteios",        icon: Gift },
       { href: "/pre-vendas",      label: "Pré-vendas",      icon: CalendarDays },
       { href: "/encomendas",      label: "Encomendas",      icon: ClipboardList },
+      { href: "/viagens",         label: "Viagens (empório)", icon: Bus },
     ],
   },
   {

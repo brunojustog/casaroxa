@@ -71,6 +71,7 @@ export const settingsFormSchema = z.object({
   addressNeighborhood: optionalString(200),
   openingHours: optionalString(200),
   instagramUrl: optionalString(300),
+  emporioWhatsappGroupUrl: optionalString(300),
   facebookUrl: optionalString(300),
   pickupEnabled: z.coerce.boolean().default(true),
   deliveryEnabled: z.coerce.boolean().default(true),

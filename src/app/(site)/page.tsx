@@ -238,7 +238,7 @@ export default async function HomePage() {
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
-                  href="/encomenda"
+                  href="/emporio/encomenda"
                   className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-white px-5 py-3 text-sm font-semibold text-amber-800 transition hover:bg-amber-50"
                 >
                   Fazer encomenda

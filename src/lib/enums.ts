@@ -49,6 +49,8 @@ export const PRODUCT_CATEGORY_LABEL: Record<ProductCategory, string> = {
   ACOMPANHAMENTOS: "Acompanhamentos",
   EXTRAS: "Extras",
   BEBIDAS: "Bebidas",
+  EMPORIO: "Empório",
+  CONGELADOS: "Congelados",
 };
 
 export const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
