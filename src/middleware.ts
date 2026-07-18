@@ -15,6 +15,7 @@ const PUBLIC_PREFIXES = [
   "/api/public",
   "/api/cron",
   "/cardapio",
+  "/emporio",
   "/checkout",
   "/pedido",
   "/sorteio",
@@ -43,6 +44,7 @@ const PUBLIC_EXACT = new Set([
  */
 const SITE_PREFIXES = [
   "/cardapio",
+  "/emporio",
   "/checkout",
   "/pedido",
   "/sorteio",

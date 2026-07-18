@@ -367,6 +367,58 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
   });
 }
 
+/**
+ * Vitrine do Empório: produtos de revenda (categoria EXTRAS) com preço e
+ * visíveis no menu. Disponíveis primeiro, sob encomenda no fim — cada grupo
+ * em ordem alfabética.
+ */
+export async function getEmporioMenu(): Promise<PublicMenuItem[]> {
+  const products = await prisma.product.findMany({
+    where: {
+      showInMenu: true,
+      active: true,
+      salePrice: { gt: 0 },
+      category: "EXTRAS",
+    },
+    orderBy: [{ name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      salePrice: true,
+      imageUrl: true,
+      portionLabel: true,
+      category: true,
+      status: true,
+      ingredientsPublic: true,
+      gallery: true,
+      youtubeUrl: true,
+    },
+  });
+
+  const items: PublicMenuItem[] = products.map((p) => ({
+    id: p.id,
+    kind: "PRODUTO",
+    name: p.name,
+    description: p.description,
+    price: Number(p.salePrice ?? 0),
+    imageUrl: p.imageUrl,
+    portionLabel: p.portionLabel,
+    category: p.category,
+    ingredientsPublic: p.ingredientsPublic,
+    gallery: parseGallery(p.gallery),
+    youtubeUrl: p.youtubeUrl,
+    savings: null,
+    topPick: false,
+    sobEncomenda: p.status === "SOB_ENCOMENDA",
+  }));
+
+  return items.sort((a, b) => {
+    if (a.sobEncomenda !== b.sobEncomenda) return a.sobEncomenda ? 1 : -1;
+    return a.name.localeCompare(b.name, "pt-BR");
+  });
+}
+
 export type PublicSiteSettings = {
   businessName: string;
   siteSlogan: string | null;

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { History, MessageCircle, Package } from "lucide-react";
+import { History, MessageCircle, Package, Store } from "lucide-react";
 import { whatsappLink } from "@/lib/whatsapp";
 import { CartIndicator } from "./cart/CartIndicator";
 import { CustomerMenu } from "./CustomerMenu";
@@ -44,6 +44,14 @@ export function PublicHeader({
             className="rounded-md px-3 py-2 text-roxa-800 hover:bg-roxa-100"
           >
             Cardápio
+          </Link>
+          <Link
+            href="/emporio"
+            className="inline-flex items-center gap-1 rounded-md px-3 py-2 text-roxa-800 hover:bg-roxa-100"
+            title="Queijos, doces e quitutes mineiros"
+          >
+            <Store className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Empório</span>
           </Link>
           <Link
             href="/encomenda"

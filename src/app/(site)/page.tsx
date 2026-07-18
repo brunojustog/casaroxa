@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Clock, MapPin, MessageCircle, UtensilsCrossed } from "lucide-react";
+import { ArrowRight, Clock, MapPin, MessageCircle, Store, UtensilsCrossed } from "lucide-react";
 import {
+  getEmporioMenu,
   getPublicMenu,
   getSiteSettings,
 } from "@/server/services/public-menu.service";
@@ -28,7 +29,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  const [menu, settings] = await Promise.all([getPublicMenu(), getSiteSettings()]);
+  const [menu, settings, emporio] = await Promise.all([
+    getPublicMenu(),
+    getSiteSettings(),
+    getEmporioMenu(),
+  ]);
 
   const wa = whatsappLink(
     settings.whatsappNumber,
@@ -203,6 +208,69 @@ export default async function HomePage() {
             )}
             .
           </p>
+        </section>
+      )}
+
+      {/* Empório */}
+      {emporio.length > 0 && (
+        <section className="relative overflow-hidden rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-roxa-50 px-6 py-10 md:px-12">
+          <div className="grid gap-8 md:grid-cols-2 md:items-center">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-amber-800">
+                <Store className="h-3.5 w-3.5" />
+                Novidade
+              </div>
+              <h2 className="font-serif text-3xl font-bold text-roxa-900 md:text-4xl">
+                Empório Casa Roxa
+              </h2>
+              <p className="text-base text-slate-700">
+                Queijos artesanais, doces caseiros, bolachinhas e quitutes de
+                Minas pra levar junto com o seu assado — ou presentear quem
+                você gosta. {emporio.length} produto
+                {emporio.length === 1 ? "" : "s"} esperando você.
+              </p>
+              <div className="flex flex-wrap gap-3 pt-1">
+                <Link
+                  href="/emporio"
+                  className="inline-flex items-center gap-2 rounded-md bg-amber-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700"
+                >
+                  Conhecer o empório
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href="/encomenda"
+                  className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-white px-5 py-3 text-sm font-semibold text-amber-800 transition hover:bg-amber-50"
+                >
+                  Fazer encomenda
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {emporio
+                .filter((i) => i.imageUrl)
+                .slice(0, 4)
+                .map((i) => (
+                  <Link
+                    key={i.id}
+                    href={`/cardapio/produto/${i.id}`}
+                    className="group relative aspect-square overflow-hidden rounded-2xl border border-amber-100 bg-white shadow-sm"
+                  >
+                    <Image
+                      src={i.imageUrl!}
+                      alt={i.name}
+                      fill
+                      sizes="(max-width: 768px) 50vw, 25vw"
+                      className="object-cover transition group-hover:scale-105"
+                      unoptimized
+                    />
+                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-roxa-900/80 to-transparent p-2.5 text-xs font-semibold text-white">
+                      {i.name}
+                    </span>
+                  </Link>
+                ))}
+            </div>
+          </div>
         </section>
       )}
     </div>
