@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Calendar,
+  ChevronDown,
   Clock,
   ImageOff,
   Minus,
@@ -97,6 +98,17 @@ export function EncomendaClient({
   }, [leadHours]);
 
   const [qty, setQty] = useState<Record<string, number>>({});
+
+  // Acordeão das categorias: a primeira com itens começa aberta, o resto
+  // recolhido — o usuário expande só o que interessa.
+  const firstCat = useMemo(
+    () => CATEGORY_ORDER.find((c) => catalog.some((it) => it.category === c)),
+    [catalog],
+  );
+  const [openCats, setOpenCats] = useState<Partial<Record<CategoryKey, boolean>>>({});
+  const isCatOpen = (c: CategoryKey) => openCats[c] ?? c === firstCat;
+  const toggleCat = (c: CategoryKey) =>
+    setOpenCats((cur) => ({ ...cur, [c]: !(cur[c] ?? c === firstCat) }));
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [requestedFor, setRequestedFor] = useState(defaultDate);
@@ -212,19 +224,44 @@ export function EncomendaClient({
             <div className="space-y-5">
               {sections.map((cat) => {
                 const items = byCat.get(cat) ?? [];
+                const open = isCatOpen(cat);
+                const selectedInCat = items.reduce(
+                  (acc, it) => acc + (qty[keyOf(it)] ?? 0),
+                  0,
+                );
                 return (
                   <section
                     key={cat}
                     className="rounded-xl border border-roxa-100 bg-white shadow-sm"
                   >
-                    <header className="flex items-center justify-between border-b border-roxa-100 px-5 py-3">
-                      <h2 className="font-serif text-lg font-semibold text-roxa-900">
-                        {CATEGORY_LABEL[cat]}
-                      </h2>
-                      <span className="text-xs text-slate-500">
-                        {items.length} {items.length === 1 ? "item" : "itens"}
+                    <button
+                      type="button"
+                      onClick={() => toggleCat(cat)}
+                      aria-expanded={open}
+                      className={`flex w-full items-center justify-between gap-3 px-5 py-3 text-left transition hover:bg-roxa-50/60 ${
+                        open ? "border-b border-roxa-100" : ""
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <h2 className="font-serif text-lg font-semibold text-roxa-900">
+                          {CATEGORY_LABEL[cat]}
+                        </h2>
+                        {selectedInCat > 0 && (
+                          <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-bold text-green-800">
+                            {selectedInCat} selecionado{selectedInCat === 1 ? "" : "s"}
+                          </span>
+                        )}
                       </span>
-                    </header>
+                      <span className="flex items-center gap-2 text-xs text-slate-500">
+                        {items.length} {items.length === 1 ? "item" : "itens"}
+                        <ChevronDown
+                          className={`h-4 w-4 text-roxa-700 transition-transform ${
+                            open ? "rotate-180" : ""
+                          }`}
+                        />
+                      </span>
+                    </button>
+                    {open && (
                     <ul className="divide-y divide-roxa-50">
                       {items.map((it) => {
                         const current = qty[keyOf(it)] ?? 0;
@@ -288,6 +325,7 @@ export function EncomendaClient({
                         );
                       })}
                     </ul>
+                    )}
                   </section>
                 );
               })}
