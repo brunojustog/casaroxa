@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@/components/public/Analytics";
 import { PublicHeader } from "@/components/public/PublicHeader";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { CartProvider } from "@/components/public/cart/CartProvider";
@@ -55,6 +56,7 @@ export default async function SiteLayout({
         <PublicFooter settings={settings} />
         <CartFloatingCta />
         <RestaurantJsonLd settings={settings} />
+        <Analytics />
       </div>
     </CartProvider>
   );
