@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CalendarClock, ChevronLeft, ImageOff, UtensilsCrossed } from "lucide-react";
+import { trackViewContent } from "@/lib/analytics-events";
 import { formatBRL } from "@/lib/format";
 import { youtubeEmbedUrl } from "@/lib/youtube";
 import { MenuItemActions } from "./cart/MenuItemActions";
@@ -19,6 +20,10 @@ export function MenuItemDetail({ item }: { item: PublicMenuItem }) {
   const [activePhoto, setActivePhoto] = useState(0);
   const mainPhoto = allPhotos[activePhoto] ?? null;
   const embed = youtubeEmbedUrl(item.youtubeUrl);
+
+  useEffect(() => {
+    trackViewContent({ id: item.id, name: item.name, price: item.price });
+  }, [item.id, item.name, item.price]);
 
   return (
     <div className="space-y-8">

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { trackLead } from "@/lib/analytics-events";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -205,6 +206,7 @@ export function EncomendaClient({
         setSubmitting(false);
         return;
       }
+      trackLead("encomenda", subtotalCents / 100);
       router.push(`/encomenda/${data.id}`);
     } catch {
       setError("Falha de conexão. Tente novamente.");

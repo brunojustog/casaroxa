@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Check } from "lucide-react";
+import { trackAddToCart } from "@/lib/analytics-events";
 import { useCart } from "./CartProvider";
 
 export function AddToCartButton({
@@ -20,6 +21,7 @@ export function AddToCartButton({
 
   function handleAdd() {
     add(item);
+    trackAddToCart({ id: item.id, name: item.name, price: item.price });
     setAdded(true);
     setTimeout(() => setAdded(false), 1200);
   }

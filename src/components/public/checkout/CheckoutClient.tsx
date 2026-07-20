@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useCart, cartKeyOf } from "@/components/public/cart/CartProvider";
+import { trackBeginCheckout } from "@/lib/analytics-events";
 import { validateCouponAction } from "@/server/actions/coupons";
 import { OtpLoginDialog } from "@/components/public/auth/OtpLoginDialog";
 import { ConfirmOrderDialog } from "./ConfirmOrderDialog";
@@ -161,6 +162,23 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
     loadAuthedCustomer(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Marketing: begin_checkout/InitiateCheckout — 1x por montagem, quando o
+  // carrinho hidratar com itens.
+  const [checkoutTracked, setCheckoutTracked] = useState(false);
+  useEffect(() => {
+    if (checkoutTracked || !hydrated || cart.items.length === 0) return;
+    setCheckoutTracked(true);
+    trackBeginCheckout(
+      cart.items.map((it) => ({
+        id: it.id,
+        name: it.name,
+        price: it.price,
+        quantity: it.quantity,
+      })),
+      total,
+    );
+  }, [checkoutTracked, hydrated, cart.items, total]);
 
   // Persist form em sessionStorage pra não perder ao trocar página
   useEffect(() => {

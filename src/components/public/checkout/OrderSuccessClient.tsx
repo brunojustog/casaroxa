@@ -9,6 +9,7 @@ import {
   ListOrdered,
   MessageCircle,
 } from "lucide-react";
+import { trackPurchase } from "@/lib/analytics-events";
 
 type LastOrder = {
   saleNumber: number;
@@ -29,7 +30,13 @@ export function OrderSuccessClient() {
     try {
       const raw = sessionStorage.getItem("casaroxa.lastOrder.v1");
       if (raw) {
-        setOrder(JSON.parse(raw));
+        const parsed: LastOrder = JSON.parse(raw);
+        setOrder(parsed);
+        // Purchase — deduplicado por pedido dentro do trackPurchase.
+        trackPurchase(
+          parsed.saleId ?? `n-${parsed.saleNumber}`,
+          parsed.total,
+        );
       }
     } catch {
       /* ignora */
