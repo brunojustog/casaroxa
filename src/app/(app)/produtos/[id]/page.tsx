@@ -131,6 +131,8 @@ export default async function EditarProdutoPage({
                     ? (product.gallery as string[])
                     : null,
                   youtubeUrl: product.youtubeUrl,
+                  scaleCode: product.scaleCode,
+                  scaleValidityDays: product.scaleValidityDays,
                 }}
               />
             </CardContent>

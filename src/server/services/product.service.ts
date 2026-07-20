@@ -67,6 +67,18 @@ export async function createProduct(input: ProductFormData) {
   });
   if (dup) throw new BusinessError(`Já existe um produto chamado "${input.name}".`);
 
+  if (input.scaleCode) {
+    const dupScale = await prisma.product.findUnique({
+      where: { scaleCode: input.scaleCode },
+      select: { name: true },
+    });
+    if (dupScale) {
+      throw new BusinessError(
+        `O código de balança ${input.scaleCode} já está em uso por "${dupScale.name}".`,
+      );
+    }
+  }
+
   return prisma.product.create({
     data: {
       name: input.name,
@@ -84,6 +96,8 @@ export async function createProduct(input: ProductFormData) {
       ingredientsPublic: input.ingredientsPublic,
       gallery: input.gallery ?? Prisma.DbNull,
       youtubeUrl: input.youtubeUrl,
+      scaleCode: input.scaleCode,
+      scaleValidityDays: input.scaleValidityDays,
       priceHistory: input.salePrice
         ? { create: { oldPrice: null, newPrice: input.salePrice } }
         : undefined,
@@ -104,6 +118,18 @@ export async function updateProduct(id: string, input: ProductFormData) {
     });
     if (dup && dup.id !== id) {
       throw new BusinessError(`Já existe um produto chamado "${input.name}".`);
+    }
+  }
+
+  if (input.scaleCode && input.scaleCode !== current.scaleCode) {
+    const dupScale = await prisma.product.findUnique({
+      where: { scaleCode: input.scaleCode },
+      select: { id: true, name: true },
+    });
+    if (dupScale && dupScale.id !== id) {
+      throw new BusinessError(
+        `O código de balança ${input.scaleCode} já está em uso por "${dupScale.name}".`,
+      );
     }
   }
 
@@ -133,6 +159,8 @@ export async function updateProduct(id: string, input: ProductFormData) {
         ingredientsPublic: input.ingredientsPublic,
         gallery: input.gallery ?? Prisma.DbNull,
         youtubeUrl: input.youtubeUrl,
+        scaleCode: input.scaleCode,
+        scaleValidityDays: input.scaleValidityDays,
       },
     });
 

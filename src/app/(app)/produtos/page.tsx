@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, AlertCircle } from "lucide-react";
+import { Plus, AlertCircle, Scale } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -52,13 +52,24 @@ export default async function ProdutosPage({
         title="Produtos"
         description="Cada produto vendido tem custo (vindo da ficha técnica), preço de venda e CMV calculado em tempo real."
         actions={
-          <Link
-            href="/produtos/novo"
-            className="inline-flex h-10 items-center gap-1.5 rounded-md bg-roxa-700 px-4 text-sm font-medium text-white hover:bg-roxa-800"
-          >
-            <Plus className="h-4 w-4" />
-            Novo produto
-          </Link>
+          <div className="flex items-center gap-2">
+            <a
+              href="/api/export/balanca"
+              download
+              title="Baixa o ITENSMGV.TXT com os produtos que têm código de balança — importe no MGV e envie pra balança."
+              className="inline-flex h-10 items-center gap-1.5 rounded-md border border-roxa-200 bg-white px-4 text-sm font-medium text-roxa-800 hover:bg-roxa-50"
+            >
+              <Scale className="h-4 w-4" />
+              Carga da balança
+            </a>
+            <Link
+              href="/produtos/novo"
+              className="inline-flex h-10 items-center gap-1.5 rounded-md bg-roxa-700 px-4 text-sm font-medium text-white hover:bg-roxa-800"
+            >
+              <Plus className="h-4 w-4" />
+              Novo produto
+            </Link>
+          </div>
         }
       />
 

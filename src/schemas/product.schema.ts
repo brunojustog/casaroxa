@@ -70,6 +70,24 @@ export const productFormSchema = z.object({
   ingredientsPublic: optionalString(1000),
   gallery: galleryField,
   youtubeUrl: optionalString(500),
+  /** Código do item na balança Toledo — exatamente 6 dígitos, ou vazio. */
+  scaleCode: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : null))
+    .refine((v) => v === null || /^\d{6}$/.test(v), {
+      message: "Código da balança deve ter exatamente 6 dígitos",
+    }),
+  /** Validade impressa na etiqueta da balança (dias, 0–999). Vazio = não imprime. */
+  scaleValidityDays: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((v) => {
+      if (v === undefined || v === null || v === "") return null;
+      const n = typeof v === "string" ? Number(v) : v;
+      return Number.isInteger(n) && n >= 0 && n <= 999 ? n : null;
+    }),
 });
 
 export type ProductFormInput = z.input<typeof productFormSchema>;

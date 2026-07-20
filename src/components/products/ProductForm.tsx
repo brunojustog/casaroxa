@@ -55,6 +55,9 @@ type FormShape = {
   /** Multi-linha: 1 URL por linha. Schema converte em array. */
   gallery: string;
   youtubeUrl: string;
+  /** Código do item na balança Toledo (6 dígitos, vazio = não vai pra balança). */
+  scaleCode: string;
+  scaleValidityDays: number | string;
 };
 
 export type ProductFormDefaults = Partial<{
@@ -74,6 +77,8 @@ export type ProductFormDefaults = Partial<{
   ingredientsPublic: string | null;
   gallery: string[] | null;
   youtubeUrl: string | null;
+  scaleCode: string | null;
+  scaleValidityDays: number | null;
 }>;
 
 const EMPTY: FormShape = {
@@ -92,6 +97,8 @@ const EMPTY: FormShape = {
   ingredientsPublic: "",
   gallery: "",
   youtubeUrl: "",
+  scaleCode: "",
+  scaleValidityDays: "",
 };
 
 function toFormShape(d: ProductFormDefaults | undefined): FormShape {
@@ -111,6 +118,8 @@ function toFormShape(d: ProductFormDefaults | undefined): FormShape {
     ingredientsPublic: d?.ingredientsPublic ?? "",
     gallery: Array.isArray(d?.gallery) ? d.gallery.join("\n") : "",
     youtubeUrl: d?.youtubeUrl ?? "",
+    scaleCode: d?.scaleCode ?? "",
+    scaleValidityDays: d?.scaleValidityDays ?? "",
   };
 }
 
@@ -229,6 +238,40 @@ export function ProductForm({
               min="0"
               max="100"
               {...form.register("targetCmv")}
+            />
+          </Field>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <h3 className="text-sm font-semibold text-slate-700 mb-3">Balança (Toledo)</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field
+            label="Código na balança"
+            htmlFor="scaleCode"
+            hint="6 dígitos (ex.: 000229). Só produtos com código entram na carga da balança."
+            error={errors.scaleCode?.message as string | undefined}
+          >
+            <Input
+              id="scaleCode"
+              inputMode="numeric"
+              maxLength={6}
+              placeholder="000000"
+              {...form.register("scaleCode")}
+            />
+          </Field>
+          <Field
+            label="Validade na etiqueta (dias)"
+            htmlFor="scaleValidityDays"
+            hint="Impressa na etiqueta. Vazio = não imprime."
+            error={errors.scaleValidityDays?.message as string | undefined}
+          >
+            <Input
+              id="scaleValidityDays"
+              type="number"
+              min="0"
+              max="999"
+              {...form.register("scaleValidityDays")}
             />
           </Field>
         </div>
