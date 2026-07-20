@@ -10,6 +10,10 @@
  *   - quando aprovada, gera Sale automaticamente
  */
 import { NextResponse } from "next/server";
+import {
+  capiContextFromRequest,
+  sendMetaEvent,
+} from "@/server/services/meta-capi.service";
 import { publicOrderRequestSchema } from "@/schemas/order-request.schema";
 import { createPublicOrderRequest } from "@/server/services/order-request.service";
 import { BusinessError } from "@/server/auth-helpers";
@@ -41,6 +45,14 @@ export async function POST(request: Request) {
 
   try {
     const result = await createPublicOrderRequest(parsed.data);
+
+    // CAPI: Lead servidor→Meta, deduplicado com o Pixel (lead-<id>).
+    sendMetaEvent({
+      eventName: "Lead",
+      eventId: `lead-${result.id}`,
+      value: result.totalCents / 100,
+      context: capiContextFromRequest(request),
+    });
 
     // Notifica admins (fire and forget)
     sendPushToAllUsers({

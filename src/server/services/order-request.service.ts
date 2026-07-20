@@ -282,7 +282,11 @@ export async function createPublicOrderRequest(input: PublicOrderRequestData) {
     ].join("\n"),
   });
 
-  return created;
+  const totalCents = items.reduce(
+    (acc, it) => acc + it.unitPriceCents * it.quantity,
+    0,
+  );
+  return { ...created, totalCents };
 }
 
 export async function createAdminOrderRequest(

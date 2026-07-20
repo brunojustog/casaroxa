@@ -8,6 +8,10 @@
 import { NextResponse } from "next/server";
 import { publicOrderSchema } from "@/schemas/public-order.schema";
 import {
+  capiContextFromRequest,
+  sendMetaEvent,
+} from "@/server/services/meta-capi.service";
+import {
   createPublicOrder,
   PublicOrderError,
 } from "@/server/services/public-order.service";
@@ -34,6 +38,16 @@ export async function POST(request: Request) {
 
   try {
     const result = await createPublicOrder(parsed.data);
+
+    // CAPI: Purchase servidor→Meta, deduplicado com o Pixel do navegador
+    // (página de sucesso dispara o mesmo event_id purchase-<saleId>).
+    sendMetaEvent({
+      eventName: "Purchase",
+      eventId: `purchase-${result.saleId}`,
+      value: result.total,
+      context: capiContextFromRequest(request),
+    });
+
     return NextResponse.json({
       ok: true,
       saleId: result.saleId,

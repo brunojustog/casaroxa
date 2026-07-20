@@ -153,13 +153,26 @@ export function trackPurchase(orderId: string, value: number) {
   });
 }
 
-/** Encomenda enviada (vira venda só depois da aprovação — por isso Lead). */
-export function trackLead(label: "encomenda" | "encomenda_emporio", value: number) {
-  fbqCall("track", "Lead", {
-    content_name: label,
-    value,
-    currency: "BRL",
-  });
+/**
+ * Encomenda enviada (vira venda só depois da aprovação — por isso Lead).
+ * orderRequestId gera o eventID `lead-<id>`, o mesmo que o servidor manda
+ * via API de Conversões — o Meta deduplica os dois.
+ */
+export function trackLead(
+  label: "encomenda" | "encomenda_emporio",
+  value: number,
+  orderRequestId?: string,
+) {
+  fbqCall(
+    "track",
+    "Lead",
+    {
+      content_name: label,
+      value,
+      currency: "BRL",
+    },
+    ...(orderRequestId ? [{ eventID: `lead-${orderRequestId}` }] : []),
+  );
   gtagPush("event", "generate_lead", {
     currency: "BRL",
     value,

@@ -162,7 +162,7 @@ export function EmporioEncomendaClient({
         setSubmitting(false);
         return;
       }
-      trackLead("encomenda_emporio", subtotalCents / 100);
+      trackLead("encomenda_emporio", subtotalCents / 100, data.id);
       router.push(`/encomenda/${data.id}`);
     } catch {
       setError("Falha de conexão. Tente novamente.");

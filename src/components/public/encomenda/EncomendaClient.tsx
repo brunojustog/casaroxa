@@ -206,7 +206,7 @@ export function EncomendaClient({
         setSubmitting(false);
         return;
       }
-      trackLead("encomenda", subtotalCents / 100);
+      trackLead("encomenda", subtotalCents / 100, data.id);
       router.push(`/encomenda/${data.id}`);
     } catch {
       setError("Falha de conexão. Tente novamente.");
