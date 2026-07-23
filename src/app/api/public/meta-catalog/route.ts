@@ -19,6 +19,18 @@ import { prisma } from "@/lib/prisma";
 const SITE = "https://casaroxa.com.br";
 const BRAND = "Casa Roxa Assados";
 
+/** Rótulo pt-BR por categoria → coluna product_type (base dos conjuntos no Meta). */
+const CATEGORY_TYPE: Record<string, string> = {
+  FRANGO: "Assados",
+  COSTELA: "Assados",
+  SUINOS: "Assados",
+  ACOMPANHAMENTOS: "Acompanhamentos",
+  EXTRAS: "Extras",
+  BEBIDAS: "Bebidas",
+  EMPORIO: "Empório",
+  CONGELADOS: "Congelados",
+};
+
 function csvCell(v: string): string {
   return `"${v.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
 }
@@ -47,6 +59,7 @@ export async function GET() {
         salePrice: true,
         imageUrl: true,
         status: true,
+        category: true,
       },
       orderBy: { name: "asc" },
     }),
@@ -79,6 +92,8 @@ export async function GET() {
     "link",
     "image_link",
     "brand",
+    "product_type",
+    "custom_label_0",
   ].join(",");
 
   const rows: string[] = [];
@@ -99,6 +114,8 @@ export async function GET() {
         csvCell(`${SITE}/cardapio/produto/${p.id}`),
         csvCell(absUrl(p.imageUrl as string)),
         csvCell(BRAND),
+        csvCell(CATEGORY_TYPE[p.category] ?? "Outros"),
+        csvCell(p.status === "SOB_ENCOMENDA" ? "sob-encomenda" : "pronta-entrega"),
       ].join(","),
     );
   }
@@ -117,6 +134,8 @@ export async function GET() {
         csvCell(`${SITE}/cardapio/combo/${c.id}`),
         csvCell(absUrl(c.imageUrl as string)),
         csvCell(BRAND),
+        csvCell("Combos"),
+        csvCell("pronta-entrega"),
       ].join(","),
     );
   }
