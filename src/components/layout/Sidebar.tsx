@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  ChevronDown,
   LayoutDashboard,
   Carrot,
   Package,
@@ -114,6 +116,8 @@ function canSee(role: UserRole, allowed?: UserRole[]) {
   return allowed.includes(role);
 }
 
+const STORAGE_KEY = "casaroxa-sidebar-sections";
+
 export function Sidebar({ role }: { role: UserRole }) {
   const pathname = usePathname();
 
@@ -121,6 +125,37 @@ export function Sidebar({ role }: { role: UserRole }) {
     ...g,
     items: g.items.filter((it) => canSee(role, it.roles)),
   })).filter((g) => canSee(role, g.roles) && g.items.length > 0);
+
+  // Preferência de aberto/recolhido por seção, salva no navegador.
+  // Sem preferência: só a seção da página atual começa aberta.
+  const [prefs, setPrefs] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) setPrefs(JSON.parse(raw) as Record<string, boolean>);
+    } catch {
+      /* preferência corrompida — ignora */
+    }
+  }, []);
+
+  const hasActiveItem = (g: (typeof visible)[number]) =>
+    g.items.some(
+      (it) => pathname === it.href || pathname.startsWith(`${it.href}/`),
+    );
+  const isOpen = (g: (typeof visible)[number]) =>
+    prefs[g.section] ?? hasActiveItem(g);
+
+  const toggleSection = (g: (typeof visible)[number]) => {
+    setPrefs((cur) => {
+      const next = { ...cur, [g.section]: !(cur[g.section] ?? hasActiveItem(g)) };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        /* storage cheio/indisponível — segue sem persistir */
+      }
+      return next;
+    });
+  };
 
   return (
     <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white">
@@ -136,37 +171,53 @@ export function Sidebar({ role }: { role: UserRole }) {
 
       <nav className="flex-1 overflow-y-auto p-3">
         <div className="space-y-4">
-          {visible.map((group) => (
-            <div key={group.section}>
-              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                {group.section}
-              </p>
-              <ul className="space-y-0.5">
-                {group.items.map((item) => {
-                  const Icon = item.icon;
-                  const active =
-                    pathname === item.href ||
-                    pathname.startsWith(`${item.href}/`);
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        className={cn(
-                          "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                          active
-                            ? "bg-roxa-50 text-roxa-800"
-                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-                        )}
-                      >
-                        <Icon className="h-4 w-4 shrink-0" />
-                        {item.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
+          {visible.map((group) => {
+            const open = isOpen(group);
+            return (
+              <div key={group.section}>
+                <button
+                  type="button"
+                  onClick={() => toggleSection(group)}
+                  aria-expanded={open}
+                  className="flex w-full items-center justify-between rounded-md px-3 pb-1 pt-1 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400 transition-colors hover:text-slate-600"
+                >
+                  {group.section}
+                  <ChevronDown
+                    className={cn(
+                      "h-3 w-3 transition-transform",
+                      open ? "rotate-180" : "",
+                    )}
+                  />
+                </button>
+                {open && (
+                  <ul className="space-y-0.5">
+                    {group.items.map((item) => {
+                      const Icon = item.icon;
+                      const active =
+                        pathname === item.href ||
+                        pathname.startsWith(`${item.href}/`);
+                      return (
+                        <li key={item.href}>
+                          <Link
+                            href={item.href}
+                            className={cn(
+                              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                              active
+                                ? "bg-roxa-50 text-roxa-800"
+                                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                            )}
+                          >
+                            <Icon className="h-4 w-4 shrink-0" />
+                            {item.label}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
         </div>
       </nav>
 
