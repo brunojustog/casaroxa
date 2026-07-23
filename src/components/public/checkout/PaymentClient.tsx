@@ -537,11 +537,6 @@ function maskExpiry(v: string): string {
   return d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
 }
 
-function maskCep(v: string): string {
-  const d = v.replace(/\D/g, "").slice(0, 8);
-  return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
-}
-
 const fmtBRL = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
@@ -563,8 +558,6 @@ function CardTransparentForm({
   const [holderName, setHolderName] = useState("");
   const [expiry, setExpiry] = useState("");
   const [ccv, setCcv] = useState("");
-  const [cep, setCep] = useState("");
-  const [addressNumber, setAddressNumber] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [cardError, setCardError] = useState<string | null>(null);
 
@@ -583,7 +576,6 @@ function CardTransparentForm({
         body: JSON.stringify({
           saleId,
           card: { holderName, number: cardNumber, expiry, ccv },
-          billing: { postalCode: cep, addressNumber },
         }),
       });
       const json = (await res.json()) as
@@ -683,46 +675,6 @@ function CardTransparentForm({
             />
           </div>
         </div>
-      </div>
-
-      <div className="border-t border-slate-100 pt-3">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-          Endereço da fatura do cartão
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-700">
-              CEP <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              autoComplete="postal-code"
-              required
-              value={cep}
-              onChange={(e) => setCep(maskCep(e.currentTarget.value))}
-              placeholder="00000-000"
-              className={inputCls}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-700">
-              Número <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              required
-              value={addressNumber}
-              onChange={(e) => setAddressNumber(e.currentTarget.value.slice(0, 10))}
-              placeholder="123"
-              className={inputCls}
-            />
-          </div>
-        </div>
-        <p className="mt-1.5 text-[11px] text-slate-500">
-          Exigência do banco pro antifraude — é o endereço da fatura do cartão.
-        </p>
       </div>
 
       {cardError && (

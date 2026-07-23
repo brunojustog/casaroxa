@@ -634,19 +634,29 @@ const PAID_ASAAS_STATUSES = new Set(["CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"
  * Aprovação imediata reusa handlePaymentWebhook (mesma lógica e idempotência
  * do webhook real, que chega depois e vira no-op).
  */
+/** CEP da loja — fallback do endereço de fatura (negócio local, o Bruno
+ *  optou por não pedir endereço do titular no formulário). */
+const STORE_POSTAL_CODE = "17205010";
+
 export async function paySaleWithCreditCard(input: {
   saleId: string;
   creditCard: AsaasCreditCard;
-  /** Só o que NÃO temos no cadastro — o resto (nome, CPF, e-mail, fone)
-   *  vem do Customer da venda pra não burocratizar o formulário. */
-  billing: { postalCode: string; addressNumber: string };
+  /** Opcional — quando ausente, usamos CEP da loja + número do cadastro.
+   *  O restante do titular (nome, CPF, e-mail, fone) vem do Customer. */
+  billing?: { postalCode: string; addressNumber: string } | null;
   remoteIp?: string | null;
 }): Promise<{ paid: boolean; status: OnlinePaymentStatus }> {
   const saleCustomer = await prisma.sale.findUnique({
     where: { id: input.saleId },
     select: {
       customer: {
-        select: { name: true, phone: true, email: true, cpfCnpj: true },
+        select: {
+          name: true,
+          phone: true,
+          email: true,
+          cpfCnpj: true,
+          addressNumber: true,
+        },
       },
     },
   });
@@ -667,8 +677,9 @@ export async function paySaleWithCreditCard(input: {
     name: input.creditCard.holderName || customer.name,
     email: customer.email?.trim() || "clientes@casaroxa.com.br",
     cpfCnpj: customer.cpfCnpj,
-    postalCode: input.billing.postalCode,
-    addressNumber: input.billing.addressNumber,
+    postalCode: input.billing?.postalCode ?? STORE_POSTAL_CODE,
+    addressNumber:
+      input.billing?.addressNumber ?? customer.addressNumber?.trim() ?? "0",
     phone: customer.phone.replace(/\D/g, ""),
   };
 

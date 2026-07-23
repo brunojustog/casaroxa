@@ -29,15 +29,17 @@ const bodySchema = z.object({
       .transform(digits)
       .refine((v) => v.length === 3 || v.length === 4, "CVV inválido"),
   }),
-  // Endereço da fatura do cartão (antifraude do banco). O resto dos dados
-  // do titular (nome, CPF, e-mail, telefone) vem do cadastro do cliente.
-  billing: z.object({
-    postalCode: z
-      .string()
-      .transform(digits)
-      .refine((v) => v.length === 8, "CEP inválido (8 dígitos)"),
-    addressNumber: z.string().trim().min(1, "Número do endereço é obrigatório").max(10),
-  }),
+  // Endereço de fatura opcional — sem ele o backend usa CEP da loja +
+  // número do cadastro (decisão do negócio: local, cliente conhecido).
+  billing: z
+    .object({
+      postalCode: z
+        .string()
+        .transform(digits)
+        .refine((v) => v.length === 8, "CEP inválido (8 dígitos)"),
+      addressNumber: z.string().trim().min(1).max(10),
+    })
+    .optional(),
 });
 
 export async function POST(req: Request) {
