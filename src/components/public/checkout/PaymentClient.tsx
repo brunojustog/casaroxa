@@ -474,8 +474,8 @@ function CpfForm({ onSubmit }: { onSubmit: (cpfCnpj: string) => void }) {
         </h2>
       </div>
       <p className="text-sm text-slate-600">
-        Pra emitir a cobrança no PIX, o banco exige o CPF (ou CNPJ) do pagador.
-        É usado só pra essa cobrança e fica salvo no seu cadastro.
+        Pra emitir a cobrança, o banco exige o CPF (ou CNPJ) do pagador. É
+        usado só pra essa cobrança e fica salvo no seu cadastro.
       </p>
       <input
         type="text"
