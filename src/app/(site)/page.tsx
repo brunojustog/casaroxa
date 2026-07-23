@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Clock, MapPin, MessageCircle, Store, UtensilsCrossed } from "lucide-react";
+import { ArrowRight, Clock, MapPin, MessageCircle, Snowflake, Store, UtensilsCrossed } from "lucide-react";
 import {
   getEmporioMenu,
   getPublicMenu,
@@ -40,9 +40,13 @@ export default async function HomePage() {
     "Olá! Vim pelo site e quero fazer um pedido.",
   );
 
-  // Pega até 3 categorias com itens pra preview na landing
-  const categoryPreview = menu.slice(0, 3);
+  // Pega até 3 categorias com itens pra preview na landing (congelados têm
+  // seção própria mais abaixo)
+  const categoryPreview = menu
+    .filter((c) => c.category !== "CONGELADOS")
+    .slice(0, 3);
   const totalItems = menu.reduce((acc, c) => acc + c.items.length, 0);
+  const congelados = menu.find((c) => c.category === "CONGELADOS")?.items ?? [];
 
   return (
     <div className="space-y-16">
@@ -208,6 +212,68 @@ export default async function HomePage() {
             )}
             .
           </p>
+        </section>
+      )}
+
+      {/* Congelados da Casa */}
+      {congelados.length > 0 && (
+        <section className="relative overflow-hidden rounded-3xl border border-sky-200 bg-gradient-to-br from-sky-50 via-white to-roxa-50 px-6 py-10 md:px-12">
+          <div className="grid gap-8 md:grid-cols-2 md:items-center">
+            <div className="order-last grid grid-cols-2 gap-3 md:order-first">
+              {congelados
+                .filter((i) => i.imageUrl)
+                .slice(0, 4)
+                .map((i) => (
+                  <Link
+                    key={i.id}
+                    href={`/cardapio/produto/${i.id}`}
+                    className="group relative aspect-square overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-sm"
+                  >
+                    <Image
+                      src={i.imageUrl!}
+                      alt={i.name}
+                      fill
+                      sizes="(max-width: 768px) 50vw, 25vw"
+                      className="object-cover transition group-hover:scale-105"
+                      unoptimized
+                    />
+                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-roxa-900/80 to-transparent p-2.5 text-xs font-semibold text-white">
+                      {i.name}
+                    </span>
+                  </Link>
+                ))}
+            </div>
+
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-sky-800">
+                <Snowflake className="h-3.5 w-3.5" />
+                Novidade
+              </div>
+              <h2 className="font-serif text-3xl font-bold text-roxa-900 md:text-4xl">
+                Congelados da Casa
+              </h2>
+              <p className="text-base text-slate-700">
+                Salgados, quibes e tortas feitos aqui na Casa Roxa e congelados
+                na hora — é só fritar ou assar e servir. Vendidos por peso:
+                você leva quanto quiser pra resolver a semana.
+              </p>
+              <div className="flex flex-wrap gap-3 pt-1">
+                <Link
+                  href="/cardapio?cat=CONGELADOS"
+                  className="inline-flex items-center gap-2 rounded-md bg-sky-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-800"
+                >
+                  Ver congelados
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href="/encomenda"
+                  className="inline-flex items-center gap-2 rounded-md border border-sky-300 bg-white px-5 py-3 text-sm font-semibold text-sky-800 transition hover:bg-sky-50"
+                >
+                  Fazer encomenda
+                </Link>
+              </div>
+            </div>
+          </div>
         </section>
       )}
 

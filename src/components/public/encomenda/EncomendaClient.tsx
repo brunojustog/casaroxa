@@ -269,6 +269,26 @@ export function EncomendaClient({
           </div>
         )}
 
+        {/* Atalho pros congelados (categoria fica no meio do acordeão) */}
+        {!isPonto && visibleCatalog.some((it) => it.category === "CONGELADOS") && (
+          <button
+            type="button"
+            onClick={() => {
+              setOpenCats((cur) => ({ ...cur, CONGELADOS: true }));
+              document
+                .getElementById("cat-CONGELADOS")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+            className="flex w-full items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-left text-sm text-sky-900 transition hover:bg-sky-100"
+          >
+            <span>
+              🧊 <strong>Congelados da Casa</strong> — salgados, quibes e
+              tortas por peso, prontos pra fritar ou assar.
+            </span>
+            <span className="shrink-0 font-semibold text-sky-700">Ver ↓</span>
+          </button>
+        )}
+
         {/* Items agrupados por categoria */}
         {(() => {
           const byCat = new Map<CategoryKey, CatalogItem[]>();
@@ -298,7 +318,8 @@ export function EncomendaClient({
                 return (
                   <section
                     key={cat}
-                    className="rounded-xl border border-roxa-100 bg-white shadow-sm"
+                    id={`cat-${cat}`}
+                    className="scroll-mt-20 rounded-xl border border-roxa-100 bg-white shadow-sm"
                   >
                     <button
                       type="button"
