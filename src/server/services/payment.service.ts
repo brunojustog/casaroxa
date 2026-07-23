@@ -31,6 +31,7 @@ import {
   isAsaasConfigured,
   mapAsaasStatus,
   updateAsaasCustomer,
+  updateAsaasPaymentBillingType,
 } from "./asaas.service";
 import { sendText } from "./whatsapp.service";
 import {
@@ -209,7 +210,52 @@ async function initiateSalePayment(input: {
     throw new BusinessError("Pedido cancelado — não pode pagar.");
   }
   if (sale.onlinePayment) {
-    const p = sale.onlinePayment;
+    let p = sale.onlinePayment;
+
+    // Cobrança PENDENTE mas o cliente trocou de método (ex.: clicou em
+    // Cartão, mudou de ideia e quer PIX): atualiza o billingType no Asaas
+    // e re-hidrata os dados. Sem isso o PIX ficava sem QR pra sempre.
+    if (
+      p.status === OnlinePaymentStatus.PENDING &&
+      p.billingType !== input.billingType
+    ) {
+      const updated = await updateAsaasPaymentBillingType(
+        p.asaasPaymentId,
+        input.billingType === "CREDIT_CARD" ? "CREDIT_CARD" : "PIX",
+      );
+      if (updated.ok) {
+        p = await prisma.onlinePayment.update({
+          where: { id: p.id },
+          data: {
+            billingType: input.billingType,
+            invoiceUrl: updated.payment.invoiceUrl ?? p.invoiceUrl,
+            // QR antigo não vale mais pro novo tipo — rebusca abaixo se PIX.
+            pixPayload: null,
+            pixQrCodeBase64: null,
+          },
+        });
+      }
+    }
+
+    // PIX pendente sem QR salvo (busca falhou na criação ou acabou de
+    // trocar de método): tenta buscar de novo e persiste.
+    if (
+      p.status === OnlinePaymentStatus.PENDING &&
+      p.billingType === "PIX" &&
+      !p.pixPayload
+    ) {
+      const qr = await getAsaasPixQrCode(p.asaasPaymentId);
+      if (qr.ok) {
+        p = await prisma.onlinePayment.update({
+          where: { id: p.id },
+          data: {
+            pixPayload: qr.qr.payload,
+            pixQrCodeBase64: qr.qr.encodedImage,
+          },
+        });
+      }
+    }
+
     return {
       paymentId: p.id,
       billingType: p.billingType,

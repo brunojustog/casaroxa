@@ -32,7 +32,7 @@ export function isAsaasConfigured(): boolean {
 }
 
 async function asaasCall<T = Record<string, unknown>>(
-  method: "GET" | "POST" | "DELETE",
+  method: "GET" | "POST" | "PUT" | "DELETE",
   path: string,
   body?: unknown,
 ): Promise<{ ok: true; data: T } | { ok: false; status: number; error: string }> {
@@ -168,6 +168,21 @@ export async function createAsaasPayment(input: {
     dueDate: input.dueDate.toISOString().slice(0, 10),
     description: input.description.slice(0, 500),
     externalReference: input.externalReference,
+  });
+  if (!r.ok) return { ok: false, error: r.error };
+  return { ok: true, payment: r.data };
+}
+
+/**
+ * Troca o billingType de uma cobrança PENDENTE (ex.: cliente clicou em
+ * Cartão, mudou de ideia e quer PIX). Asaas só permite em cobrança não paga.
+ */
+export async function updateAsaasPaymentBillingType(
+  paymentId: string,
+  billingType: "PIX" | "CREDIT_CARD",
+): Promise<{ ok: true; payment: AsaasPayment } | { ok: false; error: string }> {
+  const r = await asaasCall<AsaasPayment>("PUT", `/v3/payments/${paymentId}`, {
+    billingType,
   });
   if (!r.ok) return { ok: false, error: r.error };
   return { ok: true, payment: r.data };
