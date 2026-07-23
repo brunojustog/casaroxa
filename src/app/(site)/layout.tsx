@@ -1,14 +1,19 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Analytics } from "@/components/public/Analytics";
 import { PublicHeader } from "@/components/public/PublicHeader";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { CartProvider } from "@/components/public/cart/CartProvider";
 import { CartFloatingCta } from "@/components/public/cart/CartFloatingCta";
 import { RestaurantJsonLd } from "@/components/public/seo/RestaurantJsonLd";
+import { AppInstallBanner } from "@/components/public/AppInstallBanner";
 import { getSiteSettings } from "@/server/services/public-menu.service";
 import { getAuthedCustomer } from "@/server/services/customer-session.service";
 
 export const dynamic = "force-dynamic";
+
+export const viewport: Viewport = {
+  themeColor: "#5b21b6",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
@@ -20,6 +25,15 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: { absolute: title },
     description,
+    manifest: "/manifest.webmanifest",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: "Casa Roxa",
+    },
+    icons: {
+      apple: "/icon-192.png",
+    },
     openGraph: {
       title,
       description,
@@ -55,6 +69,7 @@ export default async function SiteLayout({
         <main className="mx-auto max-w-6xl px-4 py-8 md:px-6 md:py-12">{children}</main>
         <PublicFooter settings={settings} />
         <CartFloatingCta />
+        <AppInstallBanner />
         <RestaurantJsonLd settings={settings} />
         <Analytics />
       </div>

@@ -348,6 +348,36 @@ model PushSubscription {
   @@index([userId])
 }
 
+/// Push de CLIENTES do site (app instalado) — canal de marketing gratuito.
+/// Separado do PushSubscription (que é dos operadores da gestão).
+model CustomerPushSubscription {
+  id         String   @id @default(cuid())
+  /// Vinculado ao cadastro quando o cliente informa o telefone.
+  customerId String?
+  /// Telefone informado no opt-in (mesmo sem match de Customer).
+  phone      String?
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+}
+
+/// Histórico de disparos de push pros clientes (broadcast do painel).
+model PushBroadcast {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  url       String?
+  sentCount Int      @default(0)
+  failCount Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
 // ============================================================
 // INGREDIENTES
 // ============================================================
@@ -880,6 +910,7 @@ model Customer {
   campaignDeliveries  CampaignDelivery[]
   reviews             CustomerReview[]
   abandonedCarts      AbandonedCart[]
+  pushSubscriptions   CustomerPushSubscription[]
 
   /// Cliente aceita receber comunicação de marketing (campanhas). Default
   /// true; futuro opt-out fica neste campo. Mensagens transacionais

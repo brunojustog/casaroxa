@@ -12,6 +12,11 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// Handler de fetch mínimo (passthrough) — necessário pro Chrome considerar
+// o site instalável como PWA. Sem cache offline por ora: cardápio e preços
+// mudam e servir versão velha seria pior que erro de rede.
+self.addEventListener("fetch", () => {});
+
 self.addEventListener("push", (event) => {
   let data = { title: "Casa Roxa", body: "" };
   try {

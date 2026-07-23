@@ -32,6 +32,7 @@ import {
   Megaphone,
   Star,
   Bus,
+  Smartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@prisma/client";
@@ -78,6 +79,7 @@ const NAV: NavSection[] = [
       { href: "/vendas",      label: "Vendas",      icon: DollarSign },
       { href: "/clientes",    label: "Clientes",    icon: UsersRound },
       { href: "/campanhas",   label: "Campanhas",   icon: Megaphone, roles: ["ADMIN"] },
+      { href: "/notificacoes", label: "Notificações app", icon: Smartphone, roles: ["ADMIN"] },
       { href: "/avaliacoes",  label: "Avaliações",  icon: Star, roles: ["ADMIN"] },
       { href: "/carrinhos-abandonados", label: "Carrinhos perdidos", icon: ShoppingCart, roles: ["ADMIN"] },
     ],

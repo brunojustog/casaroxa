@@ -105,3 +105,122 @@ export async function removeSubscription(endpoint: string, userId: string) {
     .deleteMany({ where: { endpoint, userId } })
     .catch(() => undefined);
 }
+
+// ============================================================
+// Push de CLIENTES (app do site) — canal de marketing
+// ============================================================
+
+/**
+ * Salva inscrição de push de um cliente do site. Se veio telefone,
+ * tenta vincular ao Customer existente (mesma normalização do checkout).
+ */
+export async function saveCustomerSubscription(input: {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  userAgent: string | null;
+  phone?: string | null;
+}) {
+  let customerId: string | null = null;
+  const phone = input.phone?.trim() || null;
+  if (phone) {
+    const digits = phone.replace(/\D+/g, "");
+    if (digits.length >= 10) {
+      const customer = await prisma.customer.findFirst({
+        // Telefones são gravados em formatos variados — compara por dígitos.
+        where: { phone: { contains: digits.slice(-8) } },
+        select: { id: true },
+      });
+      customerId = customer?.id ?? null;
+    }
+  }
+  return prisma.customerPushSubscription.upsert({
+    where: { endpoint: input.endpoint },
+    update: {
+      p256dh: input.p256dh,
+      auth: input.auth,
+      userAgent: input.userAgent,
+      ...(phone ? { phone } : {}),
+      ...(customerId ? { customerId } : {}),
+    },
+    create: {
+      endpoint: input.endpoint,
+      p256dh: input.p256dh,
+      auth: input.auth,
+      userAgent: input.userAgent,
+      phone,
+      customerId,
+    },
+  });
+}
+
+export async function removeCustomerSubscription(endpoint: string) {
+  await prisma.customerPushSubscription
+    .deleteMany({ where: { endpoint } })
+    .catch(() => undefined);
+}
+
+export async function countCustomerSubscriptions(): Promise<number> {
+  return prisma.customerPushSubscription.count();
+}
+
+/**
+ * Broadcast pra todos os clientes com app/notificações ativas.
+ * Registra o disparo em PushBroadcast e limpa endpoints mortos.
+ */
+export async function sendPushToAllCustomers(payload: PushPayload): Promise<{
+  sent: number;
+  failed: number;
+  broadcastId: string;
+}> {
+  if (!ensureConfigured()) {
+    throw new Error("Push não configurado no servidor (VAPID ausente).");
+  }
+
+  const subs = await prisma.customerPushSubscription.findMany();
+  const data = JSON.stringify(payload);
+  let sent = 0;
+  let failed = 0;
+
+  await Promise.allSettled(
+    subs.map(async (s) => {
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+          data,
+        );
+        sent++;
+      } catch (e) {
+        const err = e as { statusCode?: number };
+        if (err.statusCode === 404 || err.statusCode === 410) {
+          await prisma.customerPushSubscription
+            .delete({ where: { id: s.id } })
+            .catch(() => undefined);
+        } else {
+          failed++;
+          console.error("[push-clientes] falha:", err.statusCode, e);
+        }
+      }
+    }),
+  );
+
+  const broadcast = await prisma.pushBroadcast.create({
+    data: {
+      title: payload.title,
+      body: payload.body,
+      url: payload.url ?? null,
+      sentCount: sent,
+      failCount: failed,
+    },
+    select: { id: true },
+  });
+
+  return { sent, failed, broadcastId: broadcast.id };
+}
+
+export async function listPushBroadcasts(limit = 20) {
+  return prisma.pushBroadcast.findMany({
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+}

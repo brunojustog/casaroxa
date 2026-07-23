@@ -36,6 +36,12 @@ const PUBLIC_EXACT = new Set([
   "/logo.svg",
   "/robots.txt",
   "/sitemap.xml",
+  // PWA (app instalável do site público)
+  "/sw.js",
+  "/manifest.webmanifest",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/icon-maskable-512.png",
 ]);
 
 /**
@@ -90,6 +96,7 @@ const ADMIN_PREFIXES = [
   "/viagens",
   "/producao",
   "/campanhas",
+  "/notificacoes",
   "/avaliacoes",
   "/carrinhos-abandonados",
   "/aprovacoes-ia",
