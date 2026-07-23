@@ -230,6 +230,28 @@ export async function createPublicOrderRequest(input: PublicOrderRequestData) {
 
   const items = await loadValidatedItems(input.items);
 
+  // Ponto parceiro não tem cozinha quente — na encomenda semanal só
+  // congelados podem ir pro ponto (empório vai pelo fluxo EMPORIO).
+  if (pickupPoint && input.kind !== "EMPORIO") {
+    const productIds = items
+      .filter((i) => i.productId)
+      .map((i) => i.productId as string);
+    const hasCombo = items.some((i) => i.comboId);
+    const hotCount = productIds.length
+      ? await prisma.product.count({
+          where: {
+            id: { in: productIds },
+            category: { notIn: ["CONGELADOS", "EMPORIO"] },
+          },
+        })
+      : 0;
+    if (hasCombo || hotCount > 0) {
+      throw new BusinessError(
+        "No ponto parceiro entregamos só congelados e itens do empório — a cozinha quente é com retirada ou delivery em Jaú.",
+      );
+    }
+  }
+
   const created = await prisma.$transaction(async (tx) => {
     // Upsert do cliente — falha de telefone não bloqueia o pedido
     let customerId: string | null = null;

@@ -115,13 +115,6 @@ export function EncomendaClient({
   }, [leadHours]);
 
   const [qty, setQty] = useState<Record<string, number>>({});
-
-  // Acordeão das categorias: a primeira com itens começa aberta, o resto
-  // recolhido — o usuário expande só o que interessa.
-  const firstCat = useMemo(
-    () => CATEGORY_ORDER.find((c) => catalog.some((it) => it.category === c)),
-    [catalog],
-  );
   const [openCats, setOpenCats] = useState<Partial<Record<CategoryKey, boolean>>>({});
   const isCatOpen = (c: CategoryKey) => openCats[c] ?? c === firstCat;
   const toggleCat = (c: CategoryKey) =>
@@ -153,12 +146,32 @@ export function EncomendaClient({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isPontoMode = deliveryMode === "PONTO";
+
+  // Ponto parceiro não tem cozinha quente — só congelados saem daqui
+  // (empório tem fluxo próprio em /emporio/encomenda). Itens quentes já
+  // selecionados saem do carrinho automaticamente ao trocar pra PONTO.
+  const visibleCatalog = useMemo(
+    () =>
+      isPontoMode
+        ? catalog.filter((it) => it.category === "CONGELADOS")
+        : catalog,
+    [catalog, isPontoMode],
+  );
+
+  // Acordeão das categorias: a primeira com itens começa aberta, o resto
+  // recolhido — o usuário expande só o que interessa.
+  const firstCat = useMemo(
+    () => CATEGORY_ORDER.find((c) => visibleCatalog.some((it) => it.category === c)),
+    [visibleCatalog],
+  );
+
   const cartItems = useMemo(
     () =>
-      catalog
+      visibleCatalog
         .map((it) => ({ item: it, quantity: qty[keyOf(it)] ?? 0 }))
         .filter((x) => x.quantity > 0),
-    [catalog, qty],
+    [visibleCatalog, qty],
   );
 
   const subtotalCents = cartItems.reduce(
@@ -239,16 +252,40 @@ export function EncomendaClient({
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
+        {/* Ponto parceiro: só congelados (cozinha quente é só em Jaú) */}
+        {isPonto && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p>
+              No <strong>ponto parceiro</strong> entregamos{" "}
+              <strong>congelados</strong> e itens do empório — a cozinha quente
+              (assados e acompanhamentos) é só com retirada ou delivery em Jaú.
+            </p>
+            <Link
+              href={`/emporio/encomenda${selectedPoint ? `?ponto=${selectedPoint.slug}` : ""}`}
+              className="mt-1.5 inline-block font-semibold text-roxa-700 hover:underline"
+            >
+              Ver queijos, doces e quitutes do empório →
+            </Link>
+          </div>
+        )}
+
         {/* Items agrupados por categoria */}
         {(() => {
           const byCat = new Map<CategoryKey, CatalogItem[]>();
-          for (const it of catalog) {
+          for (const it of visibleCatalog) {
             const arr = byCat.get(it.category) ?? [];
             arr.push(it);
             byCat.set(it.category, arr);
           }
           const sections = CATEGORY_ORDER.filter((c) => (byCat.get(c)?.length ?? 0) > 0);
-          if (sections.length === 0) return null;
+          if (sections.length === 0)
+            return (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm text-slate-600">
+                {isPonto
+                  ? "Ainda não há congelados disponíveis pra encomenda no ponto parceiro — use o link do empório acima."
+                  : "Nenhum item disponível pra encomenda no momento."}
+              </div>
+            );
           return (
             <div className="space-y-5">
               {sections.map((cat) => {
