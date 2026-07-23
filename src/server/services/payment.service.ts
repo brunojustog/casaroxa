@@ -637,15 +637,47 @@ const PAID_ASAAS_STATUSES = new Set(["CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"
 export async function paySaleWithCreditCard(input: {
   saleId: string;
   creditCard: AsaasCreditCard;
-  holderInfo: AsaasCreditCardHolderInfo;
+  /** Só o que NÃO temos no cadastro — o resto (nome, CPF, e-mail, fone)
+   *  vem do Customer da venda pra não burocratizar o formulário. */
+  billing: { postalCode: string; addressNumber: string };
   remoteIp?: string | null;
 }): Promise<{ paid: boolean; status: OnlinePaymentStatus }> {
+  const saleCustomer = await prisma.sale.findUnique({
+    where: { id: input.saleId },
+    select: {
+      customer: {
+        select: { name: true, phone: true, email: true, cpfCnpj: true },
+      },
+    },
+  });
+  const customer = saleCustomer?.customer;
+  if (!customer) {
+    throw new BusinessError(
+      "Pedido sem cliente identificado. Identifique-se pelo WhatsApp primeiro.",
+    );
+  }
+  // O fluxo NEED_CPF garante o CPF antes do formulário de cartão aparecer.
+  if (!customer.cpfCnpj) {
+    throw new BusinessError(
+      "CPF não encontrado no cadastro. Recarregue a página e informe o CPF.",
+    );
+  }
+
+  const holderInfo: AsaasCreditCardHolderInfo = {
+    name: input.creditCard.holderName || customer.name,
+    email: customer.email?.trim() || "clientes@casaroxa.com.br",
+    cpfCnpj: customer.cpfCnpj,
+    postalCode: input.billing.postalCode,
+    addressNumber: input.billing.addressNumber,
+    phone: customer.phone.replace(/\D/g, ""),
+  };
+
   // Garante a cobrança (cria/converte pra CREDIT_CARD se preciso).
   await initiateOnlinePayment({
     kind: "sale",
     saleId: input.saleId,
     billingType: "CREDIT_CARD",
-    cpfCnpj: input.holderInfo.cpfCnpj,
+    cpfCnpj: holderInfo.cpfCnpj,
   });
 
   const payment = await prisma.onlinePayment.findUnique({
@@ -662,7 +694,7 @@ export async function paySaleWithCreditCard(input: {
 
   const result = await payAsaasPaymentWithCreditCard(payment.asaasPaymentId, {
     creditCard: input.creditCard,
-    holderInfo: input.holderInfo,
+    holderInfo,
     remoteIp: input.remoteIp,
   });
   if (!result.ok) {

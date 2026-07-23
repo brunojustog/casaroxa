@@ -542,14 +542,6 @@ function maskCep(v: string): string {
   return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
 }
 
-function maskPhone(v: string): string {
-  const d = v.replace(/\D/g, "").slice(0, 11);
-  if (d.length <= 2) return d;
-  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
-  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
-}
-
 const fmtBRL = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
@@ -571,12 +563,8 @@ function CardTransparentForm({
   const [holderName, setHolderName] = useState("");
   const [expiry, setExpiry] = useState("");
   const [ccv, setCcv] = useState("");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [cpf, setCpf] = useState("");
   const [cep, setCep] = useState("");
   const [addressNumber, setAddressNumber] = useState("");
-  const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [cardError, setCardError] = useState<string | null>(null);
 
@@ -595,14 +583,7 @@ function CardTransparentForm({
         body: JSON.stringify({
           saleId,
           card: { holderName, number: cardNumber, expiry, ccv },
-          holder: {
-            name,
-            email,
-            cpfCnpj: cpf,
-            postalCode: cep,
-            addressNumber,
-            phone,
-          },
+          billing: { postalCode: cep, addressNumber },
         }),
       });
       const json = (await res.json()) as
@@ -706,99 +687,42 @@ function CardTransparentForm({
 
       <div className="border-t border-slate-100 pt-3">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-          Dados do titular
+          Endereço da fatura do cartão
         </p>
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-700">
-                Nome completo <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                autoComplete="name"
-                required
-                value={name}
-                onChange={(e) => setName(e.currentTarget.value)}
-                className={inputCls}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-700">
-                CPF <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                required
-                value={cpf}
-                onChange={(e) => setCpf(maskCpfCnpj(e.currentTarget.value))}
-                placeholder="000.000.000-00"
-                className={inputCls}
-              />
-            </div>
-          </div>
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <label className="text-xs font-medium text-slate-700">
-              E-mail <span className="text-red-500">*</span>
+              CEP <span className="text-red-500">*</span>
             </label>
             <input
-              type="email"
-              autoComplete="email"
+              type="text"
+              inputMode="numeric"
+              autoComplete="postal-code"
               required
-              value={email}
-              onChange={(e) => setEmail(e.currentTarget.value)}
-              placeholder="voce@email.com"
+              value={cep}
+              onChange={(e) => setCep(maskCep(e.currentTarget.value))}
+              placeholder="00000-000"
               className={inputCls}
             />
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-1 space-y-1">
-              <label className="text-xs font-medium text-slate-700">
-                CEP <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="postal-code"
-                required
-                value={cep}
-                onChange={(e) => setCep(maskCep(e.currentTarget.value))}
-                placeholder="00000-000"
-                className={inputCls}
-              />
-            </div>
-            <div className="col-span-1 space-y-1">
-              <label className="text-xs font-medium text-slate-700">
-                Nº <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                required
-                value={addressNumber}
-                onChange={(e) => setAddressNumber(e.currentTarget.value.slice(0, 10))}
-                placeholder="123"
-                className={inputCls}
-              />
-            </div>
-            <div className="col-span-1 space-y-1">
-              <label className="text-xs font-medium text-slate-700">
-                Celular <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                required
-                value={phone}
-                onChange={(e) => setPhone(maskPhone(e.currentTarget.value))}
-                placeholder="(14) 99999-9999"
-                className={inputCls}
-              />
-            </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-700">
+              Número <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              required
+              value={addressNumber}
+              onChange={(e) => setAddressNumber(e.currentTarget.value.slice(0, 10))}
+              placeholder="123"
+              className={inputCls}
+            />
           </div>
         </div>
+        <p className="mt-1.5 text-[11px] text-slate-500">
+          Exigência do banco pro antifraude — é o endereço da fatura do cartão.
+        </p>
       </div>
 
       {cardError && (

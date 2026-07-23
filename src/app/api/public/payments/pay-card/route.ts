@@ -9,7 +9,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { paySaleWithCreditCard } from "@/server/services/payment.service";
 import { BusinessError } from "@/server/auth-helpers";
-import { isValidCpfOrCnpj } from "@/lib/cpf-cnpj";
 
 const digits = (v: string) => v.replace(/\D/g, "");
 
@@ -30,25 +29,14 @@ const bodySchema = z.object({
       .transform(digits)
       .refine((v) => v.length === 3 || v.length === 4, "CVV inválido"),
   }),
-  holder: z.object({
-    name: z.string().trim().min(2, "Nome do titular é obrigatório").max(120),
-    email: z.string().trim().toLowerCase().email("E-mail inválido").max(150),
-    cpfCnpj: z
-      .string()
-      .transform(digits)
-      .refine(
-        (v) => (v.length === 11 || v.length === 14) && isValidCpfOrCnpj(v),
-        "CPF/CNPJ do titular inválido",
-      ),
+  // Endereço da fatura do cartão (antifraude do banco). O resto dos dados
+  // do titular (nome, CPF, e-mail, telefone) vem do cadastro do cliente.
+  billing: z.object({
     postalCode: z
       .string()
       .transform(digits)
       .refine((v) => v.length === 8, "CEP inválido (8 dígitos)"),
     addressNumber: z.string().trim().min(1, "Número do endereço é obrigatório").max(10),
-    phone: z
-      .string()
-      .transform(digits)
-      .refine((v) => v.length >= 10 && v.length <= 13, "Telefone inválido"),
   }),
 });
 
@@ -62,7 +50,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const { saleId, card, holder } = parsed.data;
+  const { saleId, card, billing } = parsed.data;
   const [mm, yy] = card.expiry.split("/").map((s) => s.trim());
   const expiryYear = yy.length === 2 ? `20${yy}` : yy;
   const remoteIp =
@@ -78,14 +66,7 @@ export async function POST(req: Request) {
         expiryYear,
         ccv: card.ccv,
       },
-      holderInfo: {
-        name: holder.name,
-        email: holder.email,
-        cpfCnpj: holder.cpfCnpj,
-        postalCode: holder.postalCode,
-        addressNumber: holder.addressNumber,
-        phone: holder.phone,
-      },
+      billing,
       remoteIp,
     });
     return NextResponse.json({ ok: true, paid: result.paid, status: result.status });
