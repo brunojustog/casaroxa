@@ -254,7 +254,7 @@ export default async function HomePage() {
               </h2>
               <p className="text-base text-slate-700">
                 Salgados, quibes e tortas feitos aqui na Casa Roxa e congelados
-                na hora — é só fritar ou assar e servir. Vendidos por peso:
+                na hora. É só fritar ou assar e servir. Vendidos por peso:
                 você leva quanto quiser pra resolver a semana.
               </p>
               <div className="flex flex-wrap gap-3 pt-1">

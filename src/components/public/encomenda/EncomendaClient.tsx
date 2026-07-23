@@ -282,7 +282,7 @@ export function EncomendaClient({
             className="flex w-full items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-left text-sm text-sky-900 transition hover:bg-sky-100"
           >
             <span>
-              🧊 <strong>Congelados da Casa</strong> — salgados, quibes e
+              🧊 <strong>Congelados da Casa</strong>: salgados, quibes e
               tortas por peso, prontos pra fritar ou assar.
             </span>
             <span className="shrink-0 font-semibold text-sky-700">Ver ↓</span>
