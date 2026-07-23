@@ -30,8 +30,11 @@ import {
   getAsaasPixQrCode,
   isAsaasConfigured,
   mapAsaasStatus,
+  payAsaasPaymentWithCreditCard,
   updateAsaasCustomer,
   updateAsaasPaymentBillingType,
+  type AsaasCreditCard,
+  type AsaasCreditCardHolderInfo,
 } from "./asaas.service";
 import { sendText } from "./whatsapp.service";
 import {
@@ -614,6 +617,74 @@ export async function initiateOrderRequestDepositPayment(input: {
     invoiceUrl: created.invoiceUrl,
     value: Number(created.value),
     dueDate: created.dueDate,
+  };
+}
+
+// ---------- Cartão transparente (Sale) ----------
+
+/** Status do Asaas que significam "pagamento aprovado". */
+const PAID_ASAAS_STATUSES = new Set(["CONFIRMED", "RECEIVED", "RECEIVED_IN_CASH"]);
+
+/**
+ * Paga o pedido com cartão SEM sair do site (checkout transparente, padrão
+ * IRC). A cobrança PENDENTE já deve existir (o front chama initiate antes);
+ * se não existir, criamos aqui. Dados do cartão passam direto pro Asaas —
+ * jamais persistidos ou logados.
+ *
+ * Aprovação imediata reusa handlePaymentWebhook (mesma lógica e idempotência
+ * do webhook real, que chega depois e vira no-op).
+ */
+export async function paySaleWithCreditCard(input: {
+  saleId: string;
+  creditCard: AsaasCreditCard;
+  holderInfo: AsaasCreditCardHolderInfo;
+  remoteIp?: string | null;
+}): Promise<{ paid: boolean; status: OnlinePaymentStatus }> {
+  // Garante a cobrança (cria/converte pra CREDIT_CARD se preciso).
+  await initiateOnlinePayment({
+    kind: "sale",
+    saleId: input.saleId,
+    billingType: "CREDIT_CARD",
+    cpfCnpj: input.holderInfo.cpfCnpj,
+  });
+
+  const payment = await prisma.onlinePayment.findUnique({
+    where: { saleId: input.saleId },
+    select: { id: true, asaasPaymentId: true, status: true },
+  });
+  if (!payment) throw new BusinessError("Cobrança não encontrada pro pedido.");
+  if (
+    payment.status === OnlinePaymentStatus.RECEIVED ||
+    payment.status === OnlinePaymentStatus.CONFIRMED
+  ) {
+    throw new BusinessError("Este pedido já está pago. 🎉");
+  }
+
+  const result = await payAsaasPaymentWithCreditCard(payment.asaasPaymentId, {
+    creditCard: input.creditCard,
+    holderInfo: input.holderInfo,
+    remoteIp: input.remoteIp,
+  });
+  if (!result.ok) {
+    // Loga só a mensagem do Asaas — NUNCA dados do cartão.
+    console.error(
+      `[card] recusa/falha no pedido ${input.saleId}:`,
+      result.error,
+    );
+    throw new BusinessError(
+      result.error || "Cartão recusado. Confira os dados ou tente outro cartão.",
+    );
+  }
+
+  // Reusa o fluxo do webhook (conclui venda + WhatsApp), idempotente.
+  await handlePaymentWebhook({
+    event: "PAYMENT_CONFIRMED",
+    payment: { id: payment.asaasPaymentId, status: result.payment.status },
+  });
+
+  return {
+    paid: PAID_ASAAS_STATUSES.has(result.payment.status),
+    status: mapAsaasStatus(result.payment.status),
   };
 }
 

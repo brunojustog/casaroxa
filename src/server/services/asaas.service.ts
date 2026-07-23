@@ -188,6 +188,53 @@ export async function updateAsaasPaymentBillingType(
   return { ok: true, payment: r.data };
 }
 
+// ---------- Cartão (checkout transparente) ----------
+
+/** Dados do cartão — trafegam pelo servidor mas NUNCA são salvos nem logados. */
+export type AsaasCreditCard = {
+  holderName: string;
+  number: string;
+  expiryMonth: string;
+  expiryYear: string;
+  ccv: string;
+};
+
+export type AsaasCreditCardHolderInfo = {
+  name: string;
+  email: string;
+  cpfCnpj: string;
+  postalCode: string;
+  addressNumber: string;
+  phone?: string;
+};
+
+/**
+ * Paga uma cobrança PENDENTE existente com cartão de crédito (checkout
+ * transparente — mesmo modelo do projeto IRC). O Asaas processa na hora e
+ * devolve o status (CONFIRMED = aprovado; erro = recusado).
+ * `remoteIp` é o IP do CLIENTE final — obrigatório pro antifraude.
+ */
+export async function payAsaasPaymentWithCreditCard(
+  paymentId: string,
+  input: {
+    creditCard: AsaasCreditCard;
+    holderInfo: AsaasCreditCardHolderInfo;
+    remoteIp?: string | null;
+  },
+): Promise<{ ok: true; payment: AsaasPayment } | { ok: false; error: string }> {
+  const r = await asaasCall<AsaasPayment>(
+    "POST",
+    `/v3/payments/${paymentId}/payWithCreditCard`,
+    {
+      creditCard: input.creditCard,
+      creditCardHolderInfo: input.holderInfo,
+      ...(input.remoteIp ? { remoteIp: input.remoteIp } : {}),
+    },
+  );
+  if (!r.ok) return { ok: false, error: r.error };
+  return { ok: true, payment: r.data };
+}
+
 export type AsaasPixQrCode = {
   encodedImage: string; // base64 PNG
   payload: string; // chave copia-cola

@@ -80,50 +80,8 @@ export function PaymentClient({ subject }: { subject: Subject }) {
   const [confirmedPaymentId, setConfirmedPaymentId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const popupRef = useRef<Window | null>(null);
-  const [popupOpen, setPopupOpen] = useState(false);
-  const [popupBlocked, setPopupBlocked] = useState(false);
   const [needsAuth, setNeedsAuth] = useState(false);
   const [otpOpen, setOtpOpen] = useState(false);
-
-  const openCardPopup = useCallback((url: string) => {
-    setPopupBlocked(false);
-    const w = 480;
-    const h = 720;
-    const left = Math.max(0, (window.screen.width - w) / 2);
-    const top = Math.max(0, (window.screen.height - h) / 2);
-    const win = window.open(
-      url,
-      "asaas_checkout",
-      `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes`,
-    );
-    if (!win) {
-      setPopupBlocked(true);
-      return;
-    }
-    popupRef.current = win;
-    setPopupOpen(true);
-    win.focus();
-  }, []);
-
-  useEffect(() => {
-    if (!popupOpen) return;
-    const t = setInterval(() => {
-      if (popupRef.current?.closed) {
-        setPopupOpen(false);
-        popupRef.current = null;
-      }
-    }, 800);
-    return () => clearInterval(t);
-  }, [popupOpen]);
-
-  useEffect(() => {
-    if (paid && popupRef.current && !popupRef.current.closed) {
-      popupRef.current.close();
-      popupRef.current = null;
-      setPopupOpen(false);
-    }
-  }, [paid]);
 
   const initiate = useCallback(
     async (m: Method, cpfCnpj?: string) => {
@@ -377,14 +335,22 @@ export function PaymentClient({ subject }: { subject: Subject }) {
         <PixBlock data={data} copyPix={copyPix} copied={copied} />
       )}
 
-      {!loading && !needCpf && !needsAuth && !error && data && method === "CREDIT_CARD" && (
-        <CardBlock
-          data={data}
-          popupOpen={popupOpen}
-          popupBlocked={popupBlocked}
-          onOpen={() => data.invoiceUrl && openCardPopup(data.invoiceUrl)}
-        />
-      )}
+      {!loading &&
+        !needCpf &&
+        !needsAuth &&
+        !error &&
+        data &&
+        method === "CREDIT_CARD" &&
+        subject.kind === "sale" && (
+          <CardTransparentForm
+            saleId={subject.saleId}
+            value={data.value}
+            onPaid={() => {
+              setConfirmedPaymentId(data.paymentId);
+              setPaid(true);
+            }}
+          />
+        )}
 
       <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
         Está demorando? Você pode{" "}
@@ -557,83 +523,311 @@ function PixBlock({
   );
 }
 
-function CardBlock({
-  data,
-  popupOpen,
-  popupBlocked,
-  onOpen,
+// ---------- Cartão transparente ----------
+
+function maskCardNumber(v: string): string {
+  return v
+    .replace(/\D/g, "")
+    .slice(0, 19)
+    .replace(/(\d{4})(?=\d)/g, "$1 ");
+}
+
+function maskExpiry(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 4);
+  return d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
+}
+
+function maskCep(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 8);
+  return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
+}
+
+function maskPhone(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+const fmtBRL = (v: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+
+/**
+ * Checkout transparente de cartão: os campos ficam no NOSSO site, no nosso
+ * visual. Os dados vão criptografados (HTTPS) pro nosso backend, que repassa
+ * direto ao Asaas — nada é salvo. Padrão idêntico ao do projeto IRC.
+ */
+function CardTransparentForm({
+  saleId,
+  value,
+  onPaid,
 }: {
-  data: Extract<InitiateResponse, { ok: true }>;
-  popupOpen: boolean;
-  popupBlocked: boolean;
-  onOpen: () => void;
+  saleId: string;
+  value: number;
+  onPaid: () => void;
 }) {
+  const [cardNumber, setCardNumber] = useState("");
+  const [holderName, setHolderName] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [ccv, setCcv] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [cep, setCep] = useState("");
+  const [addressNumber, setAddressNumber] = useState("");
+  const [phone, setPhone] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [cardError, setCardError] = useState<string | null>(null);
+
+  const inputCls =
+    "h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-roxa-500 focus:outline-none focus:ring-1 focus:ring-roxa-500";
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (submitting) return;
+    setCardError(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/public/payments/pay-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          saleId,
+          card: { holderName, number: cardNumber, expiry, ccv },
+          holder: {
+            name,
+            email,
+            cpfCnpj: cpf,
+            postalCode: cep,
+            addressNumber,
+            phone,
+          },
+        }),
+      });
+      const json = (await res.json()) as
+        | { ok: true; paid: boolean; status: string }
+        | { ok: false; error: string };
+      if (!json.ok) {
+        setCardError(json.error);
+        return;
+      }
+      if (json.paid) {
+        onPaid();
+      } else {
+        setCardError(
+          "Pagamento em análise pelo banco. Esta tela atualiza sozinha quando confirmar.",
+        );
+      }
+    } catch {
+      setCardError("Falha de conexão. Confira a internet e tente de novo.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
-    <div className="space-y-4 rounded-xl border border-roxa-100 bg-white p-5 shadow-sm">
+    <form
+      onSubmit={submit}
+      className="space-y-4 rounded-xl border border-roxa-100 bg-white p-5 shadow-sm"
+    >
       <div className="flex items-center gap-2">
         <CreditCard className="h-5 w-5 text-roxa-700" />
         <h2 className="font-serif text-lg font-semibold text-roxa-900">
           Pagar com cartão
         </h2>
       </div>
-      <p className="text-sm text-slate-700">
-        O cartão é processado em uma janela segura do Asaas — abre aqui mesmo
-        sobre essa página, sem sair do site da Casa Roxa.
-      </p>
 
-      {!data.invoiceUrl && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          Link do checkout indisponível. Tente trocar pra PIX ou recarregar.
-        </p>
-      )}
-
-      {data.invoiceUrl && !popupOpen && (
-        <button
-          type="button"
-          onClick={onOpen}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-roxa-700 px-4 py-3 text-base font-semibold text-white hover:bg-roxa-800"
-        >
-          <CreditCard className="h-5 w-5" />
-          Abrir checkout seguro
-        </button>
-      )}
-
-      {data.invoiceUrl && popupOpen && (
-        <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-          <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
-          <div className="flex-1">
-            <p className="font-medium">Janela do checkout aberta</p>
-            <p className="mt-0.5 text-xs">
-              Conclua o pagamento na janelinha. Esta tela vai atualizar sozinha
-              quando o cartão for autorizado.
-            </p>
-            <button
-              type="button"
-              onClick={onOpen}
-              className="mt-2 text-xs font-medium text-blue-800 underline hover:text-blue-900"
-            >
-              Reabrir janela
-            </button>
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-slate-700">
+            Número do cartão <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="cc-number"
+            required
+            value={cardNumber}
+            onChange={(e) => setCardNumber(maskCardNumber(e.currentTarget.value))}
+            placeholder="0000 0000 0000 0000"
+            className={inputCls}
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-slate-700">
+            Nome impresso no cartão <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            autoComplete="cc-name"
+            required
+            value={holderName}
+            onChange={(e) => setHolderName(e.currentTarget.value.toUpperCase())}
+            placeholder="COMO ESTÁ NO CARTÃO"
+            className={inputCls}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-700">
+              Validade <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="cc-exp"
+              required
+              value={expiry}
+              onChange={(e) => setExpiry(maskExpiry(e.currentTarget.value))}
+              placeholder="MM/AA"
+              className={inputCls}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-700">
+              CVV <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="cc-csc"
+              required
+              value={ccv}
+              onChange={(e) =>
+                setCcv(e.currentTarget.value.replace(/\D/g, "").slice(0, 4))
+              }
+              placeholder="123"
+              className={inputCls}
+            />
           </div>
         </div>
-      )}
+      </div>
 
-      {data.invoiceUrl && popupBlocked && (
-        <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          <p className="font-medium">Janela bloqueada pelo navegador</p>
-          <p className="text-xs">
-            Permita pop-ups deste site, ou abra o checkout em outra aba:
-          </p>
-          <a
-            href={data.invoiceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
-          >
-            Abrir em nova aba <ArrowRight className="h-3.5 w-3.5" />
-          </a>
+      <div className="border-t border-slate-100 pt-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          Dados do titular
+        </p>
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-700">
+                Nome completo <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                autoComplete="name"
+                required
+                value={name}
+                onChange={(e) => setName(e.currentTarget.value)}
+                className={inputCls}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-700">
+                CPF <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                required
+                value={cpf}
+                onChange={(e) => setCpf(maskCpfCnpj(e.currentTarget.value))}
+                placeholder="000.000.000-00"
+                className={inputCls}
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-700">
+              E-mail <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.currentTarget.value)}
+              placeholder="voce@email.com"
+              className={inputCls}
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-1 space-y-1">
+              <label className="text-xs font-medium text-slate-700">
+                CEP <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="postal-code"
+                required
+                value={cep}
+                onChange={(e) => setCep(maskCep(e.currentTarget.value))}
+                placeholder="00000-000"
+                className={inputCls}
+              />
+            </div>
+            <div className="col-span-1 space-y-1">
+              <label className="text-xs font-medium text-slate-700">
+                Nº <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                required
+                value={addressNumber}
+                onChange={(e) => setAddressNumber(e.currentTarget.value.slice(0, 10))}
+                placeholder="123"
+                className={inputCls}
+              />
+            </div>
+            <div className="col-span-1 space-y-1">
+              <label className="text-xs font-medium text-slate-700">
+                Celular <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                required
+                value={phone}
+                onChange={(e) => setPhone(maskPhone(e.currentTarget.value))}
+                placeholder="(14) 99999-9999"
+                className={inputCls}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {cardError && (
+        <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>{cardError}</p>
         </div>
       )}
-    </div>
+
+      <button
+        type="submit"
+        disabled={submitting}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-roxa-700 px-4 py-3 text-base font-semibold text-white hover:bg-roxa-800 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {submitting ? (
+          <>
+            <Loader2 className="h-5 w-5 animate-spin" /> Processando…
+          </>
+        ) : (
+          <>
+            <CreditCard className="h-5 w-5" /> Pagar {fmtBRL(value)}
+          </>
+        )}
+      </button>
+
+      <p className="text-center text-[11px] leading-relaxed text-slate-500">
+        🔒 Pagamento processado pelo Asaas com antifraude. A Casa Roxa não
+        armazena os dados do seu cartão.
+      </p>
+    </form>
   );
 }
