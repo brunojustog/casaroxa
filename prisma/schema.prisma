@@ -1601,10 +1601,15 @@ model OrderRequest {
   supplyTripId String?
   supplyTrip   SupplyTrip?      @relation(fields: [supplyTripId], references: [id], onDelete: SetNull)
 
+  /// Retirada em ponto parceiro (deliveryMode PICKUP + ponto).
+  pickupPointId String?
+  pickupPoint   PickupPoint? @relation(fields: [pickupPointId], references: [id], onDelete: SetNull)
+
   @@index([status, requestedFor])
   @@index([requestedFor])
   @@index([customerId])
   @@index([supplyTripId])
+  @@index([pickupPointId])
 }
 
 enum OrderRequestKind {
@@ -1616,6 +1621,26 @@ enum SupplyTripStatus {
   AGENDADA
   CONCLUIDA
   CANCELADA
+}
+
+/// Ponto de retirada parceiro em outra cidade (ex.: Lençóis Paulista).
+/// O cliente encomenda pelo site escolhendo o ponto; a Casa Roxa entrega
+/// no ponto conforme a agenda (ex.: domingos). Link de divulgação:
+/// /encomenda?ponto=<slug>.
+model PickupPoint {
+  id       String  @id @default(cuid())
+  slug     String  @unique
+  name     String
+  city     String?
+  /// Ex.: "Entregas aos domingos à tarde".
+  schedule String?
+  notes    String?
+  active   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderRequests OrderRequest[]
 }
 
 /// Viagem de compra do empório (ida a Minas, ~2x/mês). O cliente encomenda

@@ -12,8 +12,15 @@ export const metadata: Metadata = {
     "Encomende com antecedência pra retirar ou receber na data que você quiser.",
 };
 
-export default async function EncomendaPage() {
-  const [products, combos, settings] = await Promise.all([
+export default async function EncomendaPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const pontoSlug = typeof sp.ponto === "string" ? sp.ponto : null;
+
+  const [products, combos, settings, pickupPoints] = await Promise.all([
     prisma.product.findMany({
       // Empório fica de fora — tem fluxo próprio em /emporio/encomenda
       // (atrelado às viagens de compra).
@@ -45,6 +52,11 @@ export default async function EncomendaPage() {
       },
     }),
     getSiteSettings(),
+    prisma.pickupPoint.findMany({
+      where: { active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, slug: true, name: true, schedule: true },
+    }),
   ]);
 
   const catalog = [
@@ -100,6 +112,8 @@ export default async function EncomendaPage() {
         leadHours={leadHours}
         deliveryEnabled={settings.deliveryEnabled}
         pickupEnabled={settings.pickupEnabled}
+        pickupPoints={pickupPoints}
+        defaultPointSlug={pontoSlug}
       />
     </div>
   );

@@ -31,6 +31,8 @@ const baseSchema = z
     /** SEMANAL = assados/congelados (data livre). EMPORIO = atrelada a viagem. */
     kind: z.enum(["SEMANAL", "EMPORIO"]).default("SEMANAL"),
     supplyTripId: optionalString(60),
+    /** Retirada em ponto parceiro (força deliveryMode PICKUP no servidor). */
+    pickupPointId: optionalString(60),
     deliveryMode: z.enum(["PICKUP", "DELIVERY"]),
     address: optionalString(300),
     addressNumber: optionalString(40),

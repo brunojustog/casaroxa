@@ -139,7 +139,11 @@ export default async function EncomendaDetailPage({
               </p>
             )}
             <p className="text-slate-600">
-              {req.deliveryMode === "PICKUP" ? "🛍 Retirada no local" : "🛵 Delivery"}
+              {req.pickupPoint
+                ? `📍 Retirada no ponto parceiro: ${req.pickupPoint.name}${req.pickupPoint.schedule ? ` (${req.pickupPoint.schedule})` : ""}`
+                : req.deliveryMode === "PICKUP"
+                  ? "🛍 Retirada no local"
+                  : "🛵 Delivery"}
             </p>
           </CardContent>
         </Card>

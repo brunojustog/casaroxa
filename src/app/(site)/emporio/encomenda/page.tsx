@@ -14,8 +14,15 @@ export const metadata: Metadata = {
     "Encomende queijos, doces e quitutes mineiros — buscamos em Minas na próxima viagem.",
 };
 
-export default async function EmporioEncomendaPage() {
-  const [products, trips, settings] = await Promise.all([
+export default async function EmporioEncomendaPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const pontoSlug = typeof sp.ponto === "string" ? sp.ponto : null;
+
+  const [products, trips, settings, pickupPoints] = await Promise.all([
     prisma.product.findMany({
       where: {
         active: true,
@@ -36,6 +43,11 @@ export default async function EmporioEncomendaPage() {
     }),
     listOpenSupplyTrips(3),
     getSiteSettings(),
+    prisma.pickupPoint.findMany({
+      where: { active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, slug: true, name: true, schedule: true },
+    }),
   ]);
 
   const catalog = products.map((p) => ({
@@ -118,6 +130,8 @@ export default async function EmporioEncomendaPage() {
             }))}
             deliveryEnabled={settings.deliveryEnabled}
             pickupEnabled={settings.pickupEnabled}
+            pickupPoints={pickupPoints}
+            defaultPointSlug={pontoSlug}
           />
         </>
       )}

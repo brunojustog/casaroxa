@@ -139,6 +139,11 @@ export default async function EncomendasPage() {
                       Empório
                     </span>
                   )}
+                  {r.pickupPoint && (
+                    <span className="ml-1.5 inline-block rounded-full bg-roxa-100 px-1.5 py-0.5 text-[10px] font-bold text-roxa-800">
+                      📍 {r.pickupPoint.name}
+                    </span>
+                  )}
                 </TD>
                 <TD className="text-center text-slate-700 tabular-nums">
                   {r._count.items}

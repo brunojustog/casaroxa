@@ -56,16 +56,27 @@ const fmtCutoff = (iso: string) =>
     minute: "2-digit",
   }).format(new Date(iso));
 
+type PickupPointOption = {
+  id: string;
+  slug: string;
+  name: string;
+  schedule: string | null;
+};
+
 export function EmporioEncomendaClient({
   catalog,
   trips,
   deliveryEnabled,
   pickupEnabled,
+  pickupPoints = [],
+  defaultPointSlug = null,
 }: {
   catalog: EmporioItem[];
   trips: Trip[];
   deliveryEnabled: boolean;
   pickupEnabled: boolean;
+  pickupPoints?: PickupPointOption[];
+  defaultPointSlug?: string | null;
 }) {
   const router = useRouter();
 
@@ -73,12 +84,21 @@ export function EmporioEncomendaClient({
   const [qty, setQty] = useState<Record<string, number>>({});
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const initialMode: "PICKUP" | "DELIVERY" = pickupEnabled
-    ? "PICKUP"
-    : deliveryEnabled
-      ? "DELIVERY"
-      : "PICKUP";
-  const [deliveryMode, setDeliveryMode] = useState<"PICKUP" | "DELIVERY">(initialMode);
+  const defaultPoint =
+    pickupPoints.find((p) => p.slug === defaultPointSlug) ?? null;
+  const initialMode: "PICKUP" | "DELIVERY" | "PONTO" = defaultPoint
+    ? "PONTO"
+    : pickupEnabled
+      ? "PICKUP"
+      : deliveryEnabled
+        ? "DELIVERY"
+        : "PICKUP";
+  const [deliveryMode, setDeliveryMode] = useState<
+    "PICKUP" | "DELIVERY" | "PONTO"
+  >(initialMode);
+  const [pickupPointId, setPickupPointId] = useState<string>(
+    defaultPoint?.id ?? pickupPoints[0]?.id ?? "",
+  );
   const [address, setAddress] = useState("");
   const [addressNumber, setAddressNumber] = useState("");
   const [addressComplement, setAddressComplement] = useState("");
@@ -120,11 +140,14 @@ export function EmporioEncomendaClient({
   }
 
   const isDelivery = deliveryMode === "DELIVERY";
+  const isPonto = deliveryMode === "PONTO";
+  const selectedPoint = pickupPoints.find((p) => p.id === pickupPointId) ?? null;
   const canSubmit =
     count > 0 &&
     !!selectedTrip &&
     customerName.trim().length > 0 &&
     customerPhone.trim().length > 0 &&
+    (!isPonto || !!selectedPoint) &&
     (!isDelivery || (address.trim().length > 0 && neighborhood.trim().length > 0));
 
   async function handleSubmit(e: React.FormEvent) {
@@ -142,7 +165,8 @@ export function EmporioEncomendaClient({
           requestedFor: selectedTrip.tripDate,
           customerName,
           customerPhone,
-          deliveryMode,
+          deliveryMode: isPonto ? "PICKUP" : deliveryMode,
+          pickupPointId: isPonto ? pickupPointId : undefined,
           address: isDelivery ? address : undefined,
           addressNumber: isDelivery ? addressNumber : undefined,
           addressComplement: isDelivery ? addressComplement : undefined,
@@ -344,7 +368,40 @@ export function EmporioEncomendaClient({
                 onClick={() => setDeliveryMode("DELIVERY")}
               />
             )}
+            {pickupPoints.length > 0 && (
+              <ModeButton
+                label="📍 Ponto parceiro"
+                active={isPonto}
+                onClick={() => setDeliveryMode("PONTO")}
+              />
+            )}
           </div>
+          {isPonto && (
+            <div className="space-y-2 rounded-lg border border-roxa-200 bg-roxa-50/50 p-3">
+              {pickupPoints.length > 1 ? (
+                <Field label="Escolha o ponto de retirada" required>
+                  <select
+                    value={pickupPointId}
+                    onChange={(e) => setPickupPointId(e.currentTarget.value)}
+                    className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-roxa-500 focus:outline-none focus:ring-1 focus:ring-roxa-500"
+                  >
+                    {pickupPoints.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : (
+                <p className="text-sm font-semibold text-roxa-900">
+                  📍 {selectedPoint?.name}
+                </p>
+              )}
+              {selectedPoint?.schedule && (
+                <p className="text-xs text-slate-600">{selectedPoint.schedule}</p>
+              )}
+            </div>
+          )}
           {isDelivery && (
             <div className="space-y-3 pt-2 border-t border-slate-100">
               <p className="text-sm font-medium text-slate-700">Endereço de entrega</p>
@@ -453,7 +510,12 @@ export function EmporioEncomendaClient({
                 <strong className="capitalize">{fmtTripDate(selectedTrip.tripDate)}</strong>
                 <span className="block text-[11px] mt-0.5">
                   Pedidos até {fmtCutoff(selectedTrip.cutoffAt)} ·{" "}
-                  {isDelivery ? "Delivery" : "Retirada no local"} após a volta
+                  {isPonto
+                    ? `Retirada: ${selectedPoint?.name ?? "ponto parceiro"}`
+                    : isDelivery
+                      ? "Delivery"
+                      : "Retirada no local"}{" "}
+                  após a volta
                 </span>
               </span>
             </div>

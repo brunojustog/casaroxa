@@ -43,6 +43,7 @@ export async function listOrderRequests(filters: {
     include: {
       _count: { select: { items: true } },
       customer: { select: { id: true, name: true, phone: true } },
+      pickupPoint: { select: { id: true, name: true } },
     },
   });
 }
@@ -102,6 +103,7 @@ export async function getOrderRequestById(id: string) {
       sale: { select: { id: true, number: true, status: true, progress: true } },
       approvedBy: { select: { id: true, name: true } },
       createdBy: { select: { id: true, name: true } },
+      pickupPoint: { select: { id: true, name: true, schedule: true } },
     },
   });
 }
@@ -179,6 +181,23 @@ export async function createPublicOrderRequest(input: PublicOrderRequestData) {
   let requestedFor = input.requestedFor;
   let supplyTripId: string | null = null;
 
+  // Ponto de retirada parceiro: valida e força modalidade PICKUP (o
+  // endereço de delivery não se aplica — a entrega é no ponto).
+  let pickupPoint: { id: string; name: string; schedule: string | null } | null =
+    null;
+  if (input.pickupPointId) {
+    pickupPoint = await prisma.pickupPoint.findFirst({
+      where: { id: input.pickupPointId, active: true },
+      select: { id: true, name: true, schedule: true },
+    });
+    if (!pickupPoint) {
+      throw new BusinessError(
+        "Ponto de retirada indisponível. Recarregue a página e tente de novo.",
+      );
+    }
+    input.deliveryMode = "PICKUP";
+  }
+
   if (input.kind === "EMPORIO") {
     // Encomenda do empório é atrelada a uma viagem de compra — a data de
     // atendimento é a da viagem, não uma escolha livre do cliente.
@@ -239,6 +258,7 @@ export async function createPublicOrderRequest(input: PublicOrderRequestData) {
         requestedFor,
         kind: input.kind,
         supplyTripId,
+        pickupPointId: pickupPoint?.id ?? null,
         deliveryMode: input.deliveryMode,
         address: input.deliveryMode === "DELIVERY" ? input.address : null,
         addressNumber:
@@ -277,6 +297,12 @@ export async function createPublicOrderRequest(input: PublicOrderRequestData) {
       input.kind === "EMPORIO"
         ? `Recebemos sua encomenda do empório *ER-${created.number}*! Ela será atendida na viagem a Minas de *${fmtDate(requestedFor)}*.`
         : `Recebemos sua encomenda *ER-${created.number}* pra *${fmtDate(requestedFor)}*.`,
+      ...(pickupPoint
+        ? [
+            ``,
+            `📍 Retirada: *${pickupPoint.name}*${pickupPoint.schedule ? ` — ${pickupPoint.schedule}` : ""}.`,
+          ]
+        : []),
       ``,
       `Vamos confirmar em breve por aqui. Obrigado!`,
     ].join("\n"),
