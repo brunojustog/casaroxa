@@ -289,6 +289,7 @@ export default async function SorteioDetailPage({
                     ticketPriceCents: raffle.ticketPriceCents,
                     totalNumbers: raffle.totalNumbers,
                     maxTicketsPerCustomer: raffle.maxTicketsPerCustomer,
+                    appOnly: raffle.appOnly,
                     prizes: raffle.prizes.map((p) => ({
                       position: p.position,
                       description: p.description,

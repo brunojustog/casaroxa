@@ -123,6 +123,7 @@ export async function getRaffleForPublic(id: string) {
       ticketPriceCents: true,
       totalNumbers: true,
       maxTicketsPerCustomer: true,
+      appOnly: true,
       _count: { select: { entries: { where: { confirmed: true } } } },
       prizes: {
         orderBy: { position: "asc" },
@@ -223,6 +224,7 @@ export async function createRaffle(input: RaffleFormData) {
       ticketPriceCents: input.ticketPriceCents,
       totalNumbers: input.totalNumbers,
       maxTicketsPerCustomer: input.maxTicketsPerCustomer,
+      appOnly: input.appOnly,
       status: input.status,
       prizes: {
         create: input.prizes.map((p) => ({
@@ -285,6 +287,7 @@ export async function updateRaffle(id: string, input: RaffleFormData) {
         ticketPriceCents: input.ticketPriceCents,
         totalNumbers: input.totalNumbers,
         maxTicketsPerCustomer: input.maxTicketsPerCustomer,
+        appOnly: input.appOnly,
         status: input.status,
         prizes: {
           create: input.prizes.map((p) => ({
@@ -394,6 +397,45 @@ async function validatePurchase(
     raffleName: raffle.name,
     ticketPriceCents: raffle.ticketPriceCents,
   };
+}
+
+/**
+ * Gate de sorteio EXCLUSIVO DO APP: se a rifa é appOnly, o cliente precisa
+ * ter o PWA com notificações ativas (CustomerPushSubscription existente,
+ * comprovada pelo endpoint que o browser envia). De quebra, vincula a
+ * subscription ao Customer — assim o aviso de ganhador sai por push.
+ */
+export async function checkAppOnlyGate(
+  raffleId: string,
+  customerId: string,
+  pushEndpoint?: string | null,
+): Promise<void> {
+  const raffle = await prisma.raffle.findUnique({
+    where: { id: raffleId },
+    select: { appOnly: true },
+  });
+  if (!raffle?.appOnly) return;
+
+  if (!pushEndpoint) {
+    throw new BusinessError(
+      "Este sorteio é exclusivo pra quem tem o app da Casa Roxa com notificações ativas. Instale o app e ative as notificações pra participar!",
+    );
+  }
+  const sub = await prisma.customerPushSubscription.findUnique({
+    where: { endpoint: pushEndpoint },
+    select: { id: true, customerId: true },
+  });
+  if (!sub) {
+    throw new BusinessError(
+      "Não encontramos suas notificações ativas. Ative as notificações do app e tente de novo.",
+    );
+  }
+  if (sub.customerId !== customerId) {
+    await prisma.customerPushSubscription.update({
+      where: { id: sub.id },
+      data: { customerId },
+    });
+  }
 }
 
 /**

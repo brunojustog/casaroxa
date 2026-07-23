@@ -66,6 +66,8 @@ export const raffleFormSchema = z
       .min(1)
       .nullable()
       .default(null),
+    /// Exclusivo do app: só participa quem tem o PWA com push ativo.
+    appOnly: z.boolean().default(false),
     status: z.nativeEnum(RaffleStatus).default("DRAFT"),
   })
   .superRefine((v, ctx) => {

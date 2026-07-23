@@ -172,6 +172,7 @@ export default async function PublicRafflePage({
           authenticated={Boolean(customer)}
           customerId={customer?.id ?? null}
           customerName={customer?.name ?? null}
+          appOnly={raffle.appOnly}
         />
       )}
 

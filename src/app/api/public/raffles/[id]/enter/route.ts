@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { getAuthedCustomer } from "@/server/services/customer-session.service";
-import { enterRaffleFree } from "@/server/services/raffle.service";
+import { checkAppOnlyGate, enterRaffleFree } from "@/server/services/raffle.service";
 import { BusinessError } from "@/server/auth-helpers";
 import { sendText } from "@/server/services/whatsapp.service";
 
@@ -12,6 +12,8 @@ import { sendText } from "@/server/services/whatsapp.service";
  */
 const bodySchema = z.object({
   numbers: z.array(z.number().int().min(1)).min(1).max(500),
+  /// Endpoint da inscrição de push deste navegador — exigido em rifa appOnly.
+  pushEndpoint: z.string().max(1000).optional(),
 });
 
 const REF_COOKIE = "casaroxa_ref";
@@ -54,6 +56,7 @@ export async function POST(
   }
 
   try {
+    await checkAppOnlyGate(id, customer.id, parsed.data.pushEndpoint ?? null);
     const result = await enterRaffleFree(
       id,
       customer.id,

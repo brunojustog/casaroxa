@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthedCustomer } from "@/server/services/customer-session.service";
-import { reserveRaffleNumbersForPurchase } from "@/server/services/raffle.service";
+import {
+  checkAppOnlyGate,
+  reserveRaffleNumbersForPurchase,
+} from "@/server/services/raffle.service";
 import {
   initiateOnlinePayment,
   NeedCpfError,
@@ -18,6 +21,8 @@ import { prisma } from "@/lib/prisma";
 const bodySchema = z.object({
   numbers: z.array(z.number().int().min(1)).min(1).max(500),
   cpfCnpj: z.string().optional(),
+  /// Endpoint da inscrição de push — exigido em rifa appOnly.
+  pushEndpoint: z.string().max(1000).optional(),
 });
 
 export async function POST(
@@ -60,6 +65,7 @@ export async function POST(
 
   let reserved: Awaited<ReturnType<typeof reserveRaffleNumbersForPurchase>> | null = null;
   try {
+    await checkAppOnlyGate(raffleId, customer.id, parsed.data.pushEndpoint ?? null);
     reserved = await reserveRaffleNumbersForPurchase(
       raffleId,
       customer.id,

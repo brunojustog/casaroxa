@@ -12,6 +12,10 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { OtpLoginDialog } from "@/components/public/auth/OtpLoginDialog";
+import {
+  getCurrentPushEndpoint,
+  subscribeCustomerPush,
+} from "@/lib/push-client";
 
 type NumbersState = {
   totalNumbers: number;
@@ -29,6 +33,7 @@ export function RaffleEnterCard({
   authenticated,
   customerId,
   customerName,
+  appOnly = false,
 }: {
   raffleId: string;
   raffleName: string;
@@ -38,11 +43,38 @@ export function RaffleEnterCard({
   authenticated: boolean;
   customerId: string | null;
   customerName: string | null;
+  appOnly?: boolean;
 }) {
   const router = useRouter();
   const [otpOpen, setOtpOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Gate do sorteio exclusivo do app: null = checando; string = endpoint ok.
+  const [pushEndpoint, setPushEndpoint] = useState<string | null>(null);
+  const [pushChecked, setPushChecked] = useState(!appOnly);
+  const [enablingPush, setEnablingPush] = useState(false);
+
+  useEffect(() => {
+    if (!appOnly) return;
+    getCurrentPushEndpoint().then((ep) => {
+      setPushEndpoint(ep);
+      setPushChecked(true);
+    });
+  }, [appOnly]);
+
+  async function enableAppPush() {
+    setEnablingPush(true);
+    try {
+      const ep = await subscribeCustomerPush();
+      if (ep) setPushEndpoint(ep);
+      else
+        setError(
+          "Não consegui ativar as notificações. No iPhone, adicione o site à Tela de Início primeiro (Compartilhar → Adicionar à Tela de Início).",
+        );
+    } finally {
+      setEnablingPush(false);
+    }
+  }
   const [state, setState] = useState<NumbersState | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const isPaid = ticketPriceCents > 0;
@@ -149,6 +181,12 @@ export function RaffleEnterCard({
       setOtpOpen(true);
       return;
     }
+    if (appOnly && !pushEndpoint) {
+      setError(
+        "Este sorteio é exclusivo do app — ative as notificações acima pra participar.",
+      );
+      return;
+    }
     if (selected.size === 0) {
       setError("Escolha pelo menos 1 número.");
       return;
@@ -165,7 +203,10 @@ export function RaffleEnterCard({
       const res = await fetch(`/api/public/raffles/${raffleId}/enter`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ numbers }),
+        body: JSON.stringify({
+          numbers,
+          pushEndpoint: appOnly ? pushEndpoint : undefined,
+        }),
       });
       const data = await res.json();
       if (!data.ok) {
@@ -191,6 +232,38 @@ export function RaffleEnterCard({
 
   return (
     <div className="rounded-xl border border-roxa-200 bg-roxa-50/50 p-5 space-y-4">
+      {appOnly && pushChecked && (
+        <div
+          className={
+            pushEndpoint
+              ? "rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900"
+              : "rounded-lg border border-roxa-300 bg-white px-4 py-3 text-sm text-roxa-900"
+          }
+        >
+          {pushEndpoint ? (
+            <p>
+              📲 <strong>App verificado!</strong> Suas notificações estão
+              ativas — você pode participar deste sorteio exclusivo.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <p>
+                📲 Este sorteio é <strong>exclusivo do app da Casa Roxa</strong>
+                . Ative as notificações pra liberar sua participação (é grátis
+                e você fica sabendo se ganhou na hora!).
+              </p>
+              <button
+                type="button"
+                onClick={enableAppPush}
+                disabled={enablingPush}
+                className="rounded-md bg-roxa-700 px-4 py-2 text-sm font-semibold text-white hover:bg-roxa-800 disabled:opacity-60"
+              >
+                {enablingPush ? "Ativando…" : "Ativar notificações e participar"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="font-serif text-lg font-semibold text-roxa-900">
           Escolha seus números

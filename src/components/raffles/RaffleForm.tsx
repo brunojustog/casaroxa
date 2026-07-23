@@ -32,6 +32,7 @@ export type RaffleFormDefaults = Partial<{
   ticketPriceCents: number;
   totalNumbers: number;
   maxTicketsPerCustomer: number | null;
+  appOnly: boolean;
   prizes: Array<{ position: number; description: string }>;
   status: RaffleStatus;
 }>;
@@ -72,6 +73,7 @@ export function RaffleForm({
         // Default sensato: rifa grátis com limite=1, paga sem limite.
         ((defaultValues?.ticketPriceCents ?? 0) === 0 ? 1 : null),
       prizes: defaultValues?.prizes ?? [{ position: 1, description: "" }],
+      appOnly: defaultValues?.appOnly ?? false,
       status: defaultValues?.status ?? "DRAFT",
     } as unknown as RaffleFormData,
   });
@@ -283,6 +285,24 @@ export function RaffleForm({
           />
         </Field>
       </div>
+
+      <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-roxa-200 bg-roxa-50/50 p-4">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-4 w-4 accent-roxa-700"
+          {...form.register("appOnly")}
+        />
+        <span>
+          <span className="block text-sm font-semibold text-roxa-900">
+            📲 Exclusivo do app
+          </span>
+          <span className="block text-xs text-slate-600">
+            Só participa quem tem o app da Casa Roxa instalado com notificações
+            ativas. Ideal pra sorteio gratuito — vira incentivo de instalação e
+            cada participante vira um canal de push seu.
+          </span>
+        </span>
+      </label>
 
       <Field
         label="Status"

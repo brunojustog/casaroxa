@@ -986,6 +986,9 @@ model Raffle {
   totalNumbers          Int          @default(100)
   /// Limite de números por cliente. null = sem limite.
   maxTicketsPerCustomer Int?
+  /// Exclusivo do app: só participa quem tem o PWA com notificações
+  /// ativas (CustomerPushSubscription válida). Motor de instalação.
+  appOnly               Boolean      @default(false)
   status                RaffleStatus @default(DRAFT)
   /// Quando o último prêmio foi sorteado (todos sorteados). Status DRAWN.
   drawnAt               DateTime?

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BellRing, Download, Share, SquarePlus, X } from "lucide-react";
+import { subscribeCustomerPush } from "@/lib/push-client";
 
 /**
  * Banner fixo no rodapé do site: instalar o app (PWA) e ativar notificações.
@@ -21,15 +22,6 @@ type BeforeInstallPromptEvent = Event & {
 
 const DISMISS_KEY = "casaroxa-app-banner-dismissed";
 const DISMISS_DAYS = 7;
-
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const raw = atob(base64);
-  const arr = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; ++i) arr[i] = raw.charCodeAt(i);
-  return arr;
-}
 
 function isStandalone(): boolean {
   if (typeof window === "undefined") return false;
@@ -128,31 +120,11 @@ export function AppInstallBanner() {
   async function enablePush() {
     setBusy(true);
     try {
-      const perm = await Notification.requestPermission();
-      if (perm !== "granted") return;
-
-      const keyRes = await fetch("/api/public/push/key");
-      const keyData = await keyRes.json();
-      if (!keyData.ok) return;
-
-      const reg = await navigator.serviceWorker.register("/sw.js");
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(
-          keyData.publicKey,
-        ) as unknown as BufferSource,
-      });
-
-      await fetch("/api/public/push/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...sub.toJSON(), phone: phone || undefined }),
-      });
-
-      setMode("done");
-      setTimeout(() => setMode("hidden"), 4000);
-    } catch (e) {
-      console.error("[push] erro ao ativar", e);
+      const endpoint = await subscribeCustomerPush(phone || undefined);
+      if (endpoint) {
+        setMode("done");
+        setTimeout(() => setMode("hidden"), 4000);
+      }
     } finally {
       setBusy(false);
     }
