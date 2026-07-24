@@ -40,6 +40,6 @@ next-env.d.ts
 # prisma
 prisma/migrations/dev.db*
 
-# uploads / temp
-uploads/
+# uploads / temp (só as fotos enviadas — não ignorar src/app/menu/uploads)
+public/menu/uploads/
 tmp/
