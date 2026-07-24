@@ -1,17 +1,20 @@
 import { z } from "zod";
 import { ProductCategory, ProductStatus, ProductType } from "@prisma/client";
 
+// Todos os "opcionais" aceitam null ALÉM de undefined (.nullish) — o form
+// pode mandar null em campo limpo e o zod não pode explodir com
+// "Expected string, received null".
 const optionalString = (max = 200) =>
   z
     .string()
     .trim()
     .max(max)
-    .optional()
+    .nullish()
     .transform((v) => (v && v.length > 0 ? v : null));
 
 const optionalPositive = z
   .union([z.string(), z.number()])
-  .optional()
+  .nullish()
   .transform((v) => {
     if (v === undefined || v === null || v === "") return null;
     const n = typeof v === "string" ? Number(v.replace(",", ".")) : v;
@@ -24,7 +27,7 @@ const optionalPositive = z
  */
 const optionalPercent = z
   .union([z.string(), z.number()])
-  .optional()
+  .nullish()
   .transform((v) => {
     if (v === undefined || v === null || v === "") return null;
     const n = typeof v === "string" ? Number(v.replace(",", ".")) : v;
@@ -35,7 +38,7 @@ const optionalPercent = z
 /** Aceita string multilinha (1 URL por linha) ou array. Retorna string[] (vazio = null no banco). */
 const galleryField = z
   .union([z.string(), z.array(z.string())])
-  .optional()
+  .nullish()
   .transform((v) => {
     if (!v) return null;
     const arr =
@@ -74,7 +77,7 @@ export const productFormSchema = z.object({
   scaleCode: z
     .string()
     .trim()
-    .optional()
+    .nullish()
     .transform((v) => (v && v.length > 0 ? v : null))
     .refine((v) => v === null || /^\d{6}$/.test(v), {
       message: "Código da balança deve ter exatamente 6 dígitos",
@@ -83,7 +86,7 @@ export const productFormSchema = z.object({
   barcode: z
     .string()
     .trim()
-    .optional()
+    .nullish()
     .transform((v) => (v ? v.replace(/\D/g, "") : ""))
     .transform((v) => (v.length > 0 ? v : null))
     .refine((v) => v === null || (v.length >= 8 && v.length <= 14), {
@@ -92,7 +95,7 @@ export const productFormSchema = z.object({
   /** Validade impressa na etiqueta da balança (dias, 0–999). Vazio = não imprime. */
   scaleValidityDays: z
     .union([z.string(), z.number()])
-    .optional()
+    .nullish()
     .transform((v) => {
       if (v === undefined || v === null || v === "") return null;
       const n = typeof v === "string" ? Number(v) : v;
