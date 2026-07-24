@@ -133,6 +133,7 @@ export default async function EditarProdutoPage({
                   youtubeUrl: product.youtubeUrl,
                   scaleCode: product.scaleCode,
                   scaleValidityDays: product.scaleValidityDays,
+                  barcode: product.barcode,
                 }}
               />
             </CardContent>

@@ -56,12 +56,16 @@ export default async function VendaPage({
       id: p.id,
       name: p.name,
       salePrice: Number(p.salePrice ?? 0),
+      scaleCode: p.scaleCode,
+      barcode: p.barcode,
     })),
     ...combos.map((c) => ({
       kind: "COMBO" as const,
       id: c.id,
       name: c.name,
       salePrice: Number(c.salePrice ?? 0),
+      scaleCode: null,
+      barcode: null,
     })),
   ];
 

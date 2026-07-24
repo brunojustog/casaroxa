@@ -79,6 +79,16 @@ export const productFormSchema = z.object({
     .refine((v) => v === null || /^\d{6}$/.test(v), {
       message: "Código da balança deve ter exatamente 6 dígitos",
     }),
+  /** Código de barras de fábrica (EAN-8/13) — só dígitos, ou vazio. */
+  barcode: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v ? v.replace(/\D/g, "") : ""))
+    .transform((v) => (v.length > 0 ? v : null))
+    .refine((v) => v === null || (v.length >= 8 && v.length <= 14), {
+      message: "Código de barras deve ter de 8 a 14 dígitos",
+    }),
   /** Validade impressa na etiqueta da balança (dias, 0–999). Vazio = não imprime. */
   scaleValidityDays: z
     .union([z.string(), z.number()])

@@ -683,6 +683,8 @@ export async function listActiveProductsForSale() {
       category: true,
       salePrice: true,
       totalCost: true,
+      scaleCode: true,
+      barcode: true,
     },
   });
 }

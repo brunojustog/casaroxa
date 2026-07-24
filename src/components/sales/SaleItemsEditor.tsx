@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Barcode, Check, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -27,6 +27,10 @@ type CatalogEntry = {
   id: string;
   name: string;
   salePrice: number;
+  /** Código do item na balança (6 dígitos) — etiqueta EAN "2CCCCCCVVVVVD". */
+  scaleCode?: string | null;
+  /** Código de barras de fábrica (EAN-8/13) — produtos de pacote. */
+  barcode?: string | null;
 };
 
 export type SaleItemRow = {
@@ -60,8 +64,83 @@ export function SaleItemsEditor({
   const [selectedKey, setSelectedKey] = useState<string>("");
   const [quantity, setQuantity] = useState("1");
   const [priceOverride, setPriceOverride] = useState("");
+  const [scan, setScan] = useState("");
+  const [scanMsg, setScanMsg] = useState<string | null>(null);
+  const scanRef = useRef<HTMLInputElement | null>(null);
 
   const selected = catalog.find((c) => `${c.kind}:${c.id}` === selectedKey);
+
+  /**
+   * Interpreta o código bipado pelo leitor:
+   *  - Etiqueta da balança Toledo: EAN-13 "2CCCCCCVVVVVD" — CCCCCC é o
+   *    scaleCode e VVVVV o PREÇO em centavos. Quantidade = preço ÷ preço/kg.
+   *  - Código de fábrica (EAN-8/13): casa com Product.barcode, adiciona 1 un.
+   */
+  function handleScan(raw: string) {
+    const code = raw.replace(/\D/g, "");
+    setScanMsg(null);
+    if (!code) return;
+
+    if (code.length === 13 && code.startsWith("2")) {
+      const scaleCode = code.slice(1, 7);
+      const priceCents = parseInt(code.slice(7, 12), 10);
+      const prod = catalog.find(
+        (c) => c.kind === "PRODUTO" && c.scaleCode === scaleCode,
+      );
+      if (!prod) {
+        setScanMsg(`Nenhum produto com código de balança ${scaleCode}.`);
+        return;
+      }
+      if (!(prod.salePrice > 0) || !(priceCents > 0)) {
+        setScanMsg(`"${prod.name}" sem preço válido pra calcular o peso.`);
+        return;
+      }
+      // Etiqueta traz o TOTAL em R$; convertemos pra quantidade (kg) com
+      // 3 casas — o total re-calculado bate com a etiqueta (± 1 centavo).
+      const qty = Number((priceCents / 100 / prod.salePrice).toFixed(3));
+      startTransition(async () => {
+        const res = await addSaleItemAction(saleId, {
+          productId: prod.id,
+          quantity: qty,
+        });
+        if (!res.ok) {
+          setScanMsg(res.error);
+          return;
+        }
+        setScanMsg(`✓ ${prod.name} — ${qty.toFixed(3).replace(".", ",")} kg (R$ ${(priceCents / 100).toFixed(2).replace(".", ",")})`);
+        router.refresh();
+      });
+      return;
+    }
+
+    const prod = catalog.find((c) => c.kind === "PRODUTO" && c.barcode === code);
+    if (!prod) {
+      setScanMsg(
+        `Código ${code} não cadastrado. Cadastre no produto (campo Código de barras).`,
+      );
+      return;
+    }
+    startTransition(async () => {
+      const res = await addSaleItemAction(saleId, {
+        productId: prod.id,
+        quantity: 1,
+      });
+      if (!res.ok) {
+        setScanMsg(res.error);
+        return;
+      }
+      setScanMsg(`✓ ${prod.name} — 1 un.`);
+      router.refresh();
+    });
+  }
+
+  function onScanSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const code = scan;
+    setScan("");
+    handleScan(code);
+    scanRef.current?.focus();
+  }
 
   function onAdd(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -107,6 +186,35 @@ export function SaleItemsEditor({
 
   return (
     <div className="space-y-4">
+      {!readOnly && (
+        <form
+          onSubmit={onScanSubmit}
+          className="rounded-lg border-2 border-dashed border-roxa-200 bg-roxa-50/40 p-3"
+        >
+          <div className="flex items-center gap-2">
+            <Barcode className="h-5 w-5 shrink-0 text-roxa-700" />
+            <Input
+              ref={scanRef}
+              value={scan}
+              onChange={(e) => setScan(e.currentTarget.value)}
+              placeholder="Clique aqui e bipe a etiqueta da balança ou o código do pacote"
+              inputMode="numeric"
+              autoComplete="off"
+              disabled={isPending}
+            />
+          </div>
+          {scanMsg && (
+            <p
+              className={`mt-2 text-xs ${
+                scanMsg.startsWith("✓") ? "text-green-700" : "text-red-700"
+              }`}
+            >
+              {scanMsg}
+            </p>
+          )}
+        </form>
+      )}
+
       {!readOnly && (
         <form onSubmit={onAdd} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           <div className="md:col-span-6">

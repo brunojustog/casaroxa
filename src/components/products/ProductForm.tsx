@@ -58,6 +58,8 @@ type FormShape = {
   /** Código do item na balança Toledo (6 dígitos, vazio = não vai pra balança). */
   scaleCode: string;
   scaleValidityDays: number | string;
+  /** Código de barras de fábrica (EAN) — bipável no PDV. */
+  barcode: string;
 };
 
 export type ProductFormDefaults = Partial<{
@@ -79,6 +81,7 @@ export type ProductFormDefaults = Partial<{
   youtubeUrl: string | null;
   scaleCode: string | null;
   scaleValidityDays: number | null;
+  barcode: string | null;
 }>;
 
 const EMPTY: FormShape = {
@@ -99,6 +102,7 @@ const EMPTY: FormShape = {
   youtubeUrl: "",
   scaleCode: "",
   scaleValidityDays: "",
+  barcode: "",
 };
 
 function toFormShape(d: ProductFormDefaults | undefined): FormShape {
@@ -120,6 +124,7 @@ function toFormShape(d: ProductFormDefaults | undefined): FormShape {
     youtubeUrl: d?.youtubeUrl ?? "",
     scaleCode: d?.scaleCode ?? "",
     scaleValidityDays: d?.scaleValidityDays ?? "",
+    barcode: d?.barcode ?? "",
   };
 }
 
@@ -244,8 +249,10 @@ export function ProductForm({
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">Balança (Toledo)</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <h3 className="text-sm font-semibold text-slate-700 mb-3">
+          Balança (Toledo) e código de barras
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Field
             label="Código na balança"
             htmlFor="scaleCode"
@@ -272,6 +279,20 @@ export function ProductForm({
               min="0"
               max="999"
               {...form.register("scaleValidityDays")}
+            />
+          </Field>
+          <Field
+            label="Código de barras (EAN)"
+            htmlFor="barcode"
+            hint="Clique no campo e bipe o pacote com o leitor. Pra produtos de fábrica (empório)."
+            error={errors.barcode?.message as string | undefined}
+          >
+            <Input
+              id="barcode"
+              inputMode="numeric"
+              maxLength={14}
+              placeholder="7891234567890"
+              {...form.register("barcode")}
             />
           </Field>
         </div>

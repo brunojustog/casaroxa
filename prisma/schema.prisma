@@ -478,6 +478,10 @@ model Product {
   scaleCode         String?         @unique
   /// Validade impressa na etiqueta da balança, em dias (null/0 = não imprime).
   scaleValidityDays Int?
+  /// Código de barras de fábrica (EAN-8/13) — leitor no PDV adiciona o
+  /// item bipando o pacote (empório/revenda). Etiqueta da balança NÃO usa
+  /// este campo (usa scaleCode dentro do EAN "2...").
+  barcode           String?         @unique
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 

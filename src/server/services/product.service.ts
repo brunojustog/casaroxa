@@ -79,6 +79,18 @@ export async function createProduct(input: ProductFormData) {
     }
   }
 
+  if (input.barcode) {
+    const dupBarcode = await prisma.product.findUnique({
+      where: { barcode: input.barcode },
+      select: { name: true },
+    });
+    if (dupBarcode) {
+      throw new BusinessError(
+        `O código de barras ${input.barcode} já está em uso por "${dupBarcode.name}".`,
+      );
+    }
+  }
+
   return prisma.product.create({
     data: {
       name: input.name,
@@ -98,6 +110,7 @@ export async function createProduct(input: ProductFormData) {
       youtubeUrl: input.youtubeUrl,
       scaleCode: input.scaleCode,
       scaleValidityDays: input.scaleValidityDays,
+      barcode: input.barcode,
       priceHistory: input.salePrice
         ? { create: { oldPrice: null, newPrice: input.salePrice } }
         : undefined,
@@ -133,6 +146,18 @@ export async function updateProduct(id: string, input: ProductFormData) {
     }
   }
 
+  if (input.barcode && input.barcode !== current.barcode) {
+    const dupBarcode = await prisma.product.findUnique({
+      where: { barcode: input.barcode },
+      select: { id: true, name: true },
+    });
+    if (dupBarcode && dupBarcode.id !== id) {
+      throw new BusinessError(
+        `O código de barras ${input.barcode} já está em uso por "${dupBarcode.name}".`,
+      );
+    }
+  }
+
   const oldPrice = current.salePrice ? toDecimal(current.salePrice) : null;
   const newPrice = input.salePrice ?? null;
   const priceChanged =
@@ -161,6 +186,7 @@ export async function updateProduct(id: string, input: ProductFormData) {
         youtubeUrl: input.youtubeUrl,
         scaleCode: input.scaleCode,
         scaleValidityDays: input.scaleValidityDays,
+        barcode: input.barcode,
       },
     });
 
