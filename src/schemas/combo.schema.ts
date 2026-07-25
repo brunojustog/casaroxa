@@ -6,12 +6,12 @@ const optionalString = (max = 200) =>
     .string()
     .trim()
     .max(max)
-    .optional()
+    .nullish()
     .transform((v) => (v && v.length > 0 ? v : null));
 
 const optionalPositive = z
   .union([z.string(), z.number()])
-  .optional()
+  .nullish()
   .transform((v) => {
     if (v === undefined || v === null || v === "") return null;
     const n = typeof v === "string" ? Number(v.replace(",", ".")) : v;
@@ -20,7 +20,7 @@ const optionalPositive = z
 
 const optionalPercent = z
   .union([z.string(), z.number()])
-  .optional()
+  .nullish()
   .transform((v) => {
     if (v === undefined || v === null || v === "") return null;
     const n = typeof v === "string" ? Number(v.replace(",", ".")) : v;
@@ -44,7 +44,7 @@ export const comboItemInputSchema = z.object({
 /** Aceita string multilinha (1 URL por linha) ou array. Retorna string[] (vazio = null). */
 const galleryField = z
   .union([z.string(), z.array(z.string())])
-  .optional()
+  .nullish()
   .transform((v) => {
     if (!v) return null;
     const arr =

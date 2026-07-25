@@ -11,7 +11,7 @@ const positiveNumber = z
 
 const optionalPercent = z
   .union([z.string(), z.number()])
-  .optional()
+  .nullish()
   .transform((v) => {
     if (v === undefined || v === null || v === "") return null;
     const n = typeof v === "string" ? Number(v.replace(",", ".")) : v;
@@ -24,7 +24,7 @@ const optionalString = (max = 500) =>
     .string()
     .trim()
     .max(max)
-    .optional()
+    .nullish()
     .transform((v) => (v && v.length > 0 ? v : null));
 
 export const saveSimulationSchema = z.object({

@@ -5,7 +5,7 @@ const optionalString = (max = 200) =>
     .string()
     .trim()
     .max(max)
-    .optional()
+    .nullish()
     .transform((v) => (v && v.length > 0 ? v : null));
 
 /** Normaliza telefone: só dígitos. Permite reconhecer o mesmo número

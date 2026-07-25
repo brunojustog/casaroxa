@@ -11,7 +11,7 @@ export const campaignFormSchema = z
       .string()
       .trim()
       .max(30)
-      .optional()
+      .nullish()
       .transform((v) => (v && v.length > 0 ? v.toUpperCase() : null)),
     couponType: z.enum(["PERCENT", "FIXED"]).optional(),
     couponValue: z.coerce.number().positive().optional(),

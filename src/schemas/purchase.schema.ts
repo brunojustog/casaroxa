@@ -6,7 +6,7 @@ const optionalString = (max = 500) =>
     .string()
     .trim()
     .max(max)
-    .optional()
+    .nullish()
     .transform((v) => (v && v.length > 0 ? v : null));
 
 const positiveNumber = z
@@ -40,7 +40,7 @@ const dateField = z
 
 const optionalDate = z
   .union([z.string(), z.date()])
-  .optional()
+  .nullish()
   .transform((v) => {
     if (v === undefined || v === null || v === "") return null;
     const d = v instanceof Date ? v : new Date(v);
@@ -49,7 +49,7 @@ const optionalDate = z
 
 const optionalCuid = z
   .string()
-  .optional()
+  .nullish()
   .transform((v) => (v && v.length > 0 ? v : null));
 
 export const purchaseItemInputSchema = z.object({

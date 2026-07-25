@@ -7,7 +7,7 @@ const optionalString = (max = 200) =>
     .string()
     .trim()
     .max(max)
-    .optional()
+    .nullish()
     .transform((v) => (v && v.length > 0 ? v : null));
 
 const optionalDate = () =>
@@ -24,7 +24,7 @@ const optionalDate = () =>
 const optionalPositiveInt = () =>
   z
     .union([z.string(), z.number()])
-    .optional()
+    .nullish()
     .transform((v) => {
       if (v === undefined || v === null || v === "") return null;
       const n = typeof v === "string" ? parseInt(v, 10) : v;
@@ -34,7 +34,7 @@ const optionalPositiveInt = () =>
 const optionalMoney = () =>
   z
     .union([z.string(), z.number()])
-    .optional()
+    .nullish()
     .transform((v) => {
       if (v === undefined || v === null || v === "") return null;
       const n = typeof v === "string" ? parseFloat(v.replace(",", ".")) : v;

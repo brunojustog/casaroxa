@@ -5,7 +5,7 @@ const optionalString = (max = 2000) =>
     .string()
     .trim()
     .max(max)
-    .optional()
+    .nullish()
     .transform((v) => (v && v.length > 0 ? v : null));
 
 const positiveNumber = z

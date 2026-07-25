@@ -6,7 +6,7 @@ const optionalString = (max = 500) =>
     .string()
     .trim()
     .max(max)
-    .optional()
+    .nullish()
     .transform((v) => (v && v.length > 0 ? v : null));
 
 const requiredDate = () =>

@@ -21,7 +21,7 @@ export const userUpdateSchema = z.object({
   role: z.enum(USER_ROLES),
   password: z
     .string()
-    .optional()
+    .nullish()
     .transform((v) => (v && v.length > 0 ? v : null))
     .refine(
       (v) => v === null || v.length >= 8,

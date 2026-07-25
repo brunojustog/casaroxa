@@ -6,7 +6,7 @@ const optionalString = (max = 2000) =>
     .string()
     .trim()
     .max(max)
-    .optional()
+    .nullish()
     .transform((v) => (v && v.length > 0 ? v : null));
 
 const decimalString = (min = 0) =>
@@ -23,7 +23,7 @@ const positiveQty = z
 
 const optionalDate = z
   .union([z.string(), z.date(), z.null()])
-  .optional()
+  .nullish()
   .transform((v) => {
     if (v === null || v === undefined || v === "") return undefined;
     return v instanceof Date ? v : new Date(v);
@@ -43,13 +43,13 @@ export type SaleHeaderFormData = z.output<typeof saleHeaderFormSchema>;
 
 export const saleItemFormSchema = z
   .object({
-    productId: z.string().trim().optional().transform((v) => (v && v.length > 0 ? v : null)),
-    comboId: z.string().trim().optional().transform((v) => (v && v.length > 0 ? v : null)),
+    productId: z.string().trim().nullish().transform((v) => (v && v.length > 0 ? v : null)),
+    comboId: z.string().trim().nullish().transform((v) => (v && v.length > 0 ? v : null)),
     quantity: positiveQty,
     /// Preço unitário override (se vazio, usa o salePrice atual do produto/combo).
     unitPrice: z
       .union([z.string(), z.number()])
-      .optional()
+      .nullish()
       .transform((v) => {
         if (v === undefined || v === "") return undefined;
         return typeof v === "string" ? Number(v.replace(",", ".")) : v;
@@ -83,7 +83,7 @@ export const salePaymentFormSchema = z.object({
   /// Taxa em % (0-100). Se omitida, o service aplica o default das Settings.
   feePercent: z
     .union([z.string(), z.number()])
-    .optional()
+    .nullish()
     .transform((v) => {
       if (v === undefined || v === "") return undefined;
       const n = typeof v === "string" ? Number(v.replace(",", ".")) : v;
@@ -118,7 +118,7 @@ export const saleProgressUpdateSchema = z.object({
   progress: z.nativeEnum(SaleProgress),
   estimateMinutes: z
     .union([z.string(), z.number(), z.null()])
-    .optional()
+    .nullish()
     .transform((v) => {
       if (v === null || v === undefined || v === "") return null;
       const n = typeof v === "string" ? parseInt(v, 10) : Math.floor(v);

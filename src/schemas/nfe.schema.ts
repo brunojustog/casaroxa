@@ -28,7 +28,7 @@ const positiveQuantity = z
 
 const optionalDate = z
   .union([z.string(), z.date(), z.null()])
-  .optional()
+  .nullish()
   .transform((v) => {
     if (v === undefined || v === null || v === "") return null;
     const d = v instanceof Date ? v : new Date(v);
