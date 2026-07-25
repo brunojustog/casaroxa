@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Banknote,
   Barcode,
   CheckCircle2,
   CreditCard,
+  Pencil,
   Plus,
   QrCode,
   Trash2,
@@ -15,7 +16,6 @@ import {
 import { PaymentMethod } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { formatBRL } from "@/lib/format";
 import { PAYMENT_METHOD_LABEL } from "@/lib/enums";
 import {
@@ -30,7 +30,16 @@ import {
   createSaleAction,
   removeSaleItemAction,
   removeSalePaymentAction,
+  updateSaleItemAction,
 } from "@/server/actions/sales";
+
+/** Busca sem acento/caixa: "linguica" acha "Linguiça". */
+function normalize(s: string) {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
 
 export type PdvItem = {
   id: string;
@@ -83,11 +92,23 @@ export function PdvClient({
   const [payMethod, setPayMethod] = useState<PaymentMethod | null>(null);
   const [received, setReceived] = useState("");
   const [discount, setDiscount] = useState("");
-  const [showManual, setShowManual] = useState(false);
-  const [manualKey, setManualKey] = useState("");
-  const [manualQty, setManualQty] = useState("1");
+  const [highlight, setHighlight] = useState(0);
   const [done, setDone] = useState<{ total: number; troco: number } | null>(null);
   const scanRef = useRef<HTMLInputElement | null>(null);
+
+  // Digitou letra no campo de bipar → vira busca pelo nome (com sugestões).
+  const isSearch = /[a-zA-ZÀ-ÿ]/.test(scan);
+  const suggestions = useMemo(() => {
+    if (!isSearch) return [];
+    const terms = normalize(scan).split(/\s+/).filter(Boolean);
+    if (terms.length === 0) return [];
+    return catalog
+      .filter((c) => {
+        const name = normalize(c.name);
+        return terms.every((t) => name.includes(t)) && c.salePrice > 0;
+      })
+      .slice(0, 8);
+  }, [scan, isSearch, catalog]);
 
   // Bipar sempre focado enquanto a venda está aberta.
   useEffect(() => {
@@ -110,9 +131,38 @@ export function PdvClient({
     });
   }
 
+  /** Adiciona um item do catálogo (busca pelo nome) — 1 un/kg por padrão. */
+  function addEntry(entry: ScanCatalogEntry) {
+    if (!sale) return;
+    setScan("");
+    setHighlight(0);
+    const payload =
+      entry.kind === "PRODUTO"
+        ? { productId: entry.id, quantity: 1 }
+        : { comboId: entry.id, quantity: 1 };
+    startTransition(async () => {
+      const res = await addSaleItemAction(sale.id, payload);
+      if (!res.ok) {
+        setScanMsg(res.error);
+        return;
+      }
+      setScanMsg(`✓ ${entry.name} — 1 un. (ajuste qtd/preço no lápis, se precisar)`);
+      refresh();
+    });
+    scanRef.current?.focus();
+  }
+
   function onScanSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!sale) return;
+
+    // Modo busca: Enter adiciona a sugestão destacada.
+    if (isSearch) {
+      const entry = suggestions[highlight] ?? suggestions[0];
+      if (entry) addEntry(entry);
+      return;
+    }
+
     const code = scan;
     setScan("");
     setScanMsg(null);
@@ -142,23 +192,18 @@ export function PdvClient({
     scanRef.current?.focus();
   }
 
-  function onManualAdd(e: React.FormEvent) {
-    e.preventDefault();
-    if (!sale) return;
-    const entry = catalog.find((c) => `${c.kind}:${c.id}` === manualKey);
-    const qty = Number(manualQty.replace(",", "."));
-    if (!entry || !(qty > 0)) return;
-    const payload =
-      entry.kind === "PRODUTO"
-        ? { productId: entry.id, quantity: qty }
-        : { comboId: entry.id, quantity: qty };
-    startTransition(async () => {
-      const res = await addSaleItemAction(sale.id, payload);
-      if (!res.ok) window.alert(res.error);
-      setManualKey("");
-      setManualQty("1");
-      refresh();
-    });
+  function onScanKeyDown(e: React.KeyboardEvent) {
+    if (!isSearch || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlight((h) => Math.min(h + 1, suggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlight((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Escape") {
+      setScan("");
+      setHighlight(0);
+    }
   }
 
   function onRemoveItem(itemId: string) {
@@ -256,18 +301,53 @@ export function PdvClient({
           onSubmit={onScanSubmit}
           className="rounded-xl border-2 border-dashed border-roxa-300 bg-roxa-50/60 p-4"
         >
-          <div className="flex items-center gap-3">
+          <div className="relative flex items-center gap-3">
             <Barcode className="h-7 w-7 shrink-0 text-roxa-700" />
             <Input
               ref={scanRef}
               value={scan}
-              onChange={(e) => setScan(e.currentTarget.value)}
-              placeholder="Bipe a etiqueta ou o código do pacote"
-              inputMode="numeric"
+              onChange={(e) => {
+                setScan(e.currentTarget.value);
+                setHighlight(0);
+              }}
+              onKeyDown={onScanKeyDown}
+              placeholder="Bipe a etiqueta / código — ou digite o nome do item"
               autoComplete="off"
               disabled={isPending}
               className="h-12 text-lg"
             />
+            {isSearch && (
+              <ul className="absolute left-10 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+                {suggestions.length === 0 ? (
+                  <li className="px-4 py-2.5 text-sm text-slate-400">
+                    Nenhum item com esse nome.
+                  </li>
+                ) : (
+                  suggestions.map((s, i) => (
+                    <li key={`${s.kind}:${s.id}`}>
+                      <button
+                        type="button"
+                        onMouseEnter={() => setHighlight(i)}
+                        onClick={() => addEntry(s)}
+                        className={`flex w-full items-baseline justify-between gap-3 px-4 py-2.5 text-left text-sm ${
+                          i === highlight ? "bg-roxa-50 text-roxa-900" : "text-slate-700"
+                        }`}
+                      >
+                        <span className="truncate">
+                          {s.name}
+                          {s.kind === "COMBO" && (
+                            <span className="ml-1.5 text-xs text-slate-400">combo</span>
+                          )}
+                        </span>
+                        <span className="shrink-0 tabular-nums text-slate-500">
+                          {formatBRL(s.salePrice)}
+                        </span>
+                      </button>
+                    </li>
+                  ))
+                )}
+              </ul>
+            )}
           </div>
           {/* Submit invisível: garante que o Enter do leitor dispare o form. */}
           <button type="submit" hidden aria-hidden tabIndex={-1} />
@@ -288,42 +368,21 @@ export function PdvClient({
           ) : (
             <ul className="divide-y divide-slate-100">
               {sale.items.map((it, idx) => (
-                <li key={it.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="w-6 text-right text-xs tabular-nums text-slate-400">
-                    {idx + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-slate-900">{it.name}</p>
-                    <p className="text-xs text-slate-500">
-                      {formatQty(it.quantity)} × {formatBRL(it.unitPrice)}
-                    </p>
-                  </div>
-                  <span className="text-sm font-semibold tabular-nums text-slate-900">
-                    {formatBRL(it.totalPrice)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onRemoveItem(it.id)}
-                    disabled={isPending}
-                    className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                    title="Remover item"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </li>
+                <PdvItemRow
+                  key={it.id}
+                  item={it}
+                  index={idx}
+                  saleId={sale.id}
+                  disabled={isPending}
+                  onRemove={() => onRemoveItem(it.id)}
+                  onSaved={refresh}
+                />
               ))}
             </ul>
           )}
         </div>
 
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => setShowManual((v) => !v)}
-            className="text-xs text-roxa-700 underline-offset-2 hover:underline"
-          >
-            {showManual ? "Esconder item manual" : "Adicionar item sem código"}
-          </button>
+        <div className="flex items-center justify-end">
           <button
             type="button"
             onClick={onCancel}
@@ -333,45 +392,6 @@ export function PdvClient({
             <XCircle className="h-3.5 w-3.5" /> Cancelar venda
           </button>
         </div>
-
-        {showManual && (
-          <form onSubmit={onManualAdd} className="flex items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
-            <div className="flex-1">
-              <Select value={manualKey} onChange={(e) => setManualKey(e.currentTarget.value)}>
-                <option value="">— escolha o item —</option>
-                <optgroup label="Produtos">
-                  {catalog
-                    .filter((c) => c.kind === "PRODUTO")
-                    .map((c) => (
-                      <option key={`PRODUTO:${c.id}`} value={`PRODUTO:${c.id}`}>
-                        {c.name} — {formatBRL(c.salePrice)}
-                      </option>
-                    ))}
-                </optgroup>
-                <optgroup label="Combos">
-                  {catalog
-                    .filter((c) => c.kind === "COMBO")
-                    .map((c) => (
-                      <option key={`COMBO:${c.id}`} value={`COMBO:${c.id}`}>
-                        {c.name} — {formatBRL(c.salePrice)}
-                      </option>
-                    ))}
-                </optgroup>
-              </Select>
-            </div>
-            <Input
-              type="number"
-              step="0.001"
-              min="0.001"
-              value={manualQty}
-              onChange={(e) => setManualQty(e.currentTarget.value)}
-              className="w-24"
-            />
-            <Button type="submit" disabled={isPending}>
-              <Plus className="h-4 w-4" />
-            </Button>
-          </form>
-        )}
       </div>
 
       {/* Coluna do pagamento */}
@@ -511,6 +531,148 @@ export function PdvClient({
         )}
       </div>
     </div>
+  );
+}
+
+function PdvItemRow({
+  item,
+  index,
+  saleId,
+  disabled,
+  onRemove,
+  onSaved,
+}: {
+  item: PdvItem;
+  index: number;
+  saleId: string;
+  disabled: boolean;
+  onRemove: () => void;
+  onSaved: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [editing, setEditing] = useState(false);
+  const [qty, setQty] = useState(String(item.quantity));
+  const [price, setPrice] = useState(String(item.unitPrice));
+  const [itemDiscount, setItemDiscount] = useState("");
+
+  const numQty = Number(qty.replace(",", ".")) || 0;
+  const numPrice = Number(price.replace(",", ".")) || 0;
+  const numDiscount = Math.max(0, Number(itemDiscount.replace(",", ".")) || 0);
+  // Desconto do item vira ajuste no preço unitário (o total re-calcula no server).
+  const finalUnit =
+    numQty > 0 ? Math.max(0, Number((numPrice - numDiscount / numQty).toFixed(2))) : 0;
+  const preview = Number((numQty * finalUnit).toFixed(2));
+  const isPending = pending || disabled;
+
+  function openEdit() {
+    setQty(String(item.quantity));
+    setPrice(String(item.unitPrice));
+    setItemDiscount("");
+    setEditing(true);
+  }
+
+  function save() {
+    if (!(numQty > 0) || finalUnit < 0) return;
+    startTransition(async () => {
+      const res = await updateSaleItemAction(item.id, saleId, {
+        quantity: numQty,
+        unitPrice: finalUnit,
+      });
+      if (!res.ok) {
+        window.alert(res.error);
+        return;
+      }
+      setEditing(false);
+      onSaved();
+    });
+  }
+
+  const discounted = item.totalPrice < Number((item.quantity * item.unitPrice).toFixed(2)) - 0.005;
+
+  return (
+    <li className="px-4 py-2.5">
+      <div className="flex items-center gap-3">
+        <span className="w-6 text-right text-xs tabular-nums text-slate-400">{index + 1}</span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-slate-900">{item.name}</p>
+          <p className="text-xs text-slate-500">
+            {formatQty(item.quantity)} × {formatBRL(item.unitPrice)}
+            {discounted && <span className="ml-1.5 text-roxa-600">(c/ desconto)</span>}
+          </p>
+        </div>
+        <span className="text-sm font-semibold tabular-nums text-slate-900">
+          {formatBRL(item.totalPrice)}
+        </span>
+        <button
+          type="button"
+          onClick={editing ? () => setEditing(false) : openEdit}
+          disabled={isPending}
+          className={`rounded-md p-1.5 disabled:opacity-50 ${
+            editing
+              ? "bg-roxa-100 text-roxa-700"
+              : "text-slate-400 hover:bg-roxa-50 hover:text-roxa-700"
+          }`}
+          title="Editar qtd / preço / desconto do item"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={isPending}
+          className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+          title="Remover item"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+
+      {editing && (
+        <div className="mt-2 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50 p-3">
+          <label className="text-xs text-slate-600">
+            Qtd
+            <Input
+              type="number"
+              step="0.001"
+              min="0.001"
+              value={qty}
+              onChange={(e) => setQty(e.currentTarget.value)}
+              className="mt-1 h-9 w-24 text-right tabular-nums"
+            />
+          </label>
+          <label className="text-xs text-slate-600">
+            Preço unit. R$
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={price}
+              onChange={(e) => setPrice(e.currentTarget.value)}
+              className="mt-1 h-9 w-28 text-right tabular-nums"
+            />
+          </label>
+          <label className="text-xs text-slate-600">
+            Desconto no item R$
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={itemDiscount}
+              onChange={(e) => setItemDiscount(e.currentTarget.value)}
+              placeholder="0,00"
+              className="mt-1 h-9 w-28 text-right tabular-nums"
+            />
+          </label>
+          <div className="flex-1 text-right text-sm">
+            <span className="text-slate-500">Novo total: </span>
+            <span className="font-semibold tabular-nums text-roxa-700">{formatBRL(preview)}</span>
+          </div>
+          <Button onClick={save} disabled={isPending || !(numQty > 0)} className="h-9">
+            Aplicar
+          </Button>
+        </div>
+      )}
+    </li>
   );
 }
 
