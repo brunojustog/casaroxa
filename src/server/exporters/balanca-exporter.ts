@@ -1,8 +1,9 @@
 /**
  * Exportador de carga pra balança Toledo (Prix 4/5/6) no layout oficial
- * ITENSMGV.TXT — versão 1, retrocompatível com MGV5/MGV6/MGV7:
+ * ITENSMGV.TXT — versão 1 COMPLETA (espec. Toledo "Padrão de cadastro"):
  *
- *   DD(2) T(1) CCCCCC(6) PPPPPP(6) VVV(3) D1(25) D2(25)  + CRLF
+ *   DD(2) T(1) CCCCCC(6) PPPPPP(6) VVV(3) D1(25) D2(25)
+ *   RRRRRR(6) FFF(3) IIII(4) DV(1) DE(1) CF(4) L(12) G(11) Z(1) R(2)  + CRLF
  *
  *   DD     departamento (01 fixo — loja única)
  *   T      0 = venda por peso · 1 = venda por unidade
@@ -10,10 +11,18 @@
  *   PPPPPP preço em centavos inteiros (R$ 74,90 → 007490)
  *   VVV    validade em dias (000 = não imprime)
  *   D1/D2  descrição (2 × 25 chars, ASCII sem acento)
+ *   DV/DE  IMPRIME data de validade / de embalagem (1/0) — sem esses campos
+ *          a importação DESLIGA as datas do item (bug visto em 25/07/2026);
+ *          mandamos 1 quando o produto tem scaleValidityDays > 0.
+ *   demais associações (info extra, imagem, fornecedor, lote…) = zeros
+ *          ("campo preenchido com zeros é ignorado", espec. Toledo)
  *
  * Só entram produtos ativos com scaleCode e salePrice > 0. O tipo (peso vs
- * unidade) vem da unidade do ingrediente da ficha 1:1 (KG → peso); fallback
- * pelo portionLabel ("por kg" → peso).
+ * unidade): portionLabel com "kg" OU ficha 1:1 em KG → peso (fichas em
+ * gramas com venda "por kg" contam como peso — ex.: coxinha, bolinha).
+ *
+ * ATENÇÃO: a etiqueta 40x40 da Prix 4 Flex imprime só ~17 chars do
+ * descritivo — Product.scaleName cuida disso.
  */
 import { prisma } from "@/lib/prisma";
 
@@ -73,7 +82,7 @@ export async function loadBalancaItems(): Promise<BalancaItem[]> {
     const recipeUnit = p.recipe?.items[0]?.unit ?? null;
     const byWeight =
       recipeUnit === "KG" ||
-      (recipeUnit === null && (p.portionLabel ?? "").toLowerCase().includes("kg"));
+      (p.portionLabel ?? "").toLowerCase().includes("kg");
     return {
       scaleCode: p.scaleCode as string,
       // Etiqueta 40x40 imprime só 20 chars — scaleName é o nome curto.
@@ -85,11 +94,13 @@ export async function loadBalancaItems(): Promise<BalancaItem[]> {
   });
 }
 
-/** Gera o conteúdo do ITENSMGV.TXT (linhas de 68 chars + CRLF). */
+/** Gera o conteúdo do ITENSMGV.TXT (linhas de 113 chars + CRLF). */
 export function buildItensMgvTxt(items: BalancaItem[]): string {
   const lines = items.map((it) => {
     const d1 = padText(it.name.slice(0, 25), 25);
     const d2 = padText(it.name.length > 25 ? it.name.slice(25, 50) : "", 25);
+    // Liga a impressão das datas na balança quando o item tem validade.
+    const printDates = it.validityDays > 0 ? "1" : "0";
     return (
       DEPARTMENT +
       (it.byWeight ? "0" : "1") +
@@ -97,7 +108,17 @@ export function buildItensMgvTxt(items: BalancaItem[]): string {
       padNum(it.priceCents, 6) +
       padNum(it.validityDays, 3) +
       d1 +
-      d2
+      d2 +
+      "000000" + // RRRRRR — info extra (sem associação)
+      "000" + //    FFF — imagem
+      "0000" + //   IIII — info nutricional
+      printDates + // DV — imprime data de validade
+      printDates + // DE — imprime data de embalagem
+      "0000" + //   CF — fornecedor
+      "000000000000" + // L — lote (12)
+      "00000000000" + //  G — reservado (11)
+      "0" + //      Z — versão do preço
+      "00" //       R — reservado (2)
     );
   });
   // CRLF é obrigatório no padrão Toledo (inclusive na última linha).

@@ -275,13 +275,13 @@ export function ProductForm({
           <Field
             label="Nome na etiqueta"
             htmlFor="scaleName"
-            hint="Máx. 20 caracteres (limite da etiqueta 40x40). Vazio = usa o nome do produto."
+            hint="Máx. 17 caracteres (o que a etiqueta 40x40 imprime). Vazio = usa o nome do produto."
             error={errors.scaleName?.message as string | undefined}
           >
             <Input
               id="scaleName"
-              maxLength={20}
-              placeholder="Ex.: Risol Pres/Quei/Cat"
+              maxLength={17}
+              placeholder="Ex.: Risol Pre/Que/Cat"
               {...form.register("scaleName")}
             />
           </Field>

@@ -92,11 +92,12 @@ export const productFormSchema = z.object({
     .refine((v) => v === null || (v.length >= 8 && v.length <= 14), {
       message: "Código de barras deve ter de 8 a 14 dígitos",
     }),
-  /** Nome curto pra etiqueta da balança (máx. 20 chars). Vazio = usa o nome normal. */
+  /** Nome curto pra etiqueta da balança (máx. 17 chars — limite real medido
+   *  na Prix 4 Flex com etiqueta 40x40). Vazio = usa o nome normal. */
   scaleName: z
     .string()
     .trim()
-    .max(20, "Nome na etiqueta: máximo 20 caracteres")
+    .max(17, "Nome na etiqueta: máximo 17 caracteres")
     .nullish()
     .transform((v) => (v && v.length > 0 ? v : null)),
   /** Validade impressa na etiqueta da balança (dias, 0–999). Vazio = não imprime. */
