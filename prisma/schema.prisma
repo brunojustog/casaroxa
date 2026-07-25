@@ -1424,6 +1424,8 @@ model SalePayment {
   feePercent Decimal       @default(0) @db.Decimal(5, 4)
   feeAmount  Decimal       @default(0) @db.Decimal(14, 2)
   netAmount  Decimal       @db.Decimal(14, 2)
+  /// Valor entregue pelo cliente (dinheiro). Troco = receivedAmount - amount.
+  receivedAmount Decimal?  @db.Decimal(14, 2)
   notes      String?
   createdAt  DateTime      @default(now())
 

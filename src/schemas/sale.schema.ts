@@ -91,6 +91,15 @@ export const salePaymentFormSchema = z.object({
     })
     .pipe(z.number().min(0).max(100).optional())
     .transform((v) => (v === undefined ? undefined : v / 100)),
+  /// Valor entregue pelo cliente (dinheiro) — usado pra calcular o troco no PDV.
+  receivedAmount: z
+    .union([z.string(), z.number()])
+    .nullish()
+    .transform((v) => {
+      if (v === undefined || v === null || v === "") return undefined;
+      return typeof v === "string" ? Number(v.replace(",", ".")) : v;
+    })
+    .pipe(z.number().min(0).optional()),
   notes: optionalString(500),
 });
 export type SalePaymentFormInput = z.input<typeof salePaymentFormSchema>;

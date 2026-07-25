@@ -94,6 +94,27 @@ export async function getSaleById(id: string) {
 }
 
 /**
+ * Venda atual do caixa (PDV): a venda LOJA em aberto mais recente.
+ * O PDV trabalha com uma venda por vez; a tela do cliente acompanha a mesma.
+ */
+export async function getCurrentPdvSale() {
+  return prisma.sale.findFirst({
+    where: { source: "LOJA", status: "ABERTA" },
+    orderBy: { updatedAt: "desc" },
+    include: {
+      items: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          product: { select: { name: true } },
+          combo: { select: { name: true } },
+        },
+      },
+      payments: { orderBy: { createdAt: "asc" } },
+    },
+  });
+}
+
+/**
  * KDS (Kitchen Display System) — pedidos em produção pra cozinha.
  * Retorna pedidos com status ABERTA OU CONCLUIDA cujo progress não é
  * ENTREGUE e occurredAt nos últimos 24h (evita exibir histórico antigo).
@@ -419,6 +440,10 @@ export async function addSalePayment(saleId: string, input: SalePaymentFormData)
         feePercent: toDecimal(feePercent).toFixed(4),
         feeAmount: feeAmount.toFixed(2),
         netAmount: netAmount.toFixed(2),
+        receivedAmount:
+          input.receivedAmount !== undefined
+            ? toDecimal(input.receivedAmount).toFixed(2)
+            : undefined,
         notes: input.notes,
       },
     });

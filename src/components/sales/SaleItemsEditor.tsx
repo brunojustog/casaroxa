@@ -16,6 +16,7 @@ import {
   TD,
 } from "@/components/ui/table";
 import { formatBRL } from "@/lib/format";
+import { parseScannedCode } from "@/lib/scale-barcode";
 import {
   addSaleItemAction,
   removeSaleItemAction,
@@ -70,85 +71,30 @@ export function SaleItemsEditor({
 
   const selected = catalog.find((c) => `${c.kind}:${c.id}` === selectedKey);
 
-  /**
-   * Interpreta o código bipado pelo leitor:
-   *  - Etiqueta da balança Toledo: EAN-13 "2CCCCCCVVVVVD" — CCCCCC é o
-   *    scaleCode e VVVVV o PREÇO em centavos. Quantidade = preço ÷ preço/kg.
-   *  - Código de fábrica (EAN-8/13): casa com Product.barcode, adiciona 1 un.
-   */
+  // Parser compartilhado com o PDV — src/lib/scale-barcode.ts.
   function handleScan(raw: string) {
-    const code = raw.replace(/\D/g, "");
     setScanMsg(null);
-    if (!code) return;
-
-    if (code.length === 13 && code.startsWith("2")) {
-      // O EAN-13 da balança é 2 + código + preço + DV, mas a divisão entre
-      // código e preço varia com a configuração da balança (6+5, 5+6 ou
-      // 4+7 dígitos). Testamos as três divisões e usamos a que casar com
-      // um código de balança cadastrado.
-      const body = code.slice(1, 12);
-      const splits = [6, 5, 4];
-      let prod: CatalogEntry | undefined;
-      let priceCents = 0;
-      for (const len of splits) {
-        const codeNum = parseInt(body.slice(0, len), 10);
-        const match = catalog.find(
-          (c) =>
-            c.kind === "PRODUTO" &&
-            c.scaleCode &&
-            parseInt(c.scaleCode, 10) === codeNum,
-        );
-        if (match) {
-          prod = match;
-          priceCents = parseInt(body.slice(len), 10);
-          break;
-        }
-      }
-      if (!prod) {
-        setScanMsg(
-          `Nenhum produto com código de balança ${parseInt(body.slice(0, 6), 10)} (nem nas variações do formato).`,
-        );
-        return;
-      }
-      if (!(prod.salePrice > 0) || !(priceCents > 0)) {
-        setScanMsg(`"${prod.name}" sem preço válido pra calcular o peso.`);
-        return;
-      }
-      // Etiqueta traz o TOTAL em R$; convertemos pra quantidade (kg) com
-      // 3 casas — o total re-calculado bate com a etiqueta (± 1 centavo).
-      const qty = Number((priceCents / 100 / prod.salePrice).toFixed(3));
-      startTransition(async () => {
-        const res = await addSaleItemAction(saleId, {
-          productId: prod.id,
-          quantity: qty,
-        });
-        if (!res.ok) {
-          setScanMsg(res.error);
-          return;
-        }
-        setScanMsg(`✓ ${prod.name} — ${qty.toFixed(3).replace(".", ",")} kg (R$ ${(priceCents / 100).toFixed(2).replace(".", ",")})`);
-        router.refresh();
-      });
+    const result = parseScannedCode(raw, catalog);
+    if (!result) return;
+    if (result.type === "error") {
+      setScanMsg(result.message);
       return;
     }
-
-    const prod = catalog.find((c) => c.kind === "PRODUTO" && c.barcode === code);
-    if (!prod) {
-      setScanMsg(
-        `Código ${code} não cadastrado. Cadastre no produto (campo Código de barras).`,
-      );
-      return;
-    }
+    const qty = result.type === "scale" ? result.quantity : 1;
     startTransition(async () => {
       const res = await addSaleItemAction(saleId, {
-        productId: prod.id,
-        quantity: 1,
+        productId: result.entry.id,
+        quantity: qty,
       });
       if (!res.ok) {
         setScanMsg(res.error);
         return;
       }
-      setScanMsg(`✓ ${prod.name} — 1 un.`);
+      setScanMsg(
+        result.type === "scale"
+          ? `✓ ${result.entry.name} — ${qty.toFixed(3).replace(".", ",")} kg (R$ ${(result.priceCents / 100).toFixed(2).replace(".", ",")})`
+          : `✓ ${result.entry.name} — 1 un.`,
+      );
       router.refresh();
     });
   }
@@ -222,6 +168,8 @@ export function SaleItemsEditor({
               disabled={isPending}
             />
           </div>
+          {/* Submit invisível: garante que o Enter do leitor dispare o form. */}
+          <button type="submit" hidden aria-hidden tabIndex={-1} />
           {scanMsg && (
             <p
               className={`mt-2 text-xs ${
