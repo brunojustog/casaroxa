@@ -110,6 +110,7 @@ export async function createProduct(input: ProductFormData) {
       youtubeUrl: input.youtubeUrl,
       scaleCode: input.scaleCode,
       scaleValidityDays: input.scaleValidityDays,
+      scaleName: input.scaleName,
       barcode: input.barcode,
       priceHistory: input.salePrice
         ? { create: { oldPrice: null, newPrice: input.salePrice } }
@@ -186,6 +187,7 @@ export async function updateProduct(id: string, input: ProductFormData) {
         youtubeUrl: input.youtubeUrl,
         scaleCode: input.scaleCode,
         scaleValidityDays: input.scaleValidityDays,
+        scaleName: input.scaleName,
         barcode: input.barcode,
       },
     });

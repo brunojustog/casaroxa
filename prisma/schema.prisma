@@ -478,6 +478,9 @@ model Product {
   scaleCode         String?         @unique
   /// Validade impressa na etiqueta da balança, em dias (null/0 = não imprime).
   scaleValidityDays Int?
+  /// Nome curto pra etiqueta da balança (máx. 20 chars — limite das etiquetas
+  /// 40x40). Se null, a carga usa o name normal (que pode sair cortado).
+  scaleName         String?
   /// Código de barras de fábrica (EAN-8/13) — leitor no PDV adiciona o
   /// item bipando o pacote (empório/revenda). Etiqueta da balança NÃO usa
   /// este campo (usa scaleCode dentro do EAN "2...").

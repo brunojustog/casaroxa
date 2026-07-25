@@ -54,6 +54,7 @@ export async function loadBalancaItems(): Promise<BalancaItem[]> {
     select: {
       scaleCode: true,
       name: true,
+      scaleName: true,
       salePrice: true,
       portionLabel: true,
       scaleValidityDays: true,
@@ -75,7 +76,8 @@ export async function loadBalancaItems(): Promise<BalancaItem[]> {
       (recipeUnit === null && (p.portionLabel ?? "").toLowerCase().includes("kg"));
     return {
       scaleCode: p.scaleCode as string,
-      name: p.name,
+      // Etiqueta 40x40 imprime só 20 chars — scaleName é o nome curto.
+      name: p.scaleName ?? p.name,
       priceCents: Math.round(Number(p.salePrice ?? 0) * 100),
       byWeight,
       validityDays: p.scaleValidityDays ?? 0,

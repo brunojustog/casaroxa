@@ -57,6 +57,8 @@ type FormShape = {
   youtubeUrl: string;
   /** Código do item na balança Toledo (6 dígitos, vazio = não vai pra balança). */
   scaleCode: string;
+  /** Nome curto pra etiqueta (máx. 20 chars). Vazio = usa o nome do produto. */
+  scaleName: string;
   scaleValidityDays: number | string;
   /** Código de barras de fábrica (EAN) — bipável no PDV. */
   barcode: string;
@@ -80,6 +82,7 @@ export type ProductFormDefaults = Partial<{
   gallery: string[] | null;
   youtubeUrl: string | null;
   scaleCode: string | null;
+  scaleName: string | null;
   scaleValidityDays: number | null;
   barcode: string | null;
 }>;
@@ -101,6 +104,7 @@ const EMPTY: FormShape = {
   gallery: "",
   youtubeUrl: "",
   scaleCode: "",
+  scaleName: "",
   scaleValidityDays: "",
   barcode: "",
 };
@@ -123,6 +127,7 @@ function toFormShape(d: ProductFormDefaults | undefined): FormShape {
     gallery: Array.isArray(d?.gallery) ? d.gallery.join("\n") : "",
     youtubeUrl: d?.youtubeUrl ?? "",
     scaleCode: d?.scaleCode ?? "",
+    scaleName: d?.scaleName ?? "",
     scaleValidityDays: d?.scaleValidityDays ?? "",
     barcode: d?.barcode ?? "",
   };
@@ -265,6 +270,19 @@ export function ProductForm({
               maxLength={6}
               placeholder="000000"
               {...form.register("scaleCode")}
+            />
+          </Field>
+          <Field
+            label="Nome na etiqueta"
+            htmlFor="scaleName"
+            hint="Máx. 20 caracteres (limite da etiqueta 40x40). Vazio = usa o nome do produto."
+            error={errors.scaleName?.message as string | undefined}
+          >
+            <Input
+              id="scaleName"
+              maxLength={20}
+              placeholder="Ex.: Risol Pres/Quei/Cat"
+              {...form.register("scaleName")}
             />
           </Field>
           <Field
