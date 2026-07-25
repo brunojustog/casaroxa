@@ -82,13 +82,32 @@ export function SaleItemsEditor({
     if (!code) return;
 
     if (code.length === 13 && code.startsWith("2")) {
-      const scaleCode = code.slice(1, 7);
-      const priceCents = parseInt(code.slice(7, 12), 10);
-      const prod = catalog.find(
-        (c) => c.kind === "PRODUTO" && c.scaleCode === scaleCode,
-      );
+      // O EAN-13 da balança é 2 + código + preço + DV, mas a divisão entre
+      // código e preço varia com a configuração da balança (6+5, 5+6 ou
+      // 4+7 dígitos). Testamos as três divisões e usamos a que casar com
+      // um código de balança cadastrado.
+      const body = code.slice(1, 12);
+      const splits = [6, 5, 4];
+      let prod: CatalogEntry | undefined;
+      let priceCents = 0;
+      for (const len of splits) {
+        const codeNum = parseInt(body.slice(0, len), 10);
+        const match = catalog.find(
+          (c) =>
+            c.kind === "PRODUTO" &&
+            c.scaleCode &&
+            parseInt(c.scaleCode, 10) === codeNum,
+        );
+        if (match) {
+          prod = match;
+          priceCents = parseInt(body.slice(len), 10);
+          break;
+        }
+      }
       if (!prod) {
-        setScanMsg(`Nenhum produto com código de balança ${scaleCode}.`);
+        setScanMsg(
+          `Nenhum produto com código de balança ${parseInt(body.slice(0, 6), 10)} (nem nas variações do formato).`,
+        );
         return;
       }
       if (!(prod.salePrice > 0) || !(priceCents > 0)) {
