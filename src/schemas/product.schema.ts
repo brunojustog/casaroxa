@@ -101,6 +101,36 @@ export const productFormSchema = z.object({
     .max(16, "Nome na etiqueta: máximo 16 caracteres")
     .nullish()
     .transform((v) => (v && v.length > 0 ? v : null)),
+  /** NCM (8 dígitos) — classificação fiscal do produto na NFC-e. Vazio = default das Settings. */
+  ncm: z
+    .string()
+    .trim()
+    .nullish()
+    .transform((v) => (v ? v.replace(/\D/g, "") : ""))
+    .transform((v) => (v.length > 0 ? v : null))
+    .refine((v) => v === null || /^\d{8}$/.test(v), {
+      message: "NCM deve ter exatamente 8 dígitos",
+    }),
+  /** CEST (7 dígitos) — só produtos com substituição tributária. */
+  cest: z
+    .string()
+    .trim()
+    .nullish()
+    .transform((v) => (v ? v.replace(/\D/g, "") : ""))
+    .transform((v) => (v.length > 0 ? v : null))
+    .refine((v) => v === null || /^\d{7}$/.test(v), {
+      message: "CEST deve ter exatamente 7 dígitos",
+    }),
+  /** CFOP específico (4 dígitos). Vazio = default das Settings (5102). */
+  cfop: z
+    .string()
+    .trim()
+    .nullish()
+    .transform((v) => (v ? v.replace(/\D/g, "") : ""))
+    .transform((v) => (v.length > 0 ? v : null))
+    .refine((v) => v === null || /^\d{4}$/.test(v), {
+      message: "CFOP deve ter exatamente 4 dígitos",
+    }),
   /** Validade impressa na etiqueta da balança (dias, 0–999). Vazio = não imprime. */
   scaleValidityDays: z
     .union([z.string(), z.number()])

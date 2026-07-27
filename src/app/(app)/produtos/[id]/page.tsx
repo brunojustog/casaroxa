@@ -133,6 +133,9 @@ export default async function EditarProdutoPage({
                   youtubeUrl: product.youtubeUrl,
                   scaleCode: product.scaleCode,
                   scaleName: product.scaleName,
+                  ncm: product.ncm,
+                  cest: product.cest,
+                  cfop: product.cfop,
                   scaleValidityDays: product.scaleValidityDays,
                   barcode: product.barcode,
                 }}

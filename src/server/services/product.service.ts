@@ -112,6 +112,9 @@ export async function createProduct(input: ProductFormData) {
       scaleValidityDays: input.scaleValidityDays,
       scaleName: input.scaleName,
       barcode: input.barcode,
+      ncm: input.ncm,
+      cest: input.cest,
+      cfop: input.cfop,
       priceHistory: input.salePrice
         ? { create: { oldPrice: null, newPrice: input.salePrice } }
         : undefined,
@@ -189,6 +192,9 @@ export async function updateProduct(id: string, input: ProductFormData) {
         scaleValidityDays: input.scaleValidityDays,
         scaleName: input.scaleName,
         barcode: input.barcode,
+        ncm: input.ncm,
+        cest: input.cest,
+        cfop: input.cfop,
       },
     });
 

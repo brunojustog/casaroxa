@@ -62,6 +62,12 @@ type FormShape = {
   scaleValidityDays: number | string;
   /** Código de barras de fábrica (EAN) — bipável no PDV. */
   barcode: string;
+  /** NCM (8 díg.) — classificação fiscal. Vazio = padrão das configurações. */
+  ncm: string;
+  /** CEST (7 díg.) — só com substituição tributária. */
+  cest: string;
+  /** CFOP (4 díg.). Vazio = padrão. */
+  cfop: string;
 };
 
 export type ProductFormDefaults = Partial<{
@@ -85,6 +91,9 @@ export type ProductFormDefaults = Partial<{
   scaleName: string | null;
   scaleValidityDays: number | null;
   barcode: string | null;
+  ncm: string | null;
+  cest: string | null;
+  cfop: string | null;
 }>;
 
 const EMPTY: FormShape = {
@@ -107,6 +116,9 @@ const EMPTY: FormShape = {
   scaleName: "",
   scaleValidityDays: "",
   barcode: "",
+  ncm: "",
+  cest: "",
+  cfop: "",
 };
 
 function toFormShape(d: ProductFormDefaults | undefined): FormShape {
@@ -130,6 +142,9 @@ function toFormShape(d: ProductFormDefaults | undefined): FormShape {
     scaleName: d?.scaleName ?? "",
     scaleValidityDays: d?.scaleValidityDays ?? "",
     barcode: d?.barcode ?? "",
+    ncm: d?.ncm ?? "",
+    cest: d?.cest ?? "",
+    cfop: d?.cfop ?? "",
   };
 }
 
@@ -312,6 +327,38 @@ export function ProductForm({
               placeholder="7891234567890"
               {...form.register("barcode")}
             />
+          </Field>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <h3 className="text-sm font-semibold text-slate-700 mb-3">
+          Fiscal (NFC-e)
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Field
+            label="NCM"
+            htmlFor="ncm"
+            hint="8 dígitos. Vazio = padrão das configurações fiscais."
+            error={errors.ncm?.message as string | undefined}
+          >
+            <Input id="ncm" inputMode="numeric" maxLength={8} placeholder="04061010" {...form.register("ncm")} />
+          </Field>
+          <Field
+            label="CEST"
+            htmlFor="cest"
+            hint="7 dígitos — só se houver substituição tributária."
+            error={errors.cest?.message as string | undefined}
+          >
+            <Input id="cest" inputMode="numeric" maxLength={7} placeholder="1706200" {...form.register("cest")} />
+          </Field>
+          <Field
+            label="CFOP"
+            htmlFor="cfop"
+            hint="4 dígitos. Vazio = padrão (5102)."
+            error={errors.cfop?.message as string | undefined}
+          >
+            <Input id="cfop" inputMode="numeric" maxLength={4} placeholder="5102" {...form.register("cfop")} />
           </Field>
         </div>
       </section>

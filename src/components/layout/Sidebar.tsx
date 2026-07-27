@@ -33,6 +33,7 @@ import {
   Star,
   Bus,
   Smartphone,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@prisma/client";
@@ -89,6 +90,7 @@ const NAV: NavSection[] = [
     section: "Financeiro",
     roles: ["ADMIN"],
     items: [
+      { href: "/fiscal",       label: "Fiscal (NFC-e)",  icon: FileText },
       { href: "/custos-fixos", label: "Custos Fixos",    icon: Receipt },
       { href: "/resultado",    label: "Resultado / DRE", icon: Activity },
       { href: "/cenarios",     label: "Cenários",        icon: TrendingUp },

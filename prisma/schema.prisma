@@ -481,6 +481,13 @@ model Product {
   /// Nome curto pra etiqueta da balança (máx. 20 chars — limite das etiquetas
   /// 40x40). Se null, a carga usa o name normal (que pode sair cortado).
   scaleName         String?
+  /// NCM do produto (8 dígitos) — obrigatório na NFC-e. Null = usa o default
+  /// das Settings (e fica marcado pra revisão fiscal).
+  ncm               String?
+  /// CEST (7 dígitos) — só para produtos com substituição tributária.
+  cest              String?
+  /// CFOP específico do produto. Null = default das Settings (5102).
+  cfop              String?
   /// Código de barras de fábrica (EAN-8/13) — leitor no PDV adiciona o
   /// item bipando o pacote (empório/revenda). Etiqueta da balança NÃO usa
   /// este campo (usa scaleCode dentro do EAN "2...").
@@ -733,10 +740,82 @@ model Settings {
   /// Valida no /encomenda — cliente não pode pedir pra data anterior a now + N horas.
   orderLeadTimeHours Int @default(48)
 
+  // ----- Fiscal (NFC-e) -----
+  /// Chave geral de emissão fiscal no PDV. Desligada = módulo dormante.
+  fiscalEnabled Boolean @default(false)
+  /// SIMULADO (sem certificado), HOMOLOGACAO (testes SEFAZ) ou PRODUCAO.
+  fiscalEnvironment FiscalEnvironment @default(SIMULADO)
+  /// Série das NFC-e (padrão 1).
+  fiscalSeries Int @default(1)
+  /// Próximo nNF a usar — incrementado em transação a cada emissão.
+  fiscalNextNumber Int @default(1)
+  /// CFOP padrão quando o produto não define (5102 = venda de mercadoria).
+  fiscalDefaultCfop String @default("5102")
+  /// NCM padrão quando o produto não define (obriga revisão!).
+  fiscalDefaultNcm String @default("21069090")
+  /// ID do CSC na SEFAZ-SP (o token em si fica em env FISCAL_CSC).
+  fiscalCscId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   history SettingsHistory[]
+}
+
+// ============================================================
+// FISCAL — NFC-e (modelo 65)
+// ============================================================
+
+enum FiscalEnvironment {
+  SIMULADO // sem certificado — chave/QR fictícios, só pra validar o fluxo
+  HOMOLOGACAO // ambiente de testes da SEFAZ (nota sem valor fiscal)
+  PRODUCAO
+}
+
+enum FiscalDocStatus {
+  PENDENTE // criada, aguardando autorização (fila/contingência)
+  AUTORIZADA
+  REJEITADA
+  CANCELADA
+  ERRO // falha técnica — reemitir
+}
+
+model FiscalDocument {
+  id     String @id @default(cuid())
+  saleId String @unique
+  /// Modelo 65 = NFC-e (55 = NF-e, futuro).
+  model  Int    @default(65)
+  series Int
+  number Int
+
+  environment FiscalEnvironment
+  status      FiscalDocStatus   @default(PENDENTE)
+
+  /// Chave de acesso (44 dígitos) — única quando autorizada.
+  accessKey String? @unique
+  protocol  String?
+  qrCodeUrl String?
+  /// CPF/CNPJ do destinatário ("CPF na nota"), só dígitos. Null = consumidor não identificado.
+  cpfCnpj   String?
+
+  totalAmount Decimal @db.Decimal(14, 2)
+
+  /// XML autorizado (guarda fiscal — obrigatório manter por 5 anos).
+  xml           String?
+  rejectionCode String?
+  errorMessage  String?
+  attempts      Int     @default(0)
+
+  authorizedAt DateTime?
+  cancelledAt  DateTime?
+  cancelReason String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Restrict)
+
+  @@unique([model, series, number, environment])
+  @@index([status, createdAt])
 }
 
 model SettingsHistory {
@@ -1387,6 +1466,7 @@ model Sale {
   salesEventWindow    SalesEventWindow?         @relation(fields: [salesEventWindowId], references: [id], onDelete: SetNull)
   items               SaleItem[]
   payments            SalePayment[]
+  fiscalDocument      FiscalDocument?
   onlinePayment       OnlinePayment?
   orderRequest        OrderRequest?
   campaignAttribution CampaignOrderAttribution?

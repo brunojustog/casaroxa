@@ -7,14 +7,16 @@ import {
   listActiveCombosForSale,
   listActiveProductsForSale,
 } from "@/server/services/sales.service";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function PdvPage() {
-  const [sale, products, combos] = await Promise.all([
+  const [sale, products, combos, settings] = await Promise.all([
     getCurrentPdvSale(),
     listActiveProductsForSale(),
     listActiveCombosForSale(),
+    prisma.settings.findUnique({ where: { id: 1 }, select: { fiscalEnabled: true } }),
   ]);
 
   const catalog = [
@@ -79,7 +81,11 @@ export default async function PdvPage() {
           </Link>
         }
       />
-      <PdvClient sale={pdvSale} catalog={catalog} />
+      <PdvClient
+        sale={pdvSale}
+        catalog={catalog}
+        fiscalEnabled={settings?.fiscalEnabled ?? false}
+      />
     </div>
   );
 }

@@ -32,6 +32,7 @@ import {
   removeSalePaymentAction,
   updateSaleItemAction,
 } from "@/server/actions/sales";
+import { emitNfceAction } from "@/server/actions/fiscal";
 
 /** Busca sem acento/caixa: "linguica" acha "Linguiça". */
 function normalize(s: string) {
@@ -81,9 +82,11 @@ function formatQty(q: number) {
 export function PdvClient({
   sale,
   catalog,
+  fiscalEnabled = false,
 }: {
   sale: PdvSale | null;
   catalog: ScanCatalogEntry[];
+  fiscalEnabled?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -242,6 +245,7 @@ export function PdvClient({
         total={done.total}
         troco={done.troco}
         saleId={done.saleId}
+        fiscalEnabled={fiscalEnabled}
         onNext={novaVenda}
         pending={isPending}
       />
@@ -688,15 +692,38 @@ function DoneScreen({
   total,
   troco,
   saleId,
+  fiscalEnabled,
   onNext,
   pending,
 }: {
   total: number;
   troco: number;
   saleId: string;
+  fiscalEnabled: boolean;
   onNext: () => void;
   pending: boolean;
 }) {
+  const [cpf, setCpf] = useState("");
+  const [emitting, startEmit] = useTransition();
+  const [fiscalMsg, setFiscalMsg] = useState<string | null>(null);
+  const [emitted, setEmitted] = useState(false);
+
+  function emitir() {
+    setFiscalMsg(null);
+    startEmit(async () => {
+      const res = await emitNfceAction(saleId, cpf || null);
+      if (!res.ok) {
+        setFiscalMsg(res.error);
+        return;
+      }
+      setEmitted(true);
+      setFiscalMsg("✓ NFC-e emitida!");
+      if (res.data?.docId) {
+        window.open(`/pdv-danfe/${res.data.docId}`, "_blank", "width=320,height=640");
+      }
+    });
+  }
+
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
       <CheckCircle2 className="h-14 w-14 text-green-600" />
@@ -706,6 +733,35 @@ function DoneScreen({
           Troco: {formatBRL(troco)}
         </p>
       )}
+
+      {fiscalEnabled && !emitted && (
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white p-3">
+          <Input
+            value={cpf}
+            onChange={(e) => setCpf(e.currentTarget.value)}
+            placeholder="CPF na nota (opcional)"
+            inputMode="numeric"
+            maxLength={14}
+            className="h-11 w-52 text-center tabular-nums"
+          />
+          <button
+            type="button"
+            onClick={emitir}
+            disabled={emitting}
+            className="inline-flex items-center gap-2 rounded-lg bg-roxa-700 px-5 py-3 text-sm font-semibold text-white hover:bg-roxa-800 disabled:opacity-60"
+          >
+            🧾 Emitir NFC-e
+          </button>
+        </div>
+      )}
+      {fiscalMsg && (
+        <p
+          className={`text-sm ${fiscalMsg.startsWith("✓") ? "text-green-700" : "text-red-700"}`}
+        >
+          {fiscalMsg}
+        </p>
+      )}
+
       <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
         <button
           type="button"
