@@ -195,6 +195,7 @@ export async function getSaleComprovante(id: string) {
           id: true,
           method: true,
           amount: true,
+          receivedAmount: true,
           createdAt: true,
         },
       },

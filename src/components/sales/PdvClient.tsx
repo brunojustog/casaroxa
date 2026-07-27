@@ -93,7 +93,9 @@ export function PdvClient({
   const [received, setReceived] = useState("");
   const [discount, setDiscount] = useState("");
   const [highlight, setHighlight] = useState(0);
-  const [done, setDone] = useState<{ total: number; troco: number } | null>(null);
+  const [done, setDone] = useState<{ total: number; troco: number; saleId: string } | null>(
+    null,
+  );
   const scanRef = useRef<HTMLInputElement | null>(null);
 
   // Digitou letra no campo de bipar → vira busca pelo nome (com sugestões).
@@ -236,7 +238,13 @@ export function PdvClient({
 
   if (!sale) {
     return done ? (
-      <DoneScreen total={done.total} troco={done.troco} onNext={novaVenda} pending={isPending} />
+      <DoneScreen
+        total={done.total}
+        troco={done.troco}
+        saleId={done.saleId}
+        onNext={novaVenda}
+        pending={isPending}
+      />
     ) : (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
         <p className="text-sm text-slate-500">Nenhuma venda aberta no caixa.</p>
@@ -288,7 +296,7 @@ export function PdvClient({
         window.alert(res.error);
         return;
       }
-      setDone({ total: sale.total, troco: totalTroco });
+      setDone({ total: sale.total, troco: totalTroco, saleId: sale.id });
       refresh();
     });
   }
@@ -679,11 +687,13 @@ function PdvItemRow({
 function DoneScreen({
   total,
   troco,
+  saleId,
   onNext,
   pending,
 }: {
   total: number;
   troco: number;
+  saleId: string;
   onNext: () => void;
   pending: boolean;
 }) {
@@ -696,9 +706,20 @@ function DoneScreen({
           Troco: {formatBRL(troco)}
         </p>
       )}
-      <Button size="lg" onClick={onNext} disabled={pending} className="mt-4 px-10 py-6 text-lg">
-        <Plus className="mr-2 h-5 w-5" /> Nova venda
-      </Button>
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={() =>
+            window.open(`/pdv-cupom/${saleId}`, "_blank", "width=320,height=640")
+          }
+          className="inline-flex items-center gap-2 rounded-lg border-2 border-slate-300 bg-white px-6 py-4 text-base font-semibold text-slate-700 hover:border-roxa-400 hover:text-roxa-700"
+        >
+          🖨️ Imprimir cupom
+        </button>
+        <Button size="lg" onClick={onNext} disabled={pending} className="px-10 py-6 text-lg">
+          <Plus className="mr-2 h-5 w-5" /> Nova venda
+        </Button>
+      </div>
     </div>
   );
 }
