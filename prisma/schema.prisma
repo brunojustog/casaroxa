@@ -668,6 +668,11 @@ model Settings {
   deliveryEnabled     Boolean  @default(true)
   /// Texto livre sobre taxa/área de entrega (ex: "Taxa conforme distância — combinamos no WhatsApp").
   deliveryFeeNote     String?
+  /// Chave manual "cozinha fechada": true = cardápio não aceita pedidos
+  /// imediatos (encomendas e empório continuam abertos). Toggle no dashboard.
+  cardapioClosed        Boolean @default(false)
+  /// Mensagem opcional exibida no cardápio quando a cozinha está fechada.
+  cardapioClosedMessage String?
   /// Pedido mínimo opcional (em R$). Se null/0, sem mínimo.
   minimumOrderValue   Decimal? @db.Decimal(10, 2)
 

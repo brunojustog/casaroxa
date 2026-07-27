@@ -71,9 +71,22 @@ export async function createPublicOrder(
       : Promise.resolve([]),
     prisma.settings.findUnique({
       where: { id: 1 },
-      select: { whatsappNumber: true, businessName: true, minimumOrderValue: true },
+      select: {
+        whatsappNumber: true,
+        businessName: true,
+        minimumOrderValue: true,
+        cardapioClosed: true,
+      },
     }),
   ]);
+
+  // Chave manual do dashboard: cozinha fechada não aceita pedido imediato
+  // (encomendas e empório têm fluxo próprio e não passam por aqui).
+  if (settings?.cardapioClosed) {
+    throw new PublicOrderError(
+      "A cozinha está fechada no momento e não estamos aceitando pedidos pra agora. Você pode fazer uma encomenda em casaroxa.com.br/encomenda 💜",
+    );
+  }
 
   const productMap = new Map(products.map((p) => [p.id, p]));
   const comboMap = new Map(combos.map((c) => [c.id, c]));

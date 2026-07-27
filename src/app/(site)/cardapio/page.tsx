@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Gift, CalendarDays, ArrowRight } from "lucide-react";
+import { Gift, CalendarDays, ArrowRight, Clock, ShoppingBasket } from "lucide-react";
 import { MenuItemCard } from "@/components/public/MenuItemCard";
 import { getPublicMenu, getSiteSettings } from "@/server/services/public-menu.service";
 import { listOpenRaffles } from "@/server/services/raffle.service";
@@ -38,6 +38,46 @@ export default async function CardapioPage({
     listOpenRaffles(),
     getActiveSalesEvent(),
   ]);
+
+  // Chave manual do dashboard: cozinha fechada → sem pedidos pra agora.
+  if (settings.cardapioClosed) {
+    return (
+      <div className="space-y-8">
+        <header className="space-y-2">
+          <h1 className="font-serif text-4xl font-bold text-roxa-900">Cardápio</h1>
+        </header>
+        <div className="rounded-2xl border-2 border-roxa-200 bg-roxa-50 p-8 text-center">
+          <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-roxa-200 text-roxa-700">
+            <Clock className="h-8 w-8" />
+          </div>
+          <h2 className="font-serif text-2xl font-bold text-roxa-900">
+            Nossa cozinha está fechada agora
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">
+            {settings.cardapioClosedMessage ??
+              "Não estamos aceitando pedidos pra agora, mas você pode garantir o seu com uma encomenda — ou aproveitar o empório e os congelados."}
+          </p>
+          {settings.openingHours && (
+            <p className="mt-2 text-xs text-slate-500">Horários: {settings.openingHours}</p>
+          )}
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Link
+              href="/encomenda"
+              className="inline-flex items-center gap-2 rounded-lg bg-roxa-700 px-5 py-3 text-sm font-semibold text-white hover:bg-roxa-800"
+            >
+              <CalendarDays className="h-4 w-4" /> Fazer encomenda
+            </Link>
+            <Link
+              href="/emporio/encomenda"
+              className="inline-flex items-center gap-2 rounded-lg border-2 border-roxa-300 bg-white px-5 py-3 text-sm font-semibold text-roxa-800 hover:bg-roxa-100"
+            >
+              <ShoppingBasket className="h-4 w-4" /> Empório & congelados
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const filtered = selectedCat
     ? menu.filter((c) => String(c.category) === selectedCat)

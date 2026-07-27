@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { KpiCard } from "@/components/dashboard/KpiCard";
+import { CardapioToggle } from "@/components/dashboard/CardapioToggle";
+import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertsList } from "@/components/dashboard/AlertsList";
 import { BirthdayCard } from "@/components/dashboard/BirthdayCard";
@@ -30,7 +32,13 @@ export default async function DashboardPage() {
     return <OperatorDashboard />;
   }
 
-  const d = await getDashboardData();
+  const [d, storeStatus] = await Promise.all([
+    getDashboardData(),
+    prisma.settings.findUnique({
+      where: { id: 1 },
+      select: { cardapioClosed: true, cardapioClosedMessage: true },
+    }),
+  ]);
 
   const targetProductCmv = d.settings ? Number(d.settings.defaultCmvChicken) : 0.5;
 
@@ -39,6 +47,11 @@ export default async function DashboardPage() {
       <PageHeader
         title="Dashboard"
         description={`${d.settings?.businessName ?? "Casa Roxa"} — visão geral em tempo real.`}
+      />
+
+      <CardapioToggle
+        closed={storeStatus?.cardapioClosed ?? false}
+        message={storeStatus?.cardapioClosedMessage ?? null}
       />
 
       {/* KPIs principais */}
@@ -202,13 +215,24 @@ export default async function DashboardPage() {
 }
 
 async function OperatorDashboard() {
-  const d = await getOperatorDashboardData();
+  const [d, storeStatus] = await Promise.all([
+    getOperatorDashboardData(),
+    prisma.settings.findUnique({
+      where: { id: 1 },
+      select: { cardapioClosed: true, cardapioClosedMessage: true },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
         description={`${d.settings?.businessName ?? "Casa Roxa"} — operação do dia.`}
+      />
+
+      <CardapioToggle
+        closed={storeStatus?.cardapioClosed ?? false}
+        message={storeStatus?.cardapioClosedMessage ?? null}
       />
 
       <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">

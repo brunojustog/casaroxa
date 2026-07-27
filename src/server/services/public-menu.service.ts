@@ -437,6 +437,8 @@ export type PublicSiteSettings = {
   deliveryEnabled: boolean;
   asaasEnabled: boolean;
   deliveryFeeNote: string | null;
+  cardapioClosed: boolean;
+  cardapioClosedMessage: string | null;
   minimumOrderValue: number | null;
   heroPromoTitle: string | null;
   heroPromoText: string | null;
@@ -462,6 +464,8 @@ export async function getSiteSettings(): Promise<PublicSiteSettings> {
       deliveryEnabled: true,
       asaasEnabled: true,
       deliveryFeeNote: true,
+      cardapioClosed: true,
+      cardapioClosedMessage: true,
       minimumOrderValue: true,
       heroPromoTitle: true,
       heroPromoText: true,
@@ -485,6 +489,8 @@ export async function getSiteSettings(): Promise<PublicSiteSettings> {
     deliveryEnabled: s?.deliveryEnabled ?? true,
     asaasEnabled: s?.asaasEnabled ?? false,
     deliveryFeeNote: s?.deliveryFeeNote ?? null,
+    cardapioClosed: s?.cardapioClosed ?? false,
+    cardapioClosedMessage: s?.cardapioClosedMessage ?? null,
     minimumOrderValue:
       s?.minimumOrderValue !== null && s?.minimumOrderValue !== undefined
         ? Number(s.minimumOrderValue)
