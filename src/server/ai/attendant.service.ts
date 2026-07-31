@@ -168,7 +168,7 @@ async function buildLiveContext(): Promise<string> {
       ? `FECHADA${settings.cardapioClosedMessage ? ` — "${settings.cardapioClosedMessage}"` : ""} (encomendas e empório seguem abertos)`
       : "ABERTA — aceitando pedidos pra agora"
   }
-- SEGUNDA-FEIRA A LOJA NÃO ABRE (nunca diga pra voltar na segunda!)
+- SEGUNDA-FEIRA A LOJA NÃO ABRE. Proibido sugerir segunda pra QUALQUER coisa: visita, retirada, entrega ou encomenda. Dias possíveis de retirada/entrega: terça a domingo, dentro dos horários.
 
 HORÁRIOS OFICIAIS: ${settings.openingHours ?? "consulte"}
 ENDEREÇO: ${settings.address ?? ""} — ${settings.addressNeighborhood ?? ""}
