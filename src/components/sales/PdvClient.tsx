@@ -710,11 +710,31 @@ function DoneScreen({
   const [printing, setPrinting] = useState(false);
   const [printMsg, setPrintMsg] = useState<string | null>(null);
 
+  function abrirCupomNavegador() {
+    window.open(`/pdv-cupom/${saleId}`, "_blank", "width=320,height=640");
+  }
+
   // Tenta a térmica via agente local (http://localhost:9123); sem agente,
   // cai na janelinha /pdv-cupom com o diálogo de impressão do navegador.
+  // O window.open do fallback precisa acontecer logo após o clique — se
+  // demorar, o bloqueador de pop-up do navegador engole a janela.
   async function imprimirCupom() {
     setPrinting(true);
     setPrintMsg(null);
+    let agenteVivo = false;
+    try {
+      const ping = await fetch("http://localhost:9123/ping", {
+        signal: AbortSignal.timeout(1500),
+      });
+      agenteVivo = ping.ok;
+    } catch {
+      agenteVivo = false;
+    }
+    if (!agenteVivo) {
+      abrirCupomNavegador();
+      setPrinting(false);
+      return;
+    }
     try {
       const cupom = await fetch(`/api/pdv/cupom-texto/${saleId}`);
       if (!cupom.ok) throw new Error("cupom indisponível");
@@ -723,13 +743,15 @@ function DoneScreen({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(60000),
       });
       const out = (await res.json()) as { ok: boolean; error?: string };
       if (!out.ok) throw new Error(out.error ?? "falha na impressora");
       setPrintMsg("✓ Cupom impresso!");
-    } catch {
-      window.open(`/pdv-cupom/${saleId}`, "_blank", "width=320,height=640");
+    } catch (e) {
+      setPrintMsg(
+        `✗ ${e instanceof Error ? e.message : "Impressora não respondeu"}`,
+      );
     } finally {
       setPrinting(false);
     }
@@ -802,7 +824,21 @@ function DoneScreen({
           <Plus className="mr-2 h-5 w-5" /> Nova venda
         </Button>
       </div>
-      {printMsg && <p className="text-sm text-green-700">{printMsg}</p>}
+      {printMsg &&
+        (printMsg.startsWith("✓") ? (
+          <p className="text-sm text-green-700">{printMsg}</p>
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-sm text-red-700">{printMsg}</p>
+            <button
+              type="button"
+              onClick={abrirCupomNavegador}
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-roxa-400 hover:text-roxa-700"
+            >
+              Abrir cupom no navegador
+            </button>
+          </div>
+        ))}
     </div>
   );
 }
