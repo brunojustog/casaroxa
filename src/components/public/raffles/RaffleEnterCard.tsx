@@ -66,6 +66,17 @@ export function RaffleEnterCard({
   const [pushEndpoint, setPushEndpoint] = useState<string | null>(null);
   const [pushChecked, setPushChecked] = useState(!appOnly);
   const [enablingPush, setEnablingPush] = useState(false);
+  // iPhone no NAVEGADOR (não no app instalado): notificações não funcionam —
+  // precisa abrir pelo ícone da Tela de Início. Detectamos e orientamos.
+  const [iosNoBrowser, setIosNoBrowser] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (navigator as unknown as { standalone?: boolean }).standalone === true;
+    setIosNoBrowser(isIOS && !standalone);
+  }, []);
   const [state, setState] = useState<NumbersState | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [shareLink, setShareLink] = useState<string | null>(null);
@@ -295,25 +306,54 @@ export function RaffleEnterCard({
             rapidinho, e é pelo app que você fica sabendo <strong>na hora</strong> se ganhou — além
             de receber o link dos próximos sorteios (tem um novo todo domingo de agosto! 🎁).
           </p>
-          <ol className="space-y-1.5 text-sm text-slate-600">
-            <li>
-              📲 <strong>Android/computador:</strong> toque no aviso{" "}
-              <em>“Instalar app”</em> que aparece aqui no site.
-            </li>
-            <li>
-              🍎 <strong>iPhone:</strong> botão Compartilhar →{" "}
-              <em>Adicionar à Tela de Início</em> → abra pelo ícone novo.
-            </li>
-            <li>✅ Depois, toque no botão abaixo pra ativar as notificações.</li>
-          </ol>
-          <button
-            type="button"
-            onClick={enableAppPush}
-            disabled={enablingPush}
-            className="w-full rounded-lg bg-roxa-700 px-4 py-3 text-base font-semibold text-white hover:bg-roxa-800 disabled:opacity-60"
-          >
-            {enablingPush ? "Ativando…" : "🔔 Ativar notificações"}
-          </button>
+          {iosNoBrowser ? (
+            <div className="space-y-3 rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-900">
+                🍎 Você está no navegador do iPhone — as notificações só funcionam
+                pelo app instalado. É rapidinho:
+              </p>
+              <ol className="list-decimal space-y-1.5 pl-5 text-sm text-amber-900">
+                <li>
+                  Toque no botão <strong>Compartilhar</strong> do Safari (o quadradinho
+                  com a setinha pra cima)
+                </li>
+                <li>
+                  Escolha <strong>“Adicionar à Tela de Início”</strong> e confirme
+                </li>
+                <li>
+                  <strong>Feche o navegador</strong> e abra o{" "}
+                  <strong>ícone roxo “Casa Roxa”</strong> que apareceu na sua tela de
+                  início
+                </li>
+                <li>
+                  Lá dentro, toque no <strong>banner do sorteio</strong> e volte pra
+                  esta tela — o botão de ativar vai funcionar ✅
+                </li>
+              </ol>
+              <p className="text-xs text-amber-800">
+                Já instalou? Então é só <strong>abrir pelo ícone</strong> em vez do
+                navegador — é esse o segredo! 😉
+              </p>
+            </div>
+          ) : (
+            <>
+              <ol className="space-y-1.5 text-sm text-slate-600">
+                <li>
+                  📲 <strong>Android/computador:</strong> toque no aviso{" "}
+                  <em>“Instalar app”</em> que aparece aqui no site.
+                </li>
+                <li>✅ Depois, toque no botão abaixo pra ativar as notificações.</li>
+              </ol>
+              <button
+                type="button"
+                onClick={enableAppPush}
+                disabled={enablingPush}
+                className="w-full rounded-lg bg-roxa-700 px-4 py-3 text-base font-semibold text-white hover:bg-roxa-800 disabled:opacity-60"
+              >
+                {enablingPush ? "Ativando…" : "🔔 Ativar notificações"}
+              </button>
+            </>
+          )}
         </div>
       )}
 
