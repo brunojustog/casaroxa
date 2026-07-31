@@ -707,6 +707,33 @@ function DoneScreen({
   const [emitting, startEmit] = useTransition();
   const [fiscalMsg, setFiscalMsg] = useState<string | null>(null);
   const [emitted, setEmitted] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  const [printMsg, setPrintMsg] = useState<string | null>(null);
+
+  // Tenta a térmica via agente local (http://localhost:9123); sem agente,
+  // cai na janelinha /pdv-cupom com o diálogo de impressão do navegador.
+  async function imprimirCupom() {
+    setPrinting(true);
+    setPrintMsg(null);
+    try {
+      const cupom = await fetch(`/api/pdv/cupom-texto/${saleId}`);
+      if (!cupom.ok) throw new Error("cupom indisponível");
+      const text = await cupom.text();
+      const res = await fetch("http://localhost:9123/print", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+        signal: AbortSignal.timeout(20000),
+      });
+      const out = (await res.json()) as { ok: boolean; error?: string };
+      if (!out.ok) throw new Error(out.error ?? "falha na impressora");
+      setPrintMsg("✓ Cupom impresso!");
+    } catch {
+      window.open(`/pdv-cupom/${saleId}`, "_blank", "width=320,height=640");
+    } finally {
+      setPrinting(false);
+    }
+  }
 
   function emitir() {
     setFiscalMsg(null);
@@ -765,17 +792,17 @@ function DoneScreen({
       <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
         <button
           type="button"
-          onClick={() =>
-            window.open(`/pdv-cupom/${saleId}`, "_blank", "width=320,height=640")
-          }
-          className="inline-flex items-center gap-2 rounded-lg border-2 border-slate-300 bg-white px-6 py-4 text-base font-semibold text-slate-700 hover:border-roxa-400 hover:text-roxa-700"
+          onClick={imprimirCupom}
+          disabled={printing}
+          className="inline-flex items-center gap-2 rounded-lg border-2 border-slate-300 bg-white px-6 py-4 text-base font-semibold text-slate-700 hover:border-roxa-400 hover:text-roxa-700 disabled:opacity-60"
         >
-          🖨️ Imprimir cupom
+          🖨️ {printing ? "Imprimindo..." : "Imprimir cupom"}
         </button>
         <Button size="lg" onClick={onNext} disabled={pending} className="px-10 py-6 text-lg">
           <Plus className="mr-2 h-5 w-5" /> Nova venda
         </Button>
       </div>
+      {printMsg && <p className="text-sm text-green-700">{printMsg}</p>}
     </div>
   );
 }
