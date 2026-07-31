@@ -19,7 +19,8 @@ import {
 import { OtpLoginDialog } from "@/components/public/auth/OtpLoginDialog";
 import {
   getCurrentPushEndpoint,
-  subscribeCustomerPush,
+  isInAppBrowser,
+  subscribeCustomerPushDetailed,
 } from "@/lib/push-client";
 
 type NumbersState = {
@@ -108,12 +109,26 @@ export function RaffleEnterCard({
     setEnablingPush(true);
     setError(null);
     try {
-      const ep = await subscribeCustomerPush();
-      if (ep) setPushEndpoint(ep);
-      else
+      const res = await subscribeCustomerPushDetailed();
+      if (res.endpoint) {
+        setPushEndpoint(res.endpoint);
+        return;
+      }
+      if (res.reason === "unsupported") {
         setError(
-          "Não consegui ativar as notificações. No iPhone: primeiro adicione o site à Tela de Início (botão Compartilhar → Adicionar à Tela de Início) e abra por lá. No Android/computador: toque em “Instalar app” quando aparecer, ou permita as notificações.",
+          isInAppBrowser()
+            ? "Você está no navegador embutido de um app (WhatsApp/Instagram) — ele não suporta notificações. Toque nos três pontinhos (⋮) no canto da tela e escolha “Abrir no Chrome” (ou “Abrir no navegador”), aí funciona."
+            : "Este navegador não suporta notificações. Abra o site no Chrome (Android) ou, no iPhone, adicione à Tela de Início e abra pelo ícone.",
         );
+      } else if (res.reason === "denied") {
+        setError(
+          "O navegador não deu a permissão de notificações. Se você abriu pelo link do WhatsApp, toque nos três pontinhos (⋮) e escolha “Abrir no Chrome”. Se já está no Chrome, toque no cadeado 🔒 na barra de endereço → Permissões → Notificações → Permitir, e tente de novo.",
+        );
+      } else {
+        setError(
+          "Deu um erro inesperado ao ativar. Confere a internet e tenta de novo em alguns segundos.",
+        );
+      }
     } finally {
       setEnablingPush(false);
     }

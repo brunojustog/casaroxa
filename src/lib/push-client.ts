@@ -33,21 +33,34 @@ export async function getCurrentPushEndpoint(): Promise<string | null> {
   }
 }
 
+export type PushSubscribeResult = {
+  endpoint: string | null;
+  /** Por que falhou (quando endpoint é null) — permite mensagem certeira. */
+  reason: "ok" | "unsupported" | "denied" | "error";
+};
+
+/** Navegador embutido de app (WhatsApp/Instagram/Facebook) — não faz push. */
+export function isInAppBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return /; wv\)|Instagram|FBAN|FBAV|Line\//i.test(ua);
+}
+
 /**
  * Pede permissão, registra o service worker, inscreve e persiste no
- * backend. Retorna o endpoint ou null (recusado/não suportado/erro).
+ * backend. Sempre resolve; olhe `reason` pra saber o que aconteceu.
  */
-export async function subscribeCustomerPush(
+export async function subscribeCustomerPushDetailed(
   phone?: string,
-): Promise<string | null> {
-  if (!isPushSupported()) return null;
+): Promise<PushSubscribeResult> {
+  if (!isPushSupported()) return { endpoint: null, reason: "unsupported" };
   try {
     const perm = await Notification.requestPermission();
-    if (perm !== "granted") return null;
+    if (perm !== "granted") return { endpoint: null, reason: "denied" };
 
     const keyRes = await fetch("/api/public/push/key");
     const keyData = await keyRes.json();
-    if (!keyData.ok) return null;
+    if (!keyData.ok) return { endpoint: null, reason: "error" };
 
     const reg = await navigator.serviceWorker.register("/sw.js");
     const sub = await reg.pushManager.subscribe({
@@ -62,9 +75,17 @@ export async function subscribeCustomerPush(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...sub.toJSON(), phone: phone || undefined }),
     });
-    return sub.endpoint;
+    return { endpoint: sub.endpoint, reason: "ok" };
   } catch (e) {
     console.error("[push] erro ao inscrever", e);
-    return null;
+    return { endpoint: null, reason: "error" };
   }
+}
+
+/** Compatível com os chamadores antigos: só o endpoint (ou null). */
+export async function subscribeCustomerPush(
+  phone?: string,
+): Promise<string | null> {
+  const r = await subscribeCustomerPushDetailed(phone);
+  return r.endpoint;
 }
