@@ -330,9 +330,11 @@ export function RaffleEnterCard({
                   esta tela — o botão de ativar vai funcionar ✅
                 </li>
               </ol>
-              <p className="text-xs text-amber-800">
-                Já instalou? Então é só <strong>abrir pelo ícone</strong> em vez do
-                navegador — é esse o segredo! 😉
+              <p className="rounded-md bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-900">
+                ⚠️ Importante: aqui no navegador esta tela fica <strong>sempre no
+                Passo 1</strong> — mesmo depois de instalar. Os passos 2 e 3 só
+                aparecem <strong>dentro do app</strong>, abrindo pelo ícone roxo. Se
+                você já instalou, não use mais o link: vá direto no ícone! 😉
               </p>
             </div>
           ) : (
