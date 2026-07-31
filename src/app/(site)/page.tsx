@@ -88,7 +88,7 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="hidden md:flex items-center justify-center">
+          <div className="flex items-center justify-center">
             <HeroSidePanel settings={settings} />
           </div>
         </div>
@@ -361,9 +361,9 @@ function HeroSidePanel({
     !!settings.heroPromoImageUrl;
 
   if (!hasPromo) {
-    // Fallback: logo grande
+    // Fallback: logo grande (decorativo — não ocupa espaço no celular)
     return (
-      <div className="relative h-72 w-72">
+      <div className="relative hidden h-72 w-72 md:block">
         <Image
           src="/logo.png"
           alt={settings.businessName}
