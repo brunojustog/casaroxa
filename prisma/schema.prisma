@@ -756,10 +756,61 @@ model Settings {
   /// ID do CSC na SEFAZ-SP (o token em si fica em env FISCAL_CSC).
   fiscalCscId String?
 
+  // ----- Atendente IA (WhatsApp) -----
+  /// Chave geral do atendente IA no WhatsApp. Desligada = webhook ignora tudo.
+  aiAttendantEnabled Boolean @default(false)
+  /// Modo teste: se preenchido (CSV de telefones com DDI, ex "5514999998888"),
+  /// o atendente SÓ responde a esses números. Vazio = responde a todos.
+  aiAttendantTestPhones String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   history SettingsHistory[]
+}
+
+// ============================================================
+// ATENDENTE IA — conversas do WhatsApp com clientes
+// ============================================================
+
+enum WaMessageRole {
+  USER // cliente
+  ASSISTANT // IA
+  NOTE // sistema (handoff, avisos internos)
+}
+
+model WaConversation {
+  id            String    @id @default(cuid())
+  /// Telefone normalizado (só dígitos, com DDI). Um thread por número.
+  phone         String    @unique
+  /// Nome exibido no WhatsApp (pushName), quando o webhook informa.
+  displayName   String?
+  /// Cliente vinculado (match por telefone, quando existir).
+  customerId    String?
+  /// true = IA saiu de cena (cliente pediu humano ou admin assumiu).
+  handedOff     Boolean   @default(false)
+  handedOffAt   DateTime?
+  lastMessageAt DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  customer Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  messages WaMessage[]
+
+  @@index([lastMessageAt])
+  @@index([handedOff, lastMessageAt])
+}
+
+model WaMessage {
+  id             String        @id @default(cuid())
+  conversationId String
+  role           WaMessageRole
+  content        String
+  createdAt      DateTime      @default(now())
+
+  conversation WaConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
 }
 
 // ============================================================
@@ -1002,6 +1053,7 @@ model Customer {
   reviews             CustomerReview[]
   abandonedCarts      AbandonedCart[]
   pushSubscriptions   CustomerPushSubscription[]
+  waConversations     WaConversation[]
 
   /// Cliente aceita receber comunicação de marketing (campanhas). Default
   /// true; futuro opt-out fica neste campo. Mensagens transacionais
