@@ -39,18 +39,29 @@ function parseWuzapiPayload(body: unknown): {
   const event = (get(body, ["event"]) ?? body) as AnyObj;
   const info = (get(event, ["Info"]) ?? get(event, ["info"]) ?? {}) as AnyObj;
 
-  const jidRaw =
-    str(get(info, ["RemoteJid"])) ??
-    str(get(info, ["Chat"])) ??
-    str(get(info, ["Sender"])) ??
-    str(get(event, ["from"])) ??
-    str(get(body as AnyObj, ["from"]));
+  // O WhatsApp moderno usa "@lid" (identificador anônimo) em Chat/Sender e
+  // entrega o TELEFONE REAL em SenderAlt/ChatAlt ("5514...@s.whatsapp.net").
+  // Preferimos sempre os campos *Alt; caímos nos clássicos quando não há LID.
+  const candidates = [
+    str(get(info, ["SenderAlt"])),
+    str(get(info, ["ChatAlt"])),
+    str(get(info, ["RemoteJid"])),
+    str(get(info, ["Sender"])),
+    str(get(info, ["Chat"])),
+    str(get(event, ["from"])),
+    str(get(body as AnyObj, ["from"])),
+  ].filter((v): v is string => Boolean(v));
+
+  const phoneJid =
+    candidates.find((j) => j.includes("@s.whatsapp.net")) ?? candidates[0] ?? null;
+  const chatJid = str(get(info, ["Chat"])) ?? str(get(info, ["RemoteJid"])) ?? phoneJid;
 
   const isGroup =
-    Boolean(get(info, ["IsGroup"])) || (jidRaw?.includes("@g.us") ?? false);
+    Boolean(get(info, ["IsGroup"])) || (chatJid?.includes("@g.us") ?? false);
   const fromMe = Boolean(get(info, ["IsFromMe"]) ?? get(info, ["fromMe"]));
 
-  const phone = jidRaw ? jidRaw.split("@")[0].split(":")[0] : null;
+  // "5514996632710:33@s.whatsapp.net" → "5514996632710" (remove device :NN)
+  const phone = phoneJid ? phoneJid.split("@")[0].split(":")[0] : null;
 
   const message = (get(event, ["Message"]) ?? get(event, ["message"]) ?? {}) as AnyObj;
   const text =
@@ -106,6 +117,11 @@ export async function POST(request: Request) {
     isGroup: parsed.isGroup,
     fromMe: parsed.fromMe,
   });
+
+  // Observabilidade: cada decisão fica no log do container.
+  console.log(
+    `[wa-webhook] ${result.action} phone=${parsed.phone} nome="${parsed.displayName ?? ""}"`,
+  );
 
   return NextResponse.json({ ok: true, ...result, reply: undefined });
 }
