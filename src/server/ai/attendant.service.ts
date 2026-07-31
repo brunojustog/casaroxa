@@ -89,8 +89,11 @@ async function buildLiveContext(): Promise<string> {
       linhas.push(`\n[${catAtual}]`);
     }
     const item = p.recipe?.items[0];
+    // "por kg" na porção = vendido a peso. Porções fixas tipo "1kg pós-assado"
+    // ou "500g" são POR PEÇA (preço fechado), mesmo com ficha em KG.
+    const label = p.portionLabel ?? "";
     const byWeight =
-      item?.unit === "KG" || (p.portionLabel ?? "").toLowerCase().includes("kg");
+      /por\s*kg/i.test(label) || (!label && item?.unit === "KG");
     // Disponibilidade: revenda (ficha 1:1) usa saldo real; produção própria
     // (cozinha) considera "sob demanda".
     let disp = "";
@@ -105,27 +108,69 @@ async function buildLiveContext(): Promise<string> {
     );
   }
 
-  const agora = new Date().toLocaleString("pt-BR", {
+  // ---- Calendário calculado no servidor (a IA NÃO pode calcular isso) ----
+  // Horário oficial: seg FECHADO · ter-sex 9h-18h (encomendas/empório) ·
+  // sáb-dom 7h-14h (com cozinha quente).
+  const spNow = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
+  );
+  const dow = spNow.getDay(); // 0=dom ... 6=sáb
+  const hora = spNow.getHours() + spNow.getMinutes() / 60;
+  const JANELAS: Record<number, [number, number] | null> = {
+    0: [7, 14], // dom
+    1: null, // seg — fechado
+    2: [9, 18],
+    3: [9, 18],
+    4: [9, 18],
+    5: [9, 18],
+    6: [7, 14], // sáb
+  };
+  const DIAS = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
+  const janelaHoje = JANELAS[dow];
+  const lojaAbertaAgora = Boolean(
+    janelaHoje && hora >= janelaHoje[0] && hora < janelaHoje[1],
+  );
+  // Próxima abertura da loja
+  let proximaAbertura = "";
+  for (let i = 0; i <= 7; i++) {
+    const d = (dow + i) % 7;
+    const j = JANELAS[d];
+    if (!j) continue;
+    if (i === 0 && hora < j[0]) {
+      proximaAbertura = `hoje às ${j[0]}h`;
+      break;
+    }
+    if (i > 0) {
+      proximaAbertura = `${i === 1 ? "amanhã" : DIAS[d]} às ${j[0]}h`;
+      break;
+    }
+  }
+  const fimDeSemana = dow === 0 || dow === 6;
+
+  const agora = spNow.toLocaleString("pt-BR", {
     weekday: "long",
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "America/Sao_Paulo",
   });
 
   const sorteio = raffles[0]
     ? `SORTEIO ATIVO: "${raffles[0].name}"${raffles[0].drawAt ? ` — sorteio ${new Date(raffles[0].drawAt).toLocaleString("pt-BR", { weekday: "long", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}` : ""}. Link: https://casaroxa.com.br/sorteio/${raffles[0].id}${raffles[0].appOnly ? " (exclusivo pra quem instala o app)" : ""}. Em agosto tem sorteio todo domingo!`
     : "Nenhum sorteio ativo no momento.";
 
-  return `AGORA: ${agora}
-
-STATUS DA COZINHA (pedidos quentes pra agora): ${
+  return `CALENDÁRIO (calculado pelo sistema — use EXATAMENTE estes fatos, NUNCA calcule dia/hora você mesma):
+- AGORA É: ${agora}
+- LOJA FÍSICA NESTE MOMENTO: ${lojaAbertaAgora ? `ABERTA (fecha às ${janelaHoje![1]}h de hoje)` : `FECHADA — próxima abertura: ${proximaAbertura}`}
+- COZINHA QUENTE (frango assado, costela etc. na hora): só aos sábados e domingos, 7h às 14h.${fimDeSemana ? "" : " Hoje NÃO tem cozinha quente — ofereça encomenda pro fim de semana."}
+- STATUS MANUAL DA COZINHA AGORA: ${
     settings.cardapioClosed
-      ? `FECHADA${settings.cardapioClosedMessage ? ` — "${settings.cardapioClosedMessage}"` : ""}. Encomendas e empório continuam abertos.`
-      : "ABERTA — aceitando pedidos."
+      ? `FECHADA${settings.cardapioClosedMessage ? ` — "${settings.cardapioClosedMessage}"` : ""} (encomendas e empório seguem abertos)`
+      : "ABERTA — aceitando pedidos pra agora"
   }
-HORÁRIOS: ${settings.openingHours ?? "consulte"}
+- SEGUNDA-FEIRA A LOJA NÃO ABRE (nunca diga pra voltar na segunda!)
+
+HORÁRIOS OFICIAIS: ${settings.openingHours ?? "consulte"}
 ENDEREÇO: ${settings.address ?? ""} — ${settings.addressNeighborhood ?? ""}
 ENTREGA: ${settings.deliveryFeeNote ?? "Retirada na loja ou entrega a combinar"}.${settings.minimumOrderValue ? ` Pedido mínimo ${brl(settings.minimumOrderValue)}.` : ""}
 LENÇÓIS PAULISTA: entregamos no ponto de retirada aos domingos (pedidos pelo site).
@@ -147,6 +192,8 @@ TOM: caloroso, simpático e direto, como um bom atendimento de balcão do interi
 
 REGRAS DE OURO:
 1. Responda SÓ com base nos dados do contexto. Preço, disponibilidade e horário: use exatamente o que está lá. Se não souber, diga que vai confirmar com a equipe — NUNCA invente.
+1b. CALENDÁRIO: o bloco CALENDÁRIO do contexto já diz que dia é hoje, se está aberto agora e quando abre de novo — repita esses fatos LITERALMENTE. É PROIBIDO deduzir dia da semana, calcular horários ou dizer "volta na segunda" por conta própria.
+1c. PREÇOS: itens marcados com "/kg" são por quilo (pesados na hora). Os demais têm preço FECHADO pela porção indicada entre parênteses (ex.: "Costela 1kg (1kg pós-assado)" = R$ 139,90 A PEÇA, não por kg).
 2. Venda com jeitinho: se a pessoa pede frango, sugira UM complemento que combine (farofa, maionese, arroz). Uma sugestão por conversa, sem insistir.
 3. Se a cozinha estiver FECHADA, deixe claro e ofereça o caminho: encomenda pro fim de semana ou empório/congelados à pronta entrega.
 4. Pedidos: orientar a fazer pelo site (links do contexto) — o pagamento online (PIX/cartão) é por lá. Você não registra pedidos por mensagem.

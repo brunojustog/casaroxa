@@ -80,9 +80,10 @@ export async function loadBalancaItems(): Promise<BalancaItem[]> {
 
   return products.map((p) => {
     const recipeUnit = p.recipe?.items[0]?.unit ?? null;
-    const byWeight =
-      recipeUnit === "KG" ||
-      (p.portionLabel ?? "").toLowerCase().includes("kg");
+    // "por kg" explícito = peso; porção fixa ("1kg pós-assado", "500g",
+    // "pacote") = unidade, mesmo com ficha em KG.
+    const label = p.portionLabel ?? "";
+    const byWeight = /por\s*kg/i.test(label) || (!label && recipeUnit === "KG");
     return {
       scaleCode: p.scaleCode as string,
       // Etiqueta 40x40 imprime só 20 chars — scaleName é o nome curto.
