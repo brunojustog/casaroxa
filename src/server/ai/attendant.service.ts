@@ -168,7 +168,10 @@ async function buildLiveContext(): Promise<string> {
       ? `FECHADA${settings.cardapioClosedMessage ? ` — "${settings.cardapioClosedMessage}"` : ""} (encomendas e empório seguem abertos)`
       : "ABERTA — aceitando pedidos pra agora"
   }
-- SEGUNDA-FEIRA A LOJA NÃO ABRE. Proibido sugerir segunda pra QUALQUER coisa: visita, retirada, entrega ou encomenda. Dias possíveis de retirada/entrega: terça a domingo, dentro dos horários.
+- SEGUNDA-FEIRA A LOJA NÃO ABRE. Proibido sugerir segunda pra QUALQUER coisa: visita, retirada, entrega ou encomenda.
+- REGRA POR TIPO DE PRODUTO:
+  · ASSADOS DA COZINHA (frango assado, costelas, suínos assados, acompanhamentos quentes): só EXISTEM aos sábados e domingos, 7h-14h. Encomenda de assado = retirada/entrega SOMENTE no fim de semana. Nunca ofereça assado pra dia de semana.
+  · EMPÓRIO e CONGELADOS (pronta entrega): retirada/compra de terça a domingo, nos horários da loja.
 
 HORÁRIOS OFICIAIS: ${settings.openingHours ?? "consulte"}
 ENDEREÇO: ${settings.address ?? ""} — ${settings.addressNeighborhood ?? ""}
