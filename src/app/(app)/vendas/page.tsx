@@ -26,6 +26,7 @@ import {
   enumOptions,
 } from "@/lib/enums";
 import { formatBRL, formatDateTime, formatPercent } from "@/lib/format";
+import { ReprintCupomButton } from "@/components/sales/ReprintCupomButton";
 
 export const dynamic = "force-dynamic";
 
@@ -184,6 +185,7 @@ export default async function VendasPage({
               <TH className="text-right">Bruto</TH>
               <TH className="text-right">Líquido</TH>
               <TH>Status</TH>
+              <TH className="w-10"> </TH>
             </TR>
           </THead>
           <TBody>
@@ -210,6 +212,11 @@ export default async function VendasPage({
                   <Badge tone={statusTone(s.status as SaleStatus)}>
                     {SALE_STATUS_LABEL[s.status as SaleStatus]}
                   </Badge>
+                </TD>
+                <TD>
+                  {s.status !== "CANCELADA" && (
+                    <ReprintCupomButton saleId={s.id} compact />
+                  )}
                 </TD>
               </TR>
             ))}
