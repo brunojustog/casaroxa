@@ -173,6 +173,18 @@ export default async function PublicRafflePage({
           customerId={customer?.id ?? null}
           customerName={customer?.name ?? null}
           appOnly={raffle.appOnly}
+          drawAtLabel={
+            raffle.drawAt
+              ? new Date(raffle.drawAt).toLocaleString("pt-BR", {
+                  weekday: "long",
+                  day: "2-digit",
+                  month: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  timeZone: "America/Sao_Paulo",
+                })
+              : null
+          }
         />
       )}
 
