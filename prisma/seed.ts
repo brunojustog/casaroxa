@@ -151,14 +151,11 @@ const INGREDIENTS: IngredientSeed[] = [
 
 async function seedIngredients() {
   for (const i of INGREDIENTS) {
+    // NUNCA sobrescrever dados reais: o seed roda a cada deploy (entrypoint)
+    // e os custos/preços de produção são a fonte da verdade, não este arquivo.
     await prisma.ingredient.upsert({
       where: { name: i.name },
-      update: {
-        category: i.category,
-        unit: i.unit,
-        unitCost: i.unitCost,
-        supplier: i.supplier,
-      },
+      update: {},
       create: {
         name: i.name,
         category: i.category,
@@ -234,16 +231,10 @@ const PRODUCTS: ProductSeed[] = [
 
 async function seedProducts() {
   for (const p of PRODUCTS) {
+    // Só cria se não existir — preços em produção são geridos pelo Bruno.
     await prisma.product.upsert({
       where: { name: p.name },
-      update: {
-        category: p.category,
-        type: p.type,
-        portionLabel: p.portionLabel,
-        salePrice: p.salePrice,
-        targetCmv: p.targetCmv,
-        status: p.status ?? "ATIVO",
-      },
+      update: {},
       create: {
         name: p.name,
         category: p.category,
@@ -592,14 +583,14 @@ async function seedRecipes() {
     const product = await prisma.product.findUnique({ where: { name: r.product } });
     if (!product) continue;
 
-    // Limpa ficha anterior (idempotência)
-    await prisma.recipeItem.deleteMany({ where: { recipe: { productId: product.id } } });
-
-    const recipe = await prisma.recipe.upsert({
+    // Ficha já existe → NÃO tocar (custos reais vivem no banco, não aqui).
+    const existing = await prisma.recipe.findUnique({
       where: { productId: product.id },
-      update: { reviewed: false },
-      create: { productId: product.id },
+      select: { id: true },
     });
+    if (existing) continue;
+
+    const recipe = await prisma.recipe.create({ data: { productId: product.id } });
 
     let recipeTotal = 0;
     for (const item of r.items) {
@@ -827,15 +818,15 @@ const COMBOS: ComboSeed[] = [
 
 async function seedCombos() {
   for (const c of COMBOS) {
-    const combo = await prisma.combo.upsert({
+    // Combo já existe → NÃO tocar (preço/composição geridos em produção).
+    const already = await prisma.combo.findUnique({
       where: { name: c.name },
-      update: {
-        category: c.category,
-        salePrice: c.salePrice,
-        targetCmv: 0.45,
-        active: true,
-      },
-      create: {
+      select: { id: true },
+    });
+    if (already) continue;
+
+    const combo = await prisma.combo.create({
+      data: {
         name: c.name,
         category: c.category,
         salePrice: c.salePrice,
@@ -843,9 +834,6 @@ async function seedCombos() {
         active: true,
       },
     });
-
-    // Limpa itens anteriores (idempotência)
-    await prisma.comboItem.deleteMany({ where: { comboId: combo.id } });
 
     let total = 0;
     for (const item of c.items) {
