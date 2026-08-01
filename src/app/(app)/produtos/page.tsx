@@ -112,6 +112,15 @@ export default async function ProdutosPage({
                       {p.name}
                     </Link>
                     <div className="flex items-center gap-2 mt-0.5">
+                      {p.scaleCode && (
+                        <span
+                          className="inline-flex items-center gap-0.5 rounded bg-roxa-50 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-roxa-800"
+                          title={`Código na balança: ${p.scaleCode}`}
+                        >
+                          <Scale className="h-3 w-3" />
+                          {parseInt(p.scaleCode, 10)}
+                        </span>
+                      )}
                       {p.portionLabel && (
                         <span className="text-xs text-slate-500">
                           {p.portionLabel}

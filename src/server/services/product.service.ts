@@ -19,7 +19,12 @@ export async function listProducts(filters: ProductListFilters) {
   if (filters.status) where.status = filters.status;
 
   if (filters.search && filters.search.trim().length > 0) {
-    where.OR = [{ name: { contains: filters.search, mode: "insensitive" } }];
+    const term = filters.search.trim();
+    where.OR = [{ name: { contains: term, mode: "insensitive" } }];
+    // Busca por código da balança: "343" acha o scaleCode "000343".
+    if (/^\d+$/.test(term)) {
+      where.OR.push({ scaleCode: term.padStart(6, "0") });
+    }
   }
 
   return prisma.product.findMany({
