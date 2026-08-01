@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Barcode, Check, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,14 @@ import {
   removeSaleItemAction,
   updateSaleItemAction,
 } from "@/server/actions/sales";
+
+/** Busca sem acento/caixa: "linguica" acha "Linguiça" (igual ao PDV). */
+function normalize(s: string) {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+}
 
 type CatalogEntry = {
   kind: "PRODUTO" | "COMBO";
@@ -67,9 +75,44 @@ export function SaleItemsEditor({
   const [priceOverride, setPriceOverride] = useState("");
   const [scan, setScan] = useState("");
   const [scanMsg, setScanMsg] = useState<string | null>(null);
+  const [highlight, setHighlight] = useState(0);
   const scanRef = useRef<HTMLInputElement | null>(null);
 
   const selected = catalog.find((c) => `${c.kind}:${c.id}` === selectedKey);
+
+  // Digitou letra no campo de bipar → vira busca pelo nome (com sugestões).
+  const isSearch = /[a-zA-ZÀ-ÿ]/.test(scan);
+  const suggestions = useMemo(() => {
+    if (!isSearch) return [];
+    const terms = normalize(scan).split(/\s+/).filter(Boolean);
+    if (terms.length === 0) return [];
+    return catalog
+      .filter((c) => {
+        const name = normalize(c.name);
+        return terms.every((t) => name.includes(t)) && c.salePrice > 0;
+      })
+      .slice(0, 8);
+  }, [scan, isSearch, catalog]);
+
+  function addEntry(entry: CatalogEntry) {
+    setScan("");
+    setHighlight(0);
+    setScanMsg(null);
+    startTransition(async () => {
+      const payload =
+        entry.kind === "PRODUTO"
+          ? { productId: entry.id, quantity: 1 }
+          : { comboId: entry.id, quantity: 1 };
+      const res = await addSaleItemAction(saleId, payload);
+      if (!res.ok) {
+        setScanMsg(res.error);
+        return;
+      }
+      setScanMsg(`✓ ${entry.name} — 1 un.`);
+      router.refresh();
+      scanRef.current?.focus();
+    });
+  }
 
   // Parser compartilhado com o PDV — src/lib/scale-barcode.ts.
   function handleScan(raw: string) {
@@ -101,10 +144,30 @@ export function SaleItemsEditor({
 
   function onScanSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // Modo busca: Enter adiciona a sugestão destacada.
+    if (isSearch) {
+      const entry = suggestions[highlight] ?? suggestions[0];
+      if (entry) addEntry(entry);
+      return;
+    }
     const code = scan;
     setScan("");
     handleScan(code);
     scanRef.current?.focus();
+  }
+
+  function onScanKeyDown(e: React.KeyboardEvent) {
+    if (!isSearch || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlight((h) => Math.min(h + 1, suggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlight((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Escape") {
+      setScan("");
+      setHighlight(0);
+    }
   }
 
   function onAdd(e: React.FormEvent<HTMLFormElement>) {
@@ -156,17 +219,54 @@ export function SaleItemsEditor({
           onSubmit={onScanSubmit}
           className="rounded-lg border-2 border-dashed border-roxa-200 bg-roxa-50/40 p-3"
         >
-          <div className="flex items-center gap-2">
+          <div className="relative flex items-center gap-2">
             <Barcode className="h-5 w-5 shrink-0 text-roxa-700" />
             <Input
               ref={scanRef}
               value={scan}
-              onChange={(e) => setScan(e.currentTarget.value)}
-              placeholder="Clique aqui e bipe a etiqueta da balança ou o código do pacote"
-              inputMode="numeric"
+              onChange={(e) => {
+                setScan(e.currentTarget.value);
+                setHighlight(0);
+              }}
+              onKeyDown={onScanKeyDown}
+              placeholder="Bipe a etiqueta/código — ou digite o nome do produto"
               autoComplete="off"
               disabled={isPending}
             />
+            {isSearch && (
+              <ul className="absolute left-7 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+                {suggestions.length === 0 ? (
+                  <li className="px-4 py-2.5 text-sm text-slate-400">
+                    Nenhum item com esse nome.
+                  </li>
+                ) : (
+                  suggestions.map((s, i) => (
+                    <li key={`${s.kind}:${s.id}`}>
+                      <button
+                        type="button"
+                        onMouseEnter={() => setHighlight(i)}
+                        onClick={() => addEntry(s)}
+                        className={`flex w-full items-baseline justify-between gap-3 px-4 py-2.5 text-left text-sm ${
+                          i === highlight ? "bg-roxa-50 text-roxa-900" : "text-slate-700"
+                        }`}
+                      >
+                        <span className="truncate">
+                          {s.name}
+                          {s.kind === "COMBO" && (
+                            <span className="ml-1.5 text-[10px] font-semibold uppercase text-roxa-500">
+                              combo
+                            </span>
+                          )}
+                        </span>
+                        <span className="shrink-0 tabular-nums text-slate-500">
+                          {formatBRL(s.salePrice)}
+                        </span>
+                      </button>
+                    </li>
+                  ))
+                )}
+              </ul>
+            )}
           </div>
           {/* Submit invisível: garante que o Enter do leitor dispare o form. */}
           <button type="submit" hidden aria-hidden tabIndex={-1} />
