@@ -35,21 +35,10 @@ export function OrderRequestActions({
   const [pending, startTransition] = useTransition();
 
   function approve() {
-    const wantDeposit = window.confirm(
-      "Pedir sinal antecipado pra esta encomenda? OK = sim, Cancelar = aprovar sem sinal.",
-    );
-    let depositCents: number | null = null;
+    // Sinal antecipado DESLIGADO por decisão do Bruno (04/08/2026) —
+    // encomendas são aprovadas sem cobrança; pagamento todo na retirada.
+    // O backend continua suportando sinal caso um dia volte.
     let adminNotes: string | null = null;
-    if (wantDeposit) {
-      const raw = window.prompt("Valor do sinal em R$ (ex: 50.00):");
-      if (raw === null) return;
-      const num = parseFloat(raw.replace(",", "."));
-      if (!Number.isFinite(num) || num <= 0) {
-        window.alert("Valor inválido.");
-        return;
-      }
-      depositCents = Math.round(num * 100);
-    }
     const notes = window.prompt(
       "Observações internas (opcional, só admin vê):",
     );
@@ -57,7 +46,7 @@ export function OrderRequestActions({
 
     startTransition(async () => {
       const res = await approveOrderRequestAction(id, {
-        depositRequiredCents: depositCents,
+        depositRequiredCents: null,
         adminNotes,
       });
       if (!res.ok) {
