@@ -76,6 +76,34 @@ export async function listSales(filters: SaleListFilters, limit = 100) {
   });
 }
 
+/**
+ * Total recebido por forma de pagamento — só vendas CONCLUÍDAS, respeitando
+ * os filtros de origem/período da listagem. É o "fechamento de caixa":
+ * filtre o dia e veja quanto entrou em dinheiro, PIX, cartão etc.
+ */
+export async function sumPaymentsByMethod(filters: SaleListFilters) {
+  const saleWhere: Prisma.SaleWhereInput = { status: SaleStatus.CONCLUIDA };
+  if (filters.source && filters.source !== "all") saleWhere.source = filters.source;
+  if (filters.from || filters.to) {
+    saleWhere.occurredAt = {};
+    if (filters.from) (saleWhere.occurredAt as Prisma.DateTimeFilter).gte = new Date(filters.from);
+    if (filters.to) {
+      const to = new Date(filters.to);
+      to.setHours(23, 59, 59, 999);
+      (saleWhere.occurredAt as Prisma.DateTimeFilter).lte = to;
+    }
+  }
+  const grouped = await prisma.salePayment.groupBy({
+    by: ["method"],
+    _sum: { amount: true },
+    where: { sale: saleWhere },
+  });
+  return grouped
+    .map((g) => ({ method: g.method, total: Number(g._sum.amount ?? 0) }))
+    .filter((g) => g.total > 0)
+    .sort((a, b) => b.total - a.total);
+}
+
 export async function getSaleById(id: string) {
   return prisma.sale.findUnique({
     where: { id },

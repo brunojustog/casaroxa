@@ -18,6 +18,7 @@ import {
 import {
   getRevenueLast30Days,
   listSales,
+  sumPaymentsByMethod,
 } from "@/server/services/sales.service";
 import { saleListFiltersSchema } from "@/schemas/sale.schema";
 import {
@@ -61,10 +62,12 @@ export default async function VendasPage({
     search: typeof params.search === "string" ? params.search : undefined,
   });
 
-  const [sales, last30] = await Promise.all([
+  const [sales, last30, paymentTotals] = await Promise.all([
     listSales(filters, 200),
     getRevenueLast30Days(),
+    sumPaymentsByMethod(filters),
   ]);
+  const totalRecebido = paymentTotals.reduce((a, p) => a + p.total, 0);
 
   return (
     <div className="space-y-5">
@@ -176,6 +179,39 @@ export default async function VendasPage({
           Filtrar
         </button>
       </form>
+
+      {paymentTotals.length > 0 && (
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                💰 Recebido por forma de pagamento
+                <span className="ml-2 normal-case tracking-normal text-slate-400">
+                  (vendas concluídas no período filtrado — filtre a data pro fechamento do dia)
+                </span>
+              </p>
+              <p className="text-sm text-slate-600">
+                Total: <span className="font-semibold text-slate-900 tabular-nums">{formatBRL(totalRecebido)}</span>
+              </p>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {paymentTotals.map((p) => (
+                <span
+                  key={p.method}
+                  className="inline-flex items-baseline gap-2 rounded-lg border border-roxa-100 bg-roxa-50 px-3 py-2"
+                >
+                  <span className="text-xs font-medium text-roxa-800">
+                    {PAYMENT_METHOD_LABEL[p.method]}
+                  </span>
+                  <span className="text-base font-semibold tabular-nums text-roxa-900">
+                    {formatBRL(p.total)}
+                  </span>
+                </span>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {sales.length === 0 ? (
         <EmptyState>
