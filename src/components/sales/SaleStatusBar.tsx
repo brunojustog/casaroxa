@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, X } from "lucide-react";
+import { CheckCircle2, Pencil, X } from "lucide-react";
 import { SaleStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import {
   cancelSaleAction,
   concludeSaleAction,
+  reopenSaleAction,
 } from "@/server/actions/sales";
 
 export function SaleStatusBar({
@@ -55,10 +56,35 @@ export function SaleStatusBar({
     });
   }
 
+  function onReopen() {
+    if (
+      !window.confirm(
+        "Reabrir esta venda pra edição? O desconto de estoque da conclusão será desfeito e refeito quando você concluir de novo.",
+      )
+    )
+      return;
+    startTransition(async () => {
+      const res = await reopenSaleAction(saleId);
+      if (!res.ok) window.alert(res.error);
+      else router.refresh();
+    });
+  }
+
   if (status === SaleStatus.CANCELADA) return null;
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
+      {status === SaleStatus.CONCLUIDA && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onReopen}
+          disabled={isPending}
+        >
+          <Pencil className="h-4 w-4" />
+          {isPending ? "Reabrindo…" : "Editar (reabrir)"}
+        </Button>
+      )}
       {status === SaleStatus.ABERTA && (
         <Button
           type="button"

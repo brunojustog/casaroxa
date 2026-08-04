@@ -1,20 +1,11 @@
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
-import { SaleSource, SaleStatus } from "@prisma/client";
+import { PaymentMethod, SaleSource, SaleStatus } from "@prisma/client";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Table,
-  THead,
-  TBody,
-  TR,
-  TH,
-  TD,
-  EmptyState,
-} from "@/components/ui/table";
+import { EmptyState } from "@/components/ui/table";
 import {
   getRevenueLast30Days,
   listSales,
@@ -28,7 +19,7 @@ import {
   enumOptions,
 } from "@/lib/enums";
 import { formatBRL, formatDateTime, formatPercent } from "@/lib/format";
-import { ReprintCupomButton } from "@/components/sales/ReprintCupomButton";
+import { SalesTable, type SalesTableRow } from "@/components/sales/SalesTable";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +59,35 @@ export default async function VendasPage({
     sumPaymentsByMethod(filters),
   ]);
   const totalRecebido = paymentTotals.reduce((a, p) => a + p.total, 0);
+
+  const qtyLabel = (q: number) =>
+    Number.isInteger(q) ? `${q}x` : `${q.toFixed(3).replace(".", ",")}kg`;
+  const rows: SalesTableRow[] = sales.map((s) => ({
+    id: s.id,
+    number: s.number,
+    dateLabel: formatDateTime(s.occurredAt),
+    sourceLabel: SALE_SOURCE_LABEL[s.source as SaleSource],
+    customerName: s.customerName,
+    itemCount: s._count.items,
+    bruto: Number(s.totalRevenue),
+    liquido: Number(s.totalNet),
+    desconto: Number(s.totalDiscount),
+    status: s.status,
+    statusLabel: SALE_STATUS_LABEL[s.status as SaleStatus],
+    tone: statusTone(s.status as SaleStatus),
+    items: s.items.map((it) => ({
+      id: it.id,
+      qtyLabel: qtyLabel(Number(it.quantity)),
+      name: it.product?.name ?? it.combo?.name ?? "Item",
+      unitPrice: Number(it.unitPrice),
+      totalPrice: Number(it.totalPrice),
+      isCombo: !!it.combo,
+    })),
+    payments: s.payments.map((p) => ({
+      label: PAYMENT_METHOD_LABEL[p.method as PaymentMethod],
+      amount: Number(p.amount),
+    })),
+  }));
 
   return (
     <div className="space-y-5">
@@ -221,54 +241,7 @@ export default async function VendasPage({
           </Link>
         </EmptyState>
       ) : (
-        <Table>
-          <THead>
-            <TR>
-              <TH className="w-16">#</TH>
-              <TH>Data</TH>
-              <TH>Origem</TH>
-              <TH>Cliente</TH>
-              <TH className="text-center">Itens</TH>
-              <TH className="text-right">Bruto</TH>
-              <TH className="text-right">Líquido</TH>
-              <TH>Status</TH>
-              <TH className="w-10"> </TH>
-            </TR>
-          </THead>
-          <TBody>
-            {sales.map((s) => (
-              <TR key={s.id}>
-                <TD className="text-slate-500 tabular-nums text-xs">#{s.number}</TD>
-                <TD className="text-slate-700 text-xs">
-                  <Link href={`/vendas/${s.id}`} className="hover:text-roxa-700">
-                    {formatDateTime(s.occurredAt)}
-                  </Link>
-                </TD>
-                <TD className="text-slate-600 text-xs">
-                  {SALE_SOURCE_LABEL[s.source as SaleSource]}
-                </TD>
-                <TD className="text-slate-700">{s.customerName ?? "—"}</TD>
-                <TD className="text-center text-slate-700 tabular-nums">
-                  {s._count.items}
-                </TD>
-                <TD className="text-right tabular-nums">{formatBRL(s.totalRevenue)}</TD>
-                <TD className="text-right tabular-nums font-medium text-slate-900">
-                  {formatBRL(s.totalNet)}
-                </TD>
-                <TD>
-                  <Badge tone={statusTone(s.status as SaleStatus)}>
-                    {SALE_STATUS_LABEL[s.status as SaleStatus]}
-                  </Badge>
-                </TD>
-                <TD>
-                  {s.status !== "CANCELADA" && (
-                    <ReprintCupomButton saleId={s.id} compact />
-                  )}
-                </TD>
-              </TR>
-            ))}
-          </TBody>
-        </Table>
+        <SalesTable rows={rows} />
       )}
 
       <div className="text-xs text-slate-500">

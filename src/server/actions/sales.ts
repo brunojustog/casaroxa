@@ -16,6 +16,7 @@ import {
   createSale,
   removeSaleItem,
   removeSalePayment,
+  reopenSale,
   setSaleProgress,
   updateSaleHeader,
   updateSaleItem,
@@ -155,6 +156,15 @@ export async function concludeSaleAction(saleId: string): Promise<ActionResult> 
   const result = await runAction(async () => {
     const user = await requireAuth();
     await concludeSale(saleId, user.id);
+  });
+  if (result.ok) revalidateAfterStockChange(saleId);
+  return result;
+}
+
+export async function reopenSaleAction(saleId: string): Promise<ActionResult> {
+  const result = await runAction(async () => {
+    await requireAuth();
+    await reopenSale(saleId);
   });
   if (result.ok) revalidateAfterStockChange(saleId);
   return result;

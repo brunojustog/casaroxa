@@ -72,6 +72,19 @@ export async function listSales(filters: SaleListFilters, limit = 100) {
     take: limit,
     include: {
       _count: { select: { items: true, payments: true } },
+      // Itens resumidos pra expansão inline na listagem (cascata)
+      items: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          quantity: true,
+          unitPrice: true,
+          totalPrice: true,
+          product: { select: { name: true } },
+          combo: { select: { name: true } },
+        },
+      },
+      payments: { select: { method: true, amount: true } },
     },
   });
 }
@@ -636,6 +649,40 @@ export async function concludeSale(saleId: string, userId: string) {
   }
 
   return closed;
+}
+
+/**
+ * Reabre uma venda CONCLUÍDA pra correção (vendedor errou item/preço).
+ * Remove as SAÍDAS de estoque criadas na conclusão — ao concluir de novo,
+ * elas são recriadas com os itens corrigidos. Bloqueado se houver NFC-e.
+ */
+export async function reopenSale(saleId: string) {
+  return prisma.$transaction(async (tx) => {
+    const sale = await tx.sale.findUnique({
+      where: { id: saleId },
+      include: { fiscalDocument: { select: { id: true } } },
+    });
+    if (!sale) throw new BusinessError("Venda não encontrada.");
+    if (sale.status !== SaleStatus.CONCLUIDA) {
+      throw new BusinessError("Apenas vendas concluídas podem ser reabertas.");
+    }
+    if (sale.fiscalDocument) {
+      throw new BusinessError(
+        "Esta venda tem NFC-e emitida — cancele a nota fiscal antes de reabrir.",
+      );
+    }
+    await tx.stockMovement.deleteMany({
+      where: {
+        referenceType: REFERENCE_TYPE_SALE,
+        referenceId: saleId,
+        type: StockMovementType.SAIDA,
+      },
+    });
+    return tx.sale.update({
+      where: { id: saleId },
+      data: { status: SaleStatus.ABERTA, closedAt: null, closedById: null },
+    });
+  });
 }
 
 export async function cancelSale(
