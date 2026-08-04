@@ -142,8 +142,12 @@ export async function getSaleById(id: string) {
  * O PDV trabalha com uma venda por vez; a tela do cliente acompanha a mesma.
  */
 export async function getCurrentPdvSale() {
+  // Só reaproveita venda aberta DE HOJE — venda retroativa (fechamento de
+  // dias anteriores) esquecida aberta não pode virar a venda do caixa.
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
   return prisma.sale.findFirst({
-    where: { source: "LOJA", status: "ABERTA" },
+    where: { source: "LOJA", status: "ABERTA", occurredAt: { gte: hoje } },
     orderBy: { updatedAt: "desc" },
     include: {
       items: {
