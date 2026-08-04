@@ -116,6 +116,10 @@ export const saleListFiltersSchema = z.object({
     .union([z.nativeEnum(SaleSource), z.literal("all")])
     .optional()
     .default("all"),
+  payment: z
+    .union([z.nativeEnum(PaymentMethod), z.literal("all")])
+    .optional()
+    .default("all"),
   from: z.string().optional(),
   to: z.string().optional(),
   search: z.string().trim().optional(),

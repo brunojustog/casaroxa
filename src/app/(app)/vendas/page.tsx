@@ -21,6 +21,7 @@ import {
 } from "@/server/services/sales.service";
 import { saleListFiltersSchema } from "@/schemas/sale.schema";
 import {
+  PAYMENT_METHOD_LABEL,
   SALE_SOURCE_LABEL,
   SALE_STATUS_LABEL,
   enumOptions,
@@ -32,6 +33,7 @@ export const dynamic = "force-dynamic";
 
 const SOURCE_OPTIONS = enumOptions(SALE_SOURCE_LABEL);
 const STATUS_OPTIONS = enumOptions(SALE_STATUS_LABEL);
+const PAYMENT_OPTIONS = enumOptions(PAYMENT_METHOD_LABEL);
 
 function statusTone(status: SaleStatus) {
   switch (status) {
@@ -53,6 +55,7 @@ export default async function VendasPage({
   const filters = saleListFiltersSchema.parse({
     status: typeof params.status === "string" ? params.status : "all",
     source: typeof params.source === "string" ? params.source : "all",
+    payment: typeof params.payment === "string" ? params.payment : "all",
     from: typeof params.from === "string" ? params.from : undefined,
     to: typeof params.to === "string" ? params.to : undefined,
     search: typeof params.search === "string" ? params.search : undefined,
@@ -151,6 +154,14 @@ export default async function VendasPage({
         <Select name="source" defaultValue={filters.source} className="w-36">
           <option value="all">Todas origens</option>
           {SOURCE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </Select>
+        <Select name="payment" defaultValue={filters.payment} className="w-40">
+          <option value="all">Todos pagamentos</option>
+          {PAYMENT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>

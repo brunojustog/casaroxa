@@ -47,6 +47,9 @@ export async function listSales(filters: SaleListFilters, limit = 100) {
   const where: Prisma.SaleWhereInput = {};
   if (filters.status && filters.status !== "all") where.status = filters.status;
   if (filters.source && filters.source !== "all") where.source = filters.source;
+  if (filters.payment && filters.payment !== "all") {
+    where.payments = { some: { method: filters.payment } };
+  }
   if (filters.from || filters.to) {
     where.occurredAt = {};
     if (filters.from) (where.occurredAt as Prisma.DateTimeFilter).gte = new Date(filters.from);
