@@ -6,8 +6,10 @@ import {
   getEmporioMenu,
   getPublicMenu,
   getSiteSettings,
+  listGoogleReviews,
 } from "@/server/services/public-menu.service";
 import { whatsappLink } from "@/lib/whatsapp";
+import { GoogleReviewsCarousel } from "@/components/public/GoogleReviewsCarousel";
 
 export const dynamic = "force-dynamic";
 
@@ -29,10 +31,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  const [menu, settings, emporio] = await Promise.all([
+  const [menu, settings, emporio, googleReviews] = await Promise.all([
     getPublicMenu(),
     getSiteSettings(),
     getEmporioMenu(),
+    listGoogleReviews(),
   ]);
 
   const wa = whatsappLink(
@@ -93,6 +96,9 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Prova social — avaliações do Google (some se não houver curadas) */}
+      <GoogleReviewsCarousel reviews={googleReviews} />
 
       {/* Quick info */}
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">

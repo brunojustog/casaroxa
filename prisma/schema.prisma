@@ -1925,6 +1925,25 @@ model Campaign {
 // NPS / REVIEWS (Sprint 6)
 // ============================================================
 
+/// Avaliação do Google (curada) — exibida no carrossel de prova social
+/// da Home. Curadoria manual: Bruno escolhe quais entram (a rotina
+/// diária do GMN avisa das novas). Fase 2 futura: Google Places API.
+model GoogleReview {
+  id           String   @id @default(cuid())
+  /// Nome do autor como aparece no Google (ex.: "Maria S.")
+  authorName   String
+  /// 1 a 5 estrelas
+  rating       Int      @default(5)
+  text         String
+  /// Rótulo livre de quando foi ("agosto de 2026", "há 2 dias") — opcional
+  reviewedAtLabel String?
+  displayOrder Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  @@index([active, displayOrder])
+}
+
 /// Avaliação NPS pós-entrega. Link público gerado quando admin manda
 /// pedido pra avaliação; cliente abre /avaliacao/[npsToken], escolhe
 /// nota 0-10 e comentário. Categoria computada no submit.

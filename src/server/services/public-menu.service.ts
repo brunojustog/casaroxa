@@ -9,6 +9,21 @@ import { prisma } from "@/lib/prisma";
 import { PRODUCT_CATEGORY_LABEL } from "@/lib/enums";
 import { IngredientCategory, type ProductCategory } from "@prisma/client";
 
+/** Avaliações do Google curadas pro carrossel de prova social da Home. */
+export async function listGoogleReviews() {
+  return prisma.googleReview.findMany({
+    where: { active: true },
+    orderBy: [{ displayOrder: "asc" }, { createdAt: "desc" }],
+    select: {
+      id: true,
+      authorName: true,
+      rating: true,
+      text: true,
+      reviewedAtLabel: true,
+    },
+  });
+}
+
 /** Converte o campo Json gallery (array de URLs) com fallback para []. */
 function parseGallery(value: unknown): string[] {
   if (!value || !Array.isArray(value)) return [];
