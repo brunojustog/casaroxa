@@ -90,6 +90,9 @@ export async function GET(
   L.push(hr());
   L.push(center("*** SEM VALOR FISCAL ***"));
   L.push(center("Obrigado! Volte sempre <3"));
+  L.push("");
+  L.push(center("Baixe nosso app e concorra a"));
+  L.push(center("sorteios toda semana!"));
   L.push(center("casaroxa.com.br"));
 
   return new NextResponse(L.join("\n"), {
