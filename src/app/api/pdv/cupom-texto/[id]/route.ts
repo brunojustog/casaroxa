@@ -6,7 +6,7 @@ import { PAYMENT_METHOD_LABEL } from "@/lib/enums";
 
 export const dynamic = "force-dynamic";
 
-const W = 48; // colunas da térmica 80mm (Custom P3)
+const W = 42; // colunas da Custom P3 (80mm, fonte padrão = 42 chars/linha)
 
 function center(s: string) {
   const pad = Math.max(0, Math.floor((W - s.length) / 2));
