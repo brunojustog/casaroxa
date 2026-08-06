@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ChevronDown,
+  Globe2,
   LayoutDashboard,
   Carrot,
   Package,
@@ -104,6 +105,7 @@ const NAV: NavSection[] = [
     items: [
       { href: "/dashboard",  label: "Dashboard",  icon: LayoutDashboard },
       { href: "/relatorios", label: "Relatórios", icon: FileBarChart2, roles: ["ADMIN"] },
+      { href: "/metricas",   label: "Métricas do site", icon: Globe2, roles: ["ADMIN"] },
     ],
   },
   {
