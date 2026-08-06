@@ -22,6 +22,7 @@ type Fbq = (...args: unknown[]) => void;
 type WindowWithTags = Window & {
   fbq?: Fbq;
   dataLayer?: unknown[];
+  umami?: { track: (name: string, data?: Record<string, unknown>) => void };
 };
 
 function win(): WindowWithTags | null {
@@ -65,6 +66,41 @@ function fbqCall(...args: unknown[]) {
   }, 500);
 }
 
+/**
+ * Umami (painel próprio em metricas.casaroxa.com.br) — mesmo padrão de
+ * resiliência do fbq: se o script ainda não carregou, fila com retry.
+ */
+const umamiPending: Array<[string, Record<string, unknown> | undefined]> = [];
+let umamiRetryTimer: ReturnType<typeof setInterval> | null = null;
+let umamiRetries = 0;
+
+function umamiTrack(name: string, data?: Record<string, unknown>) {
+  const w = win();
+  if (!w) return;
+  if (w.umami) {
+    w.umami.track(name, data);
+    return;
+  }
+  umamiPending.push([name, data]);
+  if (umamiRetryTimer) return;
+  umamiRetryTimer = setInterval(() => {
+    const ww = win();
+    umamiRetries += 1;
+    if (ww?.umami) {
+      while (umamiPending.length > 0) {
+        const [n, d] = umamiPending.shift()!;
+        ww.umami.track(n, d);
+      }
+    }
+    if (ww?.umami || umamiRetries >= 20) {
+      clearInterval(umamiRetryTimer as ReturnType<typeof setInterval>);
+      umamiRetryTimer = null;
+      umamiRetries = 0;
+      umamiPending.length = 0;
+    }
+  }, 500);
+}
+
 export type TrackedItem = {
   id: string;
   name: string;
@@ -94,6 +130,7 @@ export function trackViewContent(item: TrackedItem) {
     value: item.price,
     items: ga4Items([item]),
   });
+  umamiTrack("ver-produto", { nome: item.name, valor: item.price });
 }
 
 export function trackAddToCart(item: TrackedItem) {
@@ -110,6 +147,7 @@ export function trackAddToCart(item: TrackedItem) {
     value: item.price * qty,
     items: ga4Items([item]),
   });
+  umamiTrack("adicionar-carrinho", { nome: item.name, valor: item.price * qty });
 }
 
 export function trackBeginCheckout(items: TrackedItem[], value: number) {
@@ -125,6 +163,7 @@ export function trackBeginCheckout(items: TrackedItem[], value: number) {
     value,
     items: ga4Items(items),
   });
+  umamiTrack("iniciar-checkout", { valor: value });
 }
 
 /**
@@ -151,6 +190,7 @@ export function trackPurchase(orderId: string, value: number) {
     currency: "BRL",
     value,
   });
+  umamiTrack("pedido-concluido", { valor: value });
 }
 
 /**
@@ -178,4 +218,10 @@ export function trackLead(
     value,
     lead_source: label,
   });
+  umamiTrack("encomenda-enviada", { tipo: label, valor: value });
+}
+
+/** Cliques em CTAs de WhatsApp e ativação do app (chamado pelos componentes). */
+export function trackUmamiEvent(name: string, data?: Record<string, unknown>) {
+  umamiTrack(name, data);
 }

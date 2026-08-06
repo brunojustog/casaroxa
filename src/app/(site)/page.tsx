@@ -82,6 +82,8 @@ export default async function HomePage() {
                   href={wa}
                   target="_blank"
                   rel="noopener noreferrer"
+                  data-umami-event="clique-whatsapp"
+                  data-umami-event-origem="home-hero"
                   className="inline-flex items-center gap-2 rounded-md border border-green-600 bg-white px-5 py-3 text-sm font-semibold text-green-700 transition hover:bg-green-50"
                 >
                   <MessageCircle className="h-4 w-4" />

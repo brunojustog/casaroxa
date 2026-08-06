@@ -76,6 +76,8 @@ export function PublicHeader({
               href={wa}
               target="_blank"
               rel="noopener noreferrer"
+              data-umami-event="clique-whatsapp"
+              data-umami-event-origem="header"
               className="ml-2 inline-flex items-center gap-1.5 rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
             >
               <MessageCircle className="h-4 w-4" />

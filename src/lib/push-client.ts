@@ -75,6 +75,10 @@ export async function subscribeCustomerPushDetailed(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...sub.toJSON(), phone: phone || undefined }),
     });
+    // Métrica: instalação/ativação do app conta no painel Umami
+    (window as unknown as { umami?: { track: (n: string) => void } }).umami?.track(
+      "app-notificacoes-ativadas",
+    );
     return { endpoint: sub.endpoint, reason: "ok" };
   } catch (e) {
     console.error("[push] erro ao inscrever", e);
