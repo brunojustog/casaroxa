@@ -13,10 +13,19 @@ import Script from "next/script";
 const GTM_ID = "GTM-M48KNX4C";
 const GA4_ID = "G-M6D4NYSHM3";
 const META_PIXEL_ID = "1426004342688984";
+/** Umami self-hosted (metricas.casaroxa.com.br) — painel interno de visitas. */
+const UMAMI_WEBSITE_ID = "e8dd3a47-4aad-4752-a2d0-f7eb1198bb00";
 
 export function Analytics() {
   return (
     <>
+      {/* Umami (self-hosted, sem cookies) */}
+      <Script
+        src="https://metricas.casaroxa.com.br/script.js"
+        data-website-id={UMAMI_WEBSITE_ID}
+        strategy="afterInteractive"
+      />
+
       {/* Google Tag Manager */}
       <Script id="gtm" strategy="afterInteractive">
         {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
