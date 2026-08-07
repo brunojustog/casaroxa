@@ -12,6 +12,7 @@ import { SaleStatusBar } from "@/components/sales/SaleStatusBar";
 import { SaleProgressBar } from "@/components/sales/SaleProgressBar";
 import { SendNpsButton } from "@/components/sales/SendNpsButton";
 import { ReprintCupomButton } from "@/components/sales/ReprintCupomButton";
+import { PrintPedidoButton } from "@/components/sales/PrintPedidoButton";
 import {
   getSaleById,
   listActiveCombosForSale,
@@ -128,7 +129,10 @@ export default async function VendaPage({
         actions={
           <span className="flex items-center gap-2">
             {sale.status !== SaleStatus.CANCELADA && (
-              <ReprintCupomButton saleId={sale.id} />
+              <>
+                <PrintPedidoButton saleId={sale.id} />
+                <ReprintCupomButton saleId={sale.id} />
+              </>
             )}
             <Badge tone={tone}>{SALE_STATUS_LABEL[sale.status]}</Badge>
           </span>

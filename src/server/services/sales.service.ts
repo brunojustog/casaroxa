@@ -266,6 +266,19 @@ export async function getSaleComprovante(id: string) {
           reference: true,
         },
       },
+      orderRequest: {
+        select: {
+          customerPhone: true,
+          deliveryMode: true,
+          requestedFor: true,
+          address: true,
+          addressNumber: true,
+          addressComplement: true,
+          neighborhood: true,
+          reference: true,
+          notes: true,
+        },
+      },
     },
   });
 }

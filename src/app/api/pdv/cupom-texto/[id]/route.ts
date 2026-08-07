@@ -67,6 +67,42 @@ export async function GET(
   L.push(hr());
   L.push(row(`VENDA #${sale.number}`, when));
   if (sale.customerName) L.push(`Cliente: ${sale.customerName}`.slice(0, W));
+
+  // ---- Dados de entrega/contato (pro entregador) ----
+  const wrap = (prefix: string, text: string) => {
+    let line = prefix + text;
+    while (line.length > W) {
+      const cut = line.lastIndexOf(" ", W);
+      const at = cut > prefix.length ? cut : W;
+      L.push(line.slice(0, at));
+      line = "  " + line.slice(at).trim();
+    }
+    L.push(line);
+  };
+  const or = sale.orderRequest;
+  const phone = or?.customerPhone || sale.customer?.phone;
+  if (phone) L.push(`Fone: ${phone}`.slice(0, W));
+  const addrSource =
+    or?.address ? or : sale.customer?.address ? sale.customer : null;
+  if (addrSource?.address) {
+    const addr = [
+      addrSource.address,
+      addrSource.addressNumber ? `nº ${addrSource.addressNumber}` : null,
+      addrSource.addressComplement,
+    ]
+      .filter(Boolean)
+      .join(", ");
+    wrap("Entrega: ", addr);
+    if (addrSource.neighborhood) wrap("Bairro: ", addrSource.neighborhood);
+    if (addrSource.reference) wrap("Ref: ", addrSource.reference);
+  } else if (sale.notes) {
+    // Pedidos do site guardam o endereço nos notes estruturados
+    for (const linha of sale.notes.split("\n")) {
+      if (/^(Telefone|Endereço|Bairro|Referência|Entrega|Retirada):/i.test(linha)) {
+        wrap("", linha.trim());
+      }
+    }
+  }
   L.push(hr());
   for (const it of sale.items) {
     const name = it.product?.name ?? it.combo?.name ?? "Item";
@@ -87,6 +123,21 @@ export async function GET(
     L.push(row(PAYMENT_METHOD_LABEL[p.method].slice(0, 18), `R$ ${brl(p.amount)}`));
   }
   if (troco > 0) L.push(row("TROCO", `R$ ${brl(troco)}`));
+
+  // Pedido de entrega: instrução de cobrança em destaque pro entregador
+  const isEntrega =
+    !!addrSource?.address || /Endereço:/i.test(sale.notes ?? "");
+  if (isEntrega) {
+    const falta = Number(sale.totalRevenue) - Number(sale.totalPaid);
+    L.push(hr());
+    L.push(
+      center(
+        falta > 0.009
+          ? `>>> COBRAR R$ ${brl(falta)} NA ENTREGA <<<`
+          : ">>> PEDIDO JA PAGO <<<",
+      ),
+    );
+  }
   L.push(hr());
   L.push(center("*** SEM VALOR FISCAL ***"));
   L.push(center("Obrigado! Volte sempre <3"));
