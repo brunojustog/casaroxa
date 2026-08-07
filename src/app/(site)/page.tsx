@@ -234,7 +234,7 @@ export default async function HomePage() {
                 .map((i) => (
                   <Link
                     key={i.id}
-                    href={`/cardapio/produto/${i.id}`}
+                    href={`/cardapio/produto/${i.slug ?? i.id}`}
                     className="group relative aspect-square overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-sm"
                   >
                     <Image
@@ -327,7 +327,7 @@ export default async function HomePage() {
                 .map((i) => (
                   <Link
                     key={i.id}
-                    href={`/cardapio/produto/${i.id}`}
+                    href={`/cardapio/produto/${i.slug ?? i.id}`}
                     className="group relative aspect-square overflow-hidden rounded-2xl border border-amber-100 bg-white shadow-sm"
                   >
                     <Image

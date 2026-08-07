@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { toDecimal } from "@/lib/decimal";
+import { slugify } from "@/lib/slug";
 import { BusinessError } from "@/server/auth-helpers";
 import type {
   ProductFormData,
@@ -65,6 +66,21 @@ export function getProductPriceHistory(id: string) {
 
 // ---------- Create ----------
 
+/** Slug único a partir do nome (colisão ganha sufixo -2, -3…). */
+async function uniqueProductSlug(name: string): Promise<string> {
+  const base = slugify(name) || "produto";
+  let candidate = base;
+  for (let i = 2; i < 50; i++) {
+    const dup = await prisma.product.findUnique({
+      where: { slug: candidate },
+      select: { id: true },
+    });
+    if (!dup) return candidate;
+    candidate = `${base}-${i}`;
+  }
+  return `${base}-${Date.now()}`;
+}
+
 export async function createProduct(input: ProductFormData) {
   const dup = await prisma.product.findUnique({
     where: { name: input.name },
@@ -99,6 +115,7 @@ export async function createProduct(input: ProductFormData) {
   return prisma.product.create({
     data: {
       name: input.name,
+      slug: await uniqueProductSlug(input.name),
       category: input.category,
       type: input.type,
       portionLabel: input.portionLabel,

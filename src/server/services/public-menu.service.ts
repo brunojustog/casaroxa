@@ -66,13 +66,17 @@ function deriveIngredientsFromCombo(
 
 export async function getPublicMenuItem(
   kind: "PRODUTO" | "COMBO",
-  id: string,
+  idOrSlug: string,
 ): Promise<PublicMenuItem | null> {
+  // URLs amigáveis: aceita o slug OU o id antigo (links/QR já divulgados
+  // continuam funcionando pra sempre).
+  const idFilter = { OR: [{ slug: idOrSlug }, { id: idOrSlug }] };
   if (kind === "PRODUTO") {
     const p = await prisma.product.findFirst({
-      where: { id, showInMenu: true, active: true, salePrice: { gt: 0 } },
+      where: { ...idFilter, showInMenu: true, active: true, salePrice: { gt: 0 } },
       select: {
         id: true,
+        slug: true,
         name: true,
         description: true,
         salePrice: true,
@@ -105,6 +109,7 @@ export async function getPublicMenuItem(
           : null;
     return {
       id: p.id,
+      slug: p.slug,
       kind: "PRODUTO",
       name: p.name,
       description: p.description,
@@ -121,9 +126,10 @@ export async function getPublicMenuItem(
     };
   }
   const c = await prisma.combo.findFirst({
-    where: { id, showInMenu: true, active: true, salePrice: { gt: 0 } },
+    where: { ...idFilter, showInMenu: true, active: true, salePrice: { gt: 0 } },
     select: {
       id: true,
+      slug: true,
       name: true,
       description: true,
       salePrice: true,
@@ -149,6 +155,7 @@ export async function getPublicMenuItem(
       : deriveIngredientsFromCombo(c.items) || null;
   return {
     id: c.id,
+    slug: c.slug,
     kind: "COMBO",
     name: c.name,
     description: c.description,
@@ -167,6 +174,8 @@ export async function getPublicMenuItem(
 
 export type PublicMenuItem = {
   id: string;
+  /** URL amigável — usar `slug ?? id` ao montar links. */
+  slug: string | null;
   kind: "PRODUTO" | "COMBO";
   name: string;
   description: string | null;
@@ -283,6 +292,7 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
       orderBy: [{ category: "asc" }, { name: "asc" }],
       select: {
         id: true,
+        slug: true,
         name: true,
         description: true,
         salePrice: true,
@@ -304,6 +314,7 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
       orderBy: [{ name: "asc" }],
       select: {
         id: true,
+        slug: true,
         name: true,
         description: true,
         salePrice: true,
@@ -320,6 +331,7 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
 
   const productItems: PublicMenuItem[] = products.map((p) => ({
     id: p.id,
+    slug: p.slug,
     kind: "PRODUTO",
     name: p.name,
     description: p.description,
@@ -337,6 +349,7 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
 
   const comboItems: PublicMenuItem[] = combos.map((c) => ({
     id: c.id,
+    slug: c.slug,
     kind: "COMBO",
     name: c.name,
     description: c.description,
@@ -402,6 +415,7 @@ export async function getEmporioMenu(): Promise<PublicMenuItem[]> {
     orderBy: [{ name: "asc" }],
     select: {
       id: true,
+      slug: true,
       name: true,
       description: true,
       salePrice: true,
@@ -417,6 +431,7 @@ export async function getEmporioMenu(): Promise<PublicMenuItem[]> {
 
   const items: PublicMenuItem[] = products.map((p) => ({
     id: p.id,
+    slug: p.slug,
     kind: "PRODUTO",
     name: p.name,
     description: p.description,

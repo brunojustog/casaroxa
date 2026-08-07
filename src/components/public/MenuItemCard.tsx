@@ -6,10 +6,11 @@ import { MenuItemActions } from "./cart/MenuItemActions";
 import type { PublicMenuItem } from "@/server/services/public-menu.service";
 
 export function MenuItemCard({ item }: { item: PublicMenuItem }) {
+  const ref = item.slug ?? item.id;
   const detailHref =
     item.kind === "PRODUTO"
-      ? `/cardapio/produto/${item.id}`
-      : `/cardapio/combo/${item.id}`;
+      ? `/cardapio/produto/${ref}`
+      : `/cardapio/combo/${ref}`;
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-xl border border-roxa-100 bg-white shadow-sm transition hover:shadow-md">

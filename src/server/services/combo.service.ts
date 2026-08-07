@@ -1,7 +1,23 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { toDecimal } from "@/lib/decimal";
+import { slugify } from "@/lib/slug";
 import { BusinessError } from "@/server/auth-helpers";
+
+/** Slug único a partir do nome (colisão ganha sufixo -2, -3…). */
+async function uniqueComboSlug(name: string): Promise<string> {
+  const base = slugify(name) || "combo";
+  let candidate = base;
+  for (let i = 2; i < 50; i++) {
+    const dup = await prisma.combo.findUnique({
+      where: { slug: candidate },
+      select: { id: true },
+    });
+    if (!dup) return candidate;
+    candidate = `${base}-${i}`;
+  }
+  return `${base}-${Date.now()}`;
+}
 import type {
   ComboListFilters,
   SaveComboData,
@@ -92,6 +108,7 @@ export async function saveCombo(input: SaveComboData, options: { id?: string }) 
       const created = await tx.combo.create({
         data: {
           name: input.name,
+          slug: await uniqueComboSlug(input.name),
           category: input.category,
           description: input.description,
           salePrice: input.salePrice ?? null,
