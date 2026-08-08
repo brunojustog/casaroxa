@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/table";
 import {
   getRevenueLast30Days,
   listSales,
+  sumOpenSalesForecast,
   sumPaymentsByMethod,
 } from "@/server/services/sales.service";
 import { saleListFiltersSchema } from "@/schemas/sale.schema";
@@ -53,10 +54,11 @@ export default async function VendasPage({
     search: typeof params.search === "string" ? params.search : undefined,
   });
 
-  const [sales, last30, paymentTotals] = await Promise.all([
+  const [sales, last30, paymentTotals, previsao] = await Promise.all([
     listSales(filters, 200),
     getRevenueLast30Days(),
     sumPaymentsByMethod(filters),
+    sumOpenSalesForecast(filters),
   ]);
   const totalRecebido = paymentTotals.reduce((a, p) => a + p.total, 0);
 
@@ -200,37 +202,63 @@ export default async function VendasPage({
         </button>
       </form>
 
-      {paymentTotals.length > 0 && (
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
+      {(paymentTotals.length > 0 || previsao.count > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card className="lg:col-span-2">
+            <CardContent className="p-5">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  💰 Recebido por forma de pagamento
+                  <span className="ml-2 normal-case tracking-normal text-slate-400">
+                    (vendas concluídas no período filtrado — filtre a data pro fechamento do dia)
+                  </span>
+                </p>
+                <p className="text-sm text-slate-600">
+                  Total: <span className="font-semibold text-slate-900 tabular-nums">{formatBRL(totalRecebido)}</span>
+                </p>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {paymentTotals.map((p) => (
+                  <span
+                    key={p.method}
+                    className="inline-flex items-baseline gap-2 rounded-lg border border-roxa-100 bg-roxa-50 px-3 py-2"
+                  >
+                    <span className="text-xs font-medium text-roxa-800">
+                      {PAYMENT_METHOD_LABEL[p.method]}
+                    </span>
+                    <span className="text-base font-semibold tabular-nums text-roxa-900">
+                      {formatBRL(p.total)}
+                    </span>
+                  </span>
+                ))}
+                {paymentTotals.length === 0 && (
+                  <span className="text-sm text-slate-400">
+                    Nenhum recebimento no período filtrado.
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-5">
               <p className="text-xs uppercase tracking-wide text-slate-500">
-                💰 Recebido por forma de pagamento
+                📅 Previsão de entrada
                 <span className="ml-2 normal-case tracking-normal text-slate-400">
-                  (vendas concluídas no período filtrado — filtre a data pro fechamento do dia)
+                  (vendas abertas)
                 </span>
               </p>
-              <p className="text-sm text-slate-600">
-                Total: <span className="font-semibold text-slate-900 tabular-nums">{formatBRL(totalRecebido)}</span>
+              <p className="mt-3 text-2xl font-semibold tabular-nums text-amber-700">
+                {formatBRL(previsao.total)}
               </p>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {paymentTotals.map((p) => (
-                <span
-                  key={p.method}
-                  className="inline-flex items-baseline gap-2 rounded-lg border border-roxa-100 bg-roxa-50 px-3 py-2"
-                >
-                  <span className="text-xs font-medium text-roxa-800">
-                    {PAYMENT_METHOD_LABEL[p.method]}
-                  </span>
-                  <span className="text-base font-semibold tabular-nums text-roxa-900">
-                    {formatBRL(p.total)}
-                  </span>
-                </span>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              <p className="mt-1 text-xs text-slate-500">
+                {previsao.count === 0
+                  ? "Nenhuma venda aberta no momento."
+                  : `A receber de ${previsao.count} venda${previsao.count > 1 ? "s" : ""} aberta${previsao.count > 1 ? "s" : ""} — encomendas aprovadas e pedidos aguardando pagamento.`}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {sales.length === 0 ? (

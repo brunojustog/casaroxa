@@ -117,6 +117,26 @@ export async function sumPaymentsByMethod(filters: SaleListFilters) {
     .sort((a, b) => b.total - a.total);
 }
 
+/**
+ * Previsão de entrada: vendas ABERTAS (encomendas aprovadas, pedidos do site
+ * aguardando pagamento) — soma do que FALTA receber (bruto − já pago).
+ * Ignora o filtro de data de propósito: "a receber" é carteira acumulada,
+ * não fluxo do dia. Respeita o filtro de origem.
+ */
+export async function sumOpenSalesForecast(filters: SaleListFilters) {
+  const where: Prisma.SaleWhereInput = { status: SaleStatus.ABERTA };
+  if (filters.source && filters.source !== "all") where.source = filters.source;
+  const abertas = await prisma.sale.findMany({
+    where,
+    select: { totalRevenue: true, totalPaid: true },
+  });
+  let total = 0;
+  for (const s of abertas) {
+    total += Math.max(0, Number(s.totalRevenue) - Number(s.totalPaid));
+  }
+  return { total, count: abertas.length };
+}
+
 export async function getSaleById(id: string) {
   return prisma.sale.findUnique({
     where: { id },
