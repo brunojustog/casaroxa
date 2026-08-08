@@ -130,7 +130,7 @@ export function PdvClient({
     setReceived("");
     setDiscount("");
     startTransition(async () => {
-      const res = await createSaleAction({ source: "LOJA" });
+      const res = await createSaleAction({ source: "LOJA", openedInPdv: true });
       if (!res.ok) window.alert(res.error);
       refresh();
     });

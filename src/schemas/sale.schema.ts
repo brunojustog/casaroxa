@@ -36,6 +36,8 @@ export const saleHeaderFormSchema = z.object({
   source: z.nativeEnum(SaleSource).default(SaleSource.LOJA),
   customerName: optionalString(120),
   notes: optionalString(2000),
+  /// True só quando a venda nasce na tela /pdv — o caixa só reaproveita essas.
+  openedInPdv: z.boolean().optional(),
 });
 export type SaleHeaderFormData = z.output<typeof saleHeaderFormSchema>;
 

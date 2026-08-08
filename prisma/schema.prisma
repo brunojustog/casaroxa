@@ -1457,6 +1457,10 @@ model Sale {
   status       SaleStatus @default(ABERTA)
   customerName String?
   notes        String?
+  /// True apenas pra vendas iniciadas na tela /pdv. O caixa só reaproveita
+  /// vendas com esta flag — venda aberta aguardando retirada (Nova Venda,
+  /// encomenda aprovada) nunca é "puxada" pro PDV.
+  openedInPdv  Boolean    @default(false)
 
   /// Cache: soma dos SaleItem.totalPrice
   totalRevenue  Decimal @default(0) @db.Decimal(14, 2)

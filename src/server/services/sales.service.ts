@@ -147,7 +147,12 @@ export async function getCurrentPdvSale() {
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
   return prisma.sale.findFirst({
-    where: { source: "LOJA", status: "ABERTA", occurredAt: { gte: hoje } },
+    where: {
+      source: "LOJA",
+      status: "ABERTA",
+      openedInPdv: true,
+      occurredAt: { gte: hoje },
+    },
     orderBy: { updatedAt: "desc" },
     include: {
       items: {
@@ -356,6 +361,7 @@ export async function createSale(input: SaleHeaderFormData, userId: string) {
       source: input.source,
       customerName: input.customerName,
       notes: input.notes,
+      openedInPdv: input.openedInPdv ?? false,
       createdById: userId,
     },
   });
