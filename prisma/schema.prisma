@@ -473,6 +473,11 @@ model Product {
   ingredientsPublic String?
   /// Galeria de fotos adicionais (array de URLs em JSON). Aparece na página de detalhe.
   gallery           Json?
+  /// Dias da semana em que o produto é vendido, CSV de DOM,SEG,TER,QUA,QUI,SEX,SAB.
+  /// null = todos os dias. Ex.: "SAB" = marmitas só de sábado. Cardápio público
+  /// esconde fora do dia; pedido imediato valida contra hoje; encomenda valida
+  /// contra a data desejada.
+  availableDays     String?
   /// URL do YouTube (qualquer formato). É convertida para embed na página de detalhe.
   youtubeUrl        String?
   /// Código do item na balança Toledo (6 dígitos). Produtos com este campo

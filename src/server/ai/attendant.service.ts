@@ -17,6 +17,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { sendText } from "@/server/services/whatsapp.service";
 import { getAllStockBalances } from "@/server/services/stock.service";
+import { nomeDosDias } from "@/lib/weekday";
 
 const MODEL = process.env.ATTENDANT_MODEL ?? "claude-haiku-4-5";
 const MAX_TOKENS = 1024;
@@ -69,6 +70,7 @@ async function buildLiveContext(): Promise<string> {
         portionLabel: true,
         showInMenu: true,
         status: true,
+        availableDays: true,
         recipe: { select: { items: { take: 1, select: { ingredientId: true, unit: true } } } },
       },
       orderBy: [{ category: "asc" }, { name: "asc" }],
@@ -103,6 +105,8 @@ async function buildLiveContext(): Promise<string> {
       else if (!byWeight && saldo <= 3) disp = ` [últimas ${Math.floor(saldo)} un]`;
     }
     if (p.status === "SOB_ENCOMENDA") disp += " [só por encomenda]";
+    if (p.availableDays)
+      disp += ` [vendido SÓ nestes dias: ${nomeDosDias(p.availableDays)} — em outros dias, ofereça encomenda pra esse dia]`;
     linhas.push(
       `- ${p.name}: ${brl(p.salePrice)}${byWeight ? "/kg" : p.portionLabel ? ` (${p.portionLabel})` : ""}${disp}`,
     );

@@ -20,6 +20,7 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { toDecimal, sumDecimal } from "@/lib/decimal";
+import { disponivelNoDia, nomeDosDias } from "@/lib/weekday";
 import { BusinessError } from "@/server/auth-helpers";
 import { sendText } from "./whatsapp.service";
 import { upsertCustomerFromCheckout } from "./customer.service";
@@ -124,6 +125,8 @@ async function loadValidatedItems(
     name: string;
     quantity: number;
     unitPriceCents: number;
+    /// Dias fixos de venda do produto (null/ausente = sempre). Combos não têm.
+    availableDays?: string | null;
   }>
 > {
   const productIds = items
@@ -137,7 +140,7 @@ async function loadValidatedItems(
     productIds.length
       ? prisma.product.findMany({
           where: { id: { in: productIds }, active: true, salePrice: { gt: 0 } },
-          select: { id: true, name: true, salePrice: true },
+          select: { id: true, name: true, salePrice: true, availableDays: true },
         })
       : Promise.resolve([]),
     comboIds.length
@@ -160,6 +163,7 @@ async function loadValidatedItems(
         name: p.name,
         quantity: it.quantity,
         unitPriceCents: Math.round(Number(p.salePrice ?? 0) * 100),
+        availableDays: p.availableDays,
       };
     }
     if (it.comboId) {
@@ -269,6 +273,16 @@ export async function createPublicOrderRequest(input: PublicOrderRequestData) {
     await loadValidatedItems(input.items),
     input.deliveryMode,
   );
+
+  // Produto com dia fixo (ex.: marmita só de sábado): a DATA DESEJADA da
+  // encomenda precisa cair num dia permitido — não importa o dia de hoje.
+  for (const it of items) {
+    if (it.availableDays && !disponivelNoDia(it.availableDays, requestedFor)) {
+      throw new BusinessError(
+        `${it.name} só fica disponível: ${nomeDosDias(it.availableDays)}. Escolha uma data nesse dia da semana pra esse item.`,
+      );
+    }
+  }
 
   // Ponto parceiro não tem cozinha quente — na encomenda semanal só
   // congelados podem ir pro ponto (empório vai pelo fluxo EMPORIO).

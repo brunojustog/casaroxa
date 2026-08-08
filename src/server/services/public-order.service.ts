@@ -9,6 +9,7 @@
 import { SaleSource, SaleStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { toDecimal, sumDecimal } from "@/lib/decimal";
+import { disponivelNoDia, nomeDosDias } from "@/lib/weekday";
 import { whatsappLink } from "@/lib/whatsapp";
 import { applyCouponInTransaction } from "./coupon.service";
 import { upsertCustomerFromCheckout } from "./customer.service";
@@ -50,6 +51,7 @@ export async function createPublicOrder(
             name: true,
             salePrice: true,
             totalCost: true,
+            availableDays: true,
           },
         })
       : Promise.resolve([]),
@@ -98,6 +100,16 @@ export async function createPublicOrder(
       throw new PublicOrderError(
         `Item indisponível foi removido do cardápio. Atualize a página.`,
       );
+    }
+    // Produto com dia fixo (ex.: marmita só de sábado) não entra em pedido
+    // imediato fora do dia — pro futuro, o caminho é a encomenda.
+    if (it.kind === "PRODUTO") {
+      const dias = (ref as { availableDays?: string | null }).availableDays;
+      if (!disponivelNoDia(dias)) {
+        throw new PublicOrderError(
+          `${ref.name} só fica disponível: ${nomeDosDias(dias!)}. Você pode encomendar pra esse dia em casaroxa.com.br/encomenda 💜`,
+        );
+      }
     }
     return {
       kind: it.kind,

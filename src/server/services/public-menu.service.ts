@@ -7,6 +7,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import { PRODUCT_CATEGORY_LABEL } from "@/lib/enums";
+import { disponivelNoDia } from "@/lib/weekday";
 import { IngredientCategory, type ProductCategory } from "@prisma/client";
 
 /** Avaliações do Google curadas pro carrossel de prova social da Home. */
@@ -303,6 +304,7 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
         ingredientsPublic: true,
         gallery: true,
         youtubeUrl: true,
+        availableDays: true,
       },
     }),
     prisma.combo.findMany({
@@ -329,7 +331,13 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
     getComboSavings(),
   ]);
 
-  const productItems: PublicMenuItem[] = products.map((p) => ({
+  // Produto com dia fixo (ex.: marmita só de sábado) some do cardápio de
+  // pedido imediato fora do dia. Encomenda tem regra própria (data desejada).
+  const disponiveisHoje = products.filter((p) =>
+    disponivelNoDia(p.availableDays),
+  );
+
+  const productItems: PublicMenuItem[] = disponiveisHoje.map((p) => ({
     id: p.id,
     slug: p.slug,
     kind: "PRODUTO",
