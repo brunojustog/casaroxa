@@ -269,7 +269,8 @@ function ItemRow({
       <Field label={index === 0 ? "Qtd" : undefined}>
         <Input
           type="number"
-          min={1}
+          min={0.05}
+          step="any"
           {...form.register(`items.${index}.quantity`, { valueAsNumber: true })}
         />
       </Field>

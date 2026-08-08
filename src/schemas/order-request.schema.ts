@@ -20,7 +20,8 @@ const optionalString = (max = 500) =>
 export const orderRequestItemSchema = z.object({
   productId: z.string().min(1).optional().nullable(),
   comboId: z.string().min(1).optional().nullable(),
-  quantity: z.number().int().min(1).max(200),
+  /// Decimal permitido: produtos por kg aceitam 0,5 (= 500g), por exemplo.
+  quantity: z.number().positive().min(0.05).max(200),
 });
 
 const baseSchema = z

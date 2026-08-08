@@ -330,9 +330,8 @@ export async function createPublicOrderRequest(input: PublicOrderRequestData) {
     ].join("\n"),
   });
 
-  const totalCents = items.reduce(
-    (acc, it) => acc + it.unitPriceCents * it.quantity,
-    0,
+  const totalCents = Math.round(
+    items.reduce((acc, it) => acc + it.unitPriceCents * it.quantity, 0),
   );
   return { ...created, totalCents };
 }
