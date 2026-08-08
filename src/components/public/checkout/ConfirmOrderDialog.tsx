@@ -20,6 +20,7 @@ export function ConfirmOrderDialog({
   submitting,
   items,
   subtotal,
+  deliveryFee = 0,
   couponCode,
   couponDiscount,
   total,
@@ -40,6 +41,8 @@ export function ConfirmOrderDialog({
   submitting: boolean;
   items: Item[];
   subtotal: number;
+  /// Taxa de entrega já inclusa no total (0 = sem taxa / retirada).
+  deliveryFee?: number;
   couponCode: string | null;
   couponDiscount: number;
   total: number;
@@ -103,6 +106,12 @@ export function ConfirmOrderDialog({
                 <span>Subtotal</span>
                 <span className="tabular-nums">{fmt(subtotal)}</span>
               </div>
+              {deliveryFee > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>Taxa de entrega</span>
+                  <span className="tabular-nums">{fmt(deliveryFee)}</span>
+                </div>
+              )}
               {couponDiscount > 0 && (
                 <div className="flex justify-between text-green-700">
                   <span>Cupom {couponCode}</span>

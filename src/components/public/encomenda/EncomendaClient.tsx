@@ -91,6 +91,7 @@ export function EncomendaClient({
   pickupEnabled,
   pickupPoints = [],
   defaultPointSlug = null,
+  deliveryFee = 0,
 }: {
   catalog: CatalogItem[];
   leadHours: number;
@@ -98,6 +99,8 @@ export function EncomendaClient({
   pickupEnabled: boolean;
   pickupPoints?: PickupPointOption[];
   defaultPointSlug?: string | null;
+  /// Taxa de entrega automática (0 = não cobra).
+  deliveryFee?: number;
 }) {
   const router = useRouter();
 
@@ -611,9 +614,20 @@ export function EncomendaClient({
             </ul>
           )}
 
+          {isDelivery && deliveryFee > 0 && (
+            <div className="mt-3 flex justify-between text-sm text-slate-600">
+              <span>Taxa de entrega</span>
+              <span className="tabular-nums">{fmt(deliveryFee * 100)}</span>
+            </div>
+          )}
           <div className="mt-4 flex justify-between border-t border-slate-200 pt-3 text-base font-semibold text-slate-900">
             <span>Estimativa</span>
-            <span className="tabular-nums">{fmt(subtotalCents)}</span>
+            <span className="tabular-nums">
+              {fmt(
+                subtotalCents +
+                  (isDelivery ? Math.round(deliveryFee * 100) : 0),
+              )}
+            </span>
           </div>
 
           {requestedFor && (

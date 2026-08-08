@@ -467,6 +467,9 @@ export type PublicSiteSettings = {
   deliveryEnabled: boolean;
   asaasEnabled: boolean;
   deliveryFeeNote: string | null;
+  /// Preço do produto "Taxa de Entrega" (item automático em pedidos delivery).
+  /// 0 = produto inexistente/inativo → sem cobrança automática.
+  deliveryFee: number;
   cardapioClosed: boolean;
   cardapioClosedMessage: string | null;
   minimumOrderValue: number | null;
@@ -478,6 +481,14 @@ export type PublicSiteSettings = {
 };
 
 export async function getSiteSettings(): Promise<PublicSiteSettings> {
+  const feeProduct = await prisma.product.findFirst({
+    where: {
+      name: { startsWith: "Taxa de Entrega" },
+      active: true,
+      salePrice: { gt: 0 },
+    },
+    select: { salePrice: true },
+  });
   const s = await prisma.settings.findUnique({
     where: { id: 1 },
     select: {
@@ -519,6 +530,7 @@ export async function getSiteSettings(): Promise<PublicSiteSettings> {
     deliveryEnabled: s?.deliveryEnabled ?? true,
     asaasEnabled: s?.asaasEnabled ?? false,
     deliveryFeeNote: s?.deliveryFeeNote ?? null,
+    deliveryFee: feeProduct ? Number(feeProduct.salePrice) : 0,
     cardapioClosed: s?.cardapioClosed ?? false,
     cardapioClosedMessage: s?.cardapioClosedMessage ?? null,
     minimumOrderValue:

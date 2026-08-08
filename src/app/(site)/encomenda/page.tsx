@@ -112,6 +112,7 @@ export default async function EncomendaPage({
         leadHours={leadHours}
         deliveryEnabled={settings.deliveryEnabled}
         pickupEnabled={settings.pickupEnabled}
+        deliveryFee={settings.deliveryFee}
         pickupPoints={pickupPoints}
         defaultPointSlug={pontoSlug}
       />

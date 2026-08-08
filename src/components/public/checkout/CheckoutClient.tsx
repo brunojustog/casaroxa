@@ -31,6 +31,8 @@ type SiteSettingsForCheckout = {
   deliveryEnabled: boolean;
   asaasEnabled: boolean;
   deliveryFeeNote: string | null;
+  /// Valor da taxa de entrega automática (0 = não cobra).
+  deliveryFee: number;
   minimumOrderValue: number | null;
   whatsappNumber: string | null;
 };
@@ -269,7 +271,8 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
   const belowMinimum = minOrder > 0 && total < minOrder;
 
   const couponDiscount = couponApplied?.discount ?? 0;
-  const finalTotal = Math.max(0, total - couponDiscount);
+  const deliveryFee = deliveryMode === "DELIVERY" ? settings.deliveryFee : 0;
+  const finalTotal = Math.max(0, total + deliveryFee - couponDiscount);
 
   // Revalida cupom quando o subtotal mudar (carrinho alterado).
   // Se o pedido cair abaixo do mínimo do cupom, ele é removido com aviso.
@@ -823,9 +826,11 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
               </div>
             )}
             {deliveryMode === "DELIVERY" && (
-              <div className="flex justify-between text-slate-500">
+              <div className="flex justify-between text-slate-600">
                 <span>Taxa de entrega</span>
-                <span>a combinar</span>
+                <span className="tabular-nums">
+                  {deliveryFee > 0 ? fmt(deliveryFee) : "a combinar"}
+                </span>
               </div>
             )}
             <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-semibold text-slate-900">
@@ -955,6 +960,7 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
           totalPrice: i.price * i.quantity,
         }))}
         subtotal={total}
+        deliveryFee={deliveryFee}
         couponCode={couponApplied?.code ?? null}
         couponDiscount={couponDiscount}
         total={finalTotal}

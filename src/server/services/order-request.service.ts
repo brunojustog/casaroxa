@@ -177,6 +177,43 @@ async function loadValidatedItems(
   });
 }
 
+/**
+ * Anexa o produto "Taxa de Entrega" como item quando a encomenda é DELIVERY.
+ * Não duplica se o item já foi incluído manualmente; silencioso se o produto
+ * não existir/estiver inativo (aí simplesmente não cobra).
+ */
+async function appendDeliveryFeeItem<
+  T extends {
+    productId: string | null;
+    comboId: string | null;
+    name: string;
+    quantity: number;
+    unitPriceCents: number;
+  },
+>(items: T[], deliveryMode: string): Promise<T[]> {
+  if (deliveryMode !== "DELIVERY") return items;
+  const feeProduct = await prisma.product.findFirst({
+    where: {
+      name: { startsWith: "Taxa de Entrega" },
+      active: true,
+      salePrice: { gt: 0 },
+    },
+    select: { id: true, name: true, salePrice: true },
+  });
+  if (!feeProduct) return items;
+  if (items.some((it) => it.productId === feeProduct.id)) return items;
+  return [
+    ...items,
+    {
+      productId: feeProduct.id,
+      comboId: null,
+      name: feeProduct.name,
+      quantity: 1,
+      unitPriceCents: Math.round(Number(feeProduct.salePrice) * 100),
+    } as T,
+  ];
+}
+
 export async function createPublicOrderRequest(input: PublicOrderRequestData) {
   let requestedFor = input.requestedFor;
   let supplyTripId: string | null = null;
@@ -228,7 +265,10 @@ export async function createPublicOrderRequest(input: PublicOrderRequestData) {
     }
   }
 
-  const items = await loadValidatedItems(input.items);
+  const items = await appendDeliveryFeeItem(
+    await loadValidatedItems(input.items),
+    input.deliveryMode,
+  );
 
   // Ponto parceiro não tem cozinha quente — na encomenda semanal só
   // congelados podem ir pro ponto (empório vai pelo fluxo EMPORIO).
@@ -341,7 +381,10 @@ export async function createAdminOrderRequest(
   userId: string,
 ) {
   // Admin pode criar pra qualquer data (sem validação de leadTime)
-  const items = await loadValidatedItems(input.items);
+  const items = await appendDeliveryFeeItem(
+    await loadValidatedItems(input.items),
+    input.deliveryMode,
+  );
 
   return prisma.$transaction(async (tx) => {
     let customerId: string | null = null;

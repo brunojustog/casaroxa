@@ -23,6 +23,7 @@ export default async function CheckoutPage() {
           deliveryEnabled: settings.deliveryEnabled,
           asaasEnabled: settings.asaasEnabled,
           deliveryFeeNote: settings.deliveryFeeNote,
+          deliveryFee: settings.deliveryFee,
           minimumOrderValue: settings.minimumOrderValue,
           whatsappNumber: settings.whatsappNumber,
         }}

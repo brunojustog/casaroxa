@@ -125,13 +125,42 @@ export async function createPublicOrder(
     );
   }
 
+  // 3b. Taxa de entrega automática: pedido DELIVERY ganha o produto
+  //     "Taxa de Entrega" como item. Fora do pedido mínimo e da base do
+  //     cupom (que valem só pros produtos).
+  let deliveryFee = 0;
+  if (input.deliveryMode === "DELIVERY") {
+    const feeProduct = await prisma.product.findFirst({
+      where: {
+        name: { startsWith: "Taxa de Entrega" },
+        active: true,
+        salePrice: { gt: 0 },
+      },
+      select: { id: true, name: true, salePrice: true, totalCost: true },
+    });
+    if (feeProduct) {
+      deliveryFee = Number(feeProduct.salePrice);
+      totals.push({
+        kind: "PRODUTO" as const,
+        id: feeProduct.id,
+        name: feeProduct.name,
+        quantity: 1,
+        unitPrice: deliveryFee,
+        unitCost: Number(feeProduct.totalCost),
+        totalPrice: toDecimal(deliveryFee),
+        totalCost: toDecimal(feeProduct.totalCost),
+      });
+    }
+  }
+
   // 4. Monta notes com dados do cliente em texto estruturado
   const notes = formatCustomerNotes(input);
 
   // 5. Cria a Sale + items numa transação. O cupom (se houver) é validado
   //    e tem o usedCount incrementado dentro da MESMA transação pra não
   //    permitir uso simultâneo acima do limite.
-  const subtotalNum = grandTotal.toNumber();
+  const couponBase = grandTotal.toNumber();
+  const subtotalNum = couponBase + deliveryFee;
   const sale = await prisma.$transaction(async (tx) => {
     // Upsert do cliente pelo telefone — falha em telefone inválido
     // não impede o pedido (catch + customerId fica null).
@@ -203,7 +232,7 @@ export async function createPublicOrder(
         const applied = await applyCouponInTransaction(
           tx,
           input.couponCode,
-          subtotalNum,
+          couponBase,
         );
         couponId = applied.couponId;
         couponCode = applied.couponCode;
@@ -262,7 +291,7 @@ export async function createPublicOrder(
   // Não bloqueia a resposta — fire and forget; erros são engolidos no service.
   sendPushToAllUsers({
     title: `Novo pedido #${sale.number}`,
-    body: `${input.customerName} · ${(grandTotal.toNumber() - Number(sale.couponDiscount)).toFixed(2).replace(".", ",")} — ${input.deliveryMode === "DELIVERY" ? "Delivery" : "Retirada"}`,
+    body: `${input.customerName} · ${(subtotalNum - Number(sale.couponDiscount)).toFixed(2).replace(".", ",")} — ${input.deliveryMode === "DELIVERY" ? "Delivery" : "Retirada"}`,
     url: `/vendas/${sale.id}`,
     tag: `sale-${sale.id}`,
   }).catch((e) => console.error("[public-order] push falhou:", e));
