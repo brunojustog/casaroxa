@@ -51,6 +51,7 @@ type FormShape = {
   active: boolean;
   imageUrl: string;
   showInMenu: boolean;
+  requiresKitchen: boolean;
   ingredientsPublic: string;
   /** Multi-linha: 1 URL por linha. Schema converte em array. */
   gallery: string;
@@ -84,6 +85,7 @@ export type ProductFormDefaults = Partial<{
   active: boolean;
   imageUrl: string | null;
   showInMenu: boolean;
+  requiresKitchen: boolean;
   ingredientsPublic: string | null;
   gallery: string[] | null;
   youtubeUrl: string | null;
@@ -109,6 +111,7 @@ const EMPTY: FormShape = {
   active: true,
   imageUrl: "",
   showInMenu: false,
+  requiresKitchen: true,
   ingredientsPublic: "",
   gallery: "",
   youtubeUrl: "",
@@ -135,6 +138,7 @@ function toFormShape(d: ProductFormDefaults | undefined): FormShape {
     active: d?.active ?? true,
     imageUrl: d?.imageUrl ?? "",
     showInMenu: d?.showInMenu ?? false,
+    requiresKitchen: d?.requiresKitchen ?? true,
     ingredientsPublic: d?.ingredientsPublic ?? "",
     gallery: Array.isArray(d?.gallery) ? d.gallery.join("\n") : "",
     youtubeUrl: d?.youtubeUrl ?? "",
@@ -407,6 +411,17 @@ export function ProductForm({
             <Checkbox id="showInMenu" {...form.register("showInMenu")} />
             <label htmlFor="showInMenu" className="text-sm text-slate-700">
               Mostrar no cardápio online (apenas se ativo e com preço)
+            </label>
+          </div>
+          <div className="flex items-start gap-2">
+            <Checkbox id="requiresKitchen" {...form.register("requiresKitchen")} />
+            <label htmlFor="requiresKitchen" className="text-sm text-slate-700">
+              Depende da cozinha
+              <span className="block text-xs text-slate-500">
+                Marcado: no checkout o cliente escolhe um horário de fim de semana.
+                Desmarque para itens de pronta-entrega (empório, congelados, bebidas)
+                que podem ser comprados a qualquer hora.
+              </span>
             </label>
           </div>
 

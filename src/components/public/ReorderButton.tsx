@@ -18,6 +18,7 @@ type ReorderResponse =
         price: number;
         imageUrl: string | null;
         quantity: number;
+        requiresKitchen: boolean;
       }>;
       unavailable: Array<{ name: string; reason: string }>;
     }
@@ -86,6 +87,7 @@ export function ReorderButton({
           name: it.name,
           price: it.price,
           imageUrl: it.imageUrl,
+          requiresKitchen: it.requiresKitchen,
         });
         if (it.quantity > 1) {
           setQty(`${it.kind}:${it.id}`, it.quantity);

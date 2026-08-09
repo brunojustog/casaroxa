@@ -475,9 +475,14 @@ model Product {
   gallery           Json?
   /// Dias da semana em que o produto é vendido, CSV de DOM,SEG,TER,QUA,QUI,SEX,SAB.
   /// null = todos os dias. Ex.: "SAB" = marmitas só de sábado. Cardápio público
-  /// esconde fora do dia; pedido imediato valida contra hoje; encomenda valida
-  /// contra a data desejada.
+  /// mostra sempre (com aviso do dia); pedido imediato valida contra hoje;
+  /// encomenda valida contra a data desejada.
   availableDays     String?
+  /// true = o item é produzido na cozinha e só sai nos dias/horários de
+  /// funcionamento (ver Settings.kitchenHours). No checkout, exige o cliente
+  /// escolher um horário de fim de semana. false = pronta-entrega (empório,
+  /// congelados, bebidas), comprável a qualquer hora com entrega no próximo dia útil.
+  requiresKitchen   Boolean         @default(true)
   /// URL do YouTube (qualquer formato). É convertida para embed na página de detalhe.
   youtubeUrl        String?
   /// Código do item na balança Toledo (6 dígitos). Produtos com este campo
@@ -606,6 +611,10 @@ model Combo {
   gallery           Json?
   /// URL do YouTube convertida para embed na página de detalhe.
   youtubeUrl        String?
+  /// true = combo depende da cozinha e só sai nos dias/horários de
+  /// funcionamento; no checkout exige escolher horário de fim de semana.
+  /// false = combo pronta-entrega. Ver Product.requiresKitchen.
+  requiresKitchen   Boolean         @default(true)
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
@@ -749,6 +758,24 @@ model Settings {
   /// Antecedência mínima em horas pra uma encomenda ser aceita pelo site.
   /// Valida no /encomenda — cliente não pode pedir pra data anterior a now + N horas.
   orderLeadTimeHours Int @default(48)
+
+  // ----- Horário da cozinha (agendamento no checkout) -----
+  /// Liga a lógica de agendamento por horário da cozinha no checkout público.
+  /// Desligado = comportamento antigo (pedido "pra agora" sem escolha de data).
+  kitchenScheduleEnabled Boolean @default(true)
+  /// Faixas de funcionamento da cozinha por dia da semana, em horário local
+  /// (America/Sao_Paulo). JSON: { "SAB": {"open":"07:00","close":"14:00"},
+  /// "DOM": {"open":"07:00","close":"13:00"} }. Dias ausentes = cozinha fechada.
+  /// Itens com requiresKitchen=true só podem ser agendados nessas janelas.
+  kitchenHours Json?
+  /// Intervalo entre horários oferecidos ao cliente, em minutos (ex.: 60 = de
+  /// hora em hora dentro da faixa do dia).
+  kitchenSlotStepMinutes Int @default(60)
+  /// Quantas semanas à frente de horários o checkout oferece.
+  kitchenScheduleWeeksAhead Int @default(4)
+  /// Antecedência mínima (horas) entre agora e o horário escolhido — evita
+  /// pedido pra um slot que começa em poucos minutos.
+  kitchenCutoffHours Int @default(2)
 
   // ----- Fiscal (NFC-e) -----
   /// Chave geral de emissão fiscal no PDV. Desligada = módulo dormante.

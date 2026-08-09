@@ -23,7 +23,14 @@ faturamento, DRE/resultado consolidado, assistente IA e relatórios em CSV/PDF.
 
 ## Status
 
-**App completo (Fases 1–10 entregues).**
+> **Nota:** este README cobre as **Fases 1–10** (núcleo de gestão: catálogo, custos,
+> relatórios). O sistema evoluiu muito além disso — site público de venda direta,
+> PDV de loja, encomendas, pré-venda, campanhas, fidelidade, NPS, sorteios, fiscal
+> NFC-e, IA (chat + aprovações) e agendamento por horário da cozinha no checkout.
+> Para o estado atual completo, veja [DOCUMENTO-PRODUTO.md](DOCUMENTO-PRODUTO.md)
+> e [CLAUDE.md](CLAUDE.md). O schema tem hoje **~61 models** (não os 15 abaixo).
+
+**Núcleo de gestão completo (Fases 1–10 entregues).**
 
 | Fase | Escopo                                                    | Status |
 | ---- | --------------------------------------------------------- | ------ |
@@ -190,7 +197,7 @@ Upload de XLSX → preview → confirmação:
 ```
 casa-roxa-gestao/
 ├── prisma/
-│   ├── schema.prisma           # 15 modelos, 8 enums
+│   ├── schema.prisma           # ~61 models, ~40 enums (era 15 nas Fases 1–10)
 │   └── seed.ts                 # admin + settings + 65 ingredientes
 │                               # + 33 produtos + fichas + 16 combos
 ├── src/

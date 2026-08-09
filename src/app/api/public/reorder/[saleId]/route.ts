@@ -34,6 +34,7 @@ export async function GET(
               imageUrl: true,
               active: true,
               showInMenu: true,
+              requiresKitchen: true,
             },
           },
           combo: {
@@ -44,6 +45,7 @@ export async function GET(
               imageUrl: true,
               active: true,
               showInMenu: true,
+              requiresKitchen: true,
             },
           },
         },
@@ -65,6 +67,7 @@ export async function GET(
     price: number;
     imageUrl: string | null;
     quantity: number;
+    requiresKitchen: boolean;
   }> = [];
   const unavailable: Array<{ name: string; reason: string }> = [];
 
@@ -98,6 +101,7 @@ export async function GET(
       price,
       imageUrl: ref.imageUrl,
       quantity: qty,
+      requiresKitchen: ref.requiresKitchen,
     });
   }
 

@@ -52,6 +52,7 @@ export async function createPublicOrder(
             salePrice: true,
             totalCost: true,
             availableDays: true,
+            requiresKitchen: true,
           },
         })
       : Promise.resolve([]),
@@ -68,6 +69,7 @@ export async function createPublicOrder(
             name: true,
             salePrice: true,
             totalCost: true,
+            requiresKitchen: true,
           },
         })
       : Promise.resolve([]),
@@ -78,13 +80,16 @@ export async function createPublicOrder(
         businessName: true,
         minimumOrderValue: true,
         cardapioClosed: true,
+        kitchenScheduleEnabled: true,
       },
     }),
   ]);
 
-  // Chave manual do dashboard: cozinha fechada não aceita pedido imediato
-  // (encomendas e empório têm fluxo próprio e não passam por aqui).
-  if (settings?.cardapioClosed) {
+  // Com o agendamento desligado, mantém o comportamento antigo: cozinha
+  // fechada não aceita pedido imediato. Com agendamento ligado, o pedido
+  // imediato só existe pra itens de pronta-entrega (a rede de segurança de
+  // itens de cozinha é no loop abaixo).
+  if (!settings?.kitchenScheduleEnabled && settings?.cardapioClosed) {
     throw new PublicOrderError(
       "A cozinha está fechada no momento e não estamos aceitando pedidos pra agora. Você pode fazer uma encomenda em casaroxa.com.br/encomenda 💜",
     );
@@ -101,9 +106,17 @@ export async function createPublicOrder(
         `Item indisponível foi removido do cardápio. Atualize a página.`,
       );
     }
-    // Produto com dia fixo (ex.: marmita só de sábado) não entra em pedido
-    // imediato fora do dia — pro futuro, o caminho é a encomenda.
-    if (it.kind === "PRODUTO") {
+    // Item que depende da cozinha não entra em pedido imediato — precisa de
+    // agendamento (o checkout mostra os horários). Rede de segurança: o front
+    // já direciona pro agendamento antes de chegar aqui.
+    if (settings?.kitchenScheduleEnabled) {
+      if ((ref as { requiresKitchen?: boolean }).requiresKitchen) {
+        throw new PublicOrderError(
+          `${ref.name} é feito na cozinha e precisa de agendamento. Volte ao carrinho e escolha um horário de retirada ou entrega. 💜`,
+        );
+      }
+    } else if (it.kind === "PRODUTO") {
+      // Comportamento antigo (agendamento desligado): dia fixo bloqueia fora do dia.
       const dias = (ref as { availableDays?: string | null }).availableDays;
       if (!disponivelNoDia(dias)) {
         throw new PublicOrderError(

@@ -5,12 +5,28 @@ import { formatBRL } from "@/lib/format";
 import { MenuItemActions } from "./cart/MenuItemActions";
 import type { PublicMenuItem } from "@/server/services/public-menu.service";
 
-export function MenuItemCard({ item }: { item: PublicMenuItem }) {
+export function MenuItemCard({
+  item,
+  kitchenDaysLabel,
+}: {
+  item: PublicMenuItem;
+  /** Dias de funcionamento da cozinha (ex.: "sábado e domingo") — usado no
+   *  aviso de itens que dependem da cozinha sem dia fixo próprio. */
+  kitchenDaysLabel?: string | null;
+}) {
   const ref = item.slug ?? item.id;
   const detailHref =
     item.kind === "PRODUTO"
       ? `/cardapio/produto/${ref}`
       : `/cardapio/combo/${ref}`;
+
+  // Aviso de disponibilidade: dia fixo próprio tem prioridade; senão, se depende
+  // da cozinha, mostra os dias de funcionamento. Itens pronta-entrega: sem aviso.
+  const availabilityLabel = item.availableDaysLabel
+    ? `Só ${item.availableDaysLabel}`
+    : item.requiresKitchen && kitchenDaysLabel
+      ? kitchenDaysLabel.charAt(0).toUpperCase() + kitchenDaysLabel.slice(1)
+      : null;
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-xl border border-roxa-100 bg-white shadow-sm transition hover:shadow-md">
@@ -56,6 +72,12 @@ export function MenuItemCard({ item }: { item: PublicMenuItem }) {
         {item.portionLabel && (
           <p className="text-xs text-slate-500">{item.portionLabel}</p>
         )}
+        {availabilityLabel && !item.sobEncomenda && (
+          <span className="inline-flex w-fit items-center gap-1 rounded-full bg-roxa-50 px-2 py-0.5 text-[11px] font-medium text-roxa-700">
+            <CalendarClock className="h-3 w-3" />
+            {availabilityLabel}
+          </span>
+        )}
         {item.description && (
           <p className="text-sm text-slate-600 line-clamp-3">{item.description}</p>
         )}
@@ -93,6 +115,7 @@ export function MenuItemCard({ item }: { item: PublicMenuItem }) {
                 name: item.name,
                 price: item.price,
                 imageUrl: item.imageUrl,
+                requiresKitchen: item.requiresKitchen,
               }}
             />
           )}

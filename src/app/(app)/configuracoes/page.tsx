@@ -6,6 +6,7 @@ import {
   getSettings,
   getSettingsHistory,
 } from "@/server/services/settings.service";
+import { parseKitchenHours } from "@/lib/kitchen-schedule";
 import { formatDateTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,8 @@ export default async function ConfiguracoesPage() {
     getSettings(),
     getSettingsHistory(20),
   ]);
+
+  const kh = parseKitchenHours(settings.kitchenHours);
 
   return (
     <div className="space-y-5">
@@ -82,6 +85,11 @@ export default async function ConfiguracoesPage() {
               abandonedCartNotifyAfterMinutes: settings.abandonedCartNotifyAfterMinutes,
               asaasEnabled: settings.asaasEnabled,
               asaasPaymentTtlHours: settings.asaasPaymentTtlHours,
+              kitchenScheduleEnabled: settings.kitchenScheduleEnabled,
+              kitchenSatOpen: kh.SAB?.open ?? "",
+              kitchenSatClose: kh.SAB?.close ?? "",
+              kitchenSunOpen: kh.DOM?.open ?? "",
+              kitchenSunClose: kh.DOM?.close ?? "",
             }}
           />
         </div>

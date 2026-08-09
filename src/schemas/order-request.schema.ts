@@ -31,6 +31,9 @@ const baseSchema = z
     requestedFor: z.coerce.date(),
     /** SEMANAL = assados/congelados (data livre). EMPORIO = atrelada a viagem. */
     kind: z.enum(["SEMANAL", "EMPORIO"]).default("SEMANAL"),
+    /** true = agendamento vindo do checkout do cardápio: valida a data contra
+     *  os horários da cozinha (Settings.kitchenHours) em vez do leadTime de 48h. */
+    kitchenScheduled: z.boolean().optional().default(false),
     supplyTripId: optionalString(60),
     /** Retirada em ponto parceiro (força deliveryMode PICKUP no servidor). */
     pickupPointId: optionalString(60),

@@ -6,7 +6,9 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowLeft,
+  CalendarClock,
   Check,
+  Clock,
   ImageOff,
   LogOut,
   Minus,
@@ -20,6 +22,8 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useCart, cartKeyOf } from "@/components/public/cart/CartProvider";
+import { cartNeedsKitchen } from "@/lib/cart";
+import type { KitchenDaySlots } from "@/lib/kitchen-schedule";
 import { trackBeginCheckout } from "@/lib/analytics-events";
 import { validateCouponAction } from "@/server/actions/coupons";
 import { OtpLoginDialog } from "@/components/public/auth/OtpLoginDialog";
@@ -35,6 +39,13 @@ type SiteSettingsForCheckout = {
   deliveryFee: number;
   minimumOrderValue: number | null;
   whatsappNumber: string | null;
+};
+
+type KitchenScheduleForCheckout = {
+  enabled: boolean;
+  daysLabel: string | null;
+  hoursSummary: string | null;
+  days: KitchenDaySlots[];
 };
 
 type DeliveryMode = "PICKUP" | "DELIVERY";
@@ -64,11 +75,31 @@ function formatPhoneForDisplay(raw: string): string {
   return local;
 }
 
-export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout }) {
+export function CheckoutClient({
+  settings,
+  kitchenSchedule,
+}: {
+  settings: SiteSettingsForCheckout;
+  kitchenSchedule: KitchenScheduleForCheckout;
+}) {
   const router = useRouter();
   const { cart, count, total, hydrated, setQty, remove, clear } = useCart();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Agendamento: se o carrinho tem item que depende da cozinha e o
+  // agendamento está ligado, o pedido vira encomenda com data/hora escolhida.
+  const needsKitchen =
+    hydrated && kitchenSchedule.enabled && cartNeedsKitchen(cart);
+  const hasSlots = kitchenSchedule.days.length > 0;
+  const [scheduleSlot, setScheduleSlot] = useState<string | null>(null);
+  const [scheduleDayKey, setScheduleDayKey] = useState<string | null>(
+    kitchenSchedule.days[0]?.dateLabel ?? null,
+  );
+  const activeDay =
+    kitchenSchedule.days.find((d) => d.dateLabel === scheduleDayKey) ??
+    kitchenSchedule.days[0] ??
+    null;
 
   // Form state
   const initialMode: DeliveryMode = settings.pickupEnabled
@@ -343,6 +374,10 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
     if (deliveryMode === "DELIVERY") {
       if (!address.trim() || !neighborhood.trim()) return false;
     }
+    // Item de cozinha exige um horário agendado válido.
+    if (needsKitchen) {
+      if (!hasSlots || !scheduleSlot) return false;
+    }
     return true;
   }, [
     count,
@@ -352,6 +387,9 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
     deliveryMode,
     address,
     neighborhood,
+    needsKitchen,
+    hasSlots,
+    scheduleSlot,
   ]);
 
   function handleSubmit(e: React.FormEvent) {
@@ -365,6 +403,59 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
   async function actuallySubmit() {
     setError(null);
     setSubmitting(true);
+
+    // Caminho agendado: carrinho com item de cozinha → vira encomenda com a
+    // data/hora escolhida (pipeline de OrderRequest, admin confirma). O
+    // pagamento é combinado na confirmação, como nas demais encomendas.
+    if (needsKitchen) {
+      try {
+        const res = await fetch("/api/public/order-request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerName,
+            customerPhone,
+            requestedFor: scheduleSlot,
+            kind: "SEMANAL",
+            kitchenScheduled: true,
+            deliveryMode,
+            address: deliveryMode === "DELIVERY" ? address : undefined,
+            addressNumber: deliveryMode === "DELIVERY" ? addressNumber : undefined,
+            addressComplement:
+              deliveryMode === "DELIVERY" ? addressComplement : undefined,
+            neighborhood: deliveryMode === "DELIVERY" ? neighborhood : undefined,
+            reference: deliveryMode === "DELIVERY" ? reference : undefined,
+            notes,
+            items: cart.items.map((i) => ({
+              productId: i.kind === "PRODUTO" ? i.id : undefined,
+              comboId: i.kind === "COMBO" ? i.id : undefined,
+              quantity: i.quantity,
+            })),
+          }),
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          setError(data.error ?? "Erro ao agendar o pedido.");
+          setSubmitting(false);
+          setConfirmOpen(false);
+          return;
+        }
+        clear();
+        try {
+          sessionStorage.removeItem("casaroxa.checkout.v1");
+        } catch {
+          /* ignora */
+        }
+        router.push(`/encomenda/${data.id}`);
+        return;
+      } catch {
+        setError("Falha de conexão. Tente novamente.");
+        setSubmitting(false);
+        setConfirmOpen(false);
+        return;
+      }
+    }
+
     try {
       const res = await fetch("/api/public/order", {
         method: "POST",
@@ -419,7 +510,7 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
       // CartProvider re-escreveria o cart antigo em renders subsequentes.)
       clear();
       try {
-        localStorage.removeItem("casaroxa.cart.v1");
+        localStorage.removeItem("casaroxa.cart.v2");
       } catch {
         /* ignora */
       }
@@ -741,13 +832,109 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
           )}
         </section>
 
+        {/* Agendamento: itens da cozinha exigem data/hora de fim de semana */}
+        {needsKitchen && (
+          <section className="rounded-xl border-2 border-roxa-200 bg-roxa-50/50 p-5 shadow-sm space-y-4">
+            <div className="flex items-start gap-2.5">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-roxa-200 text-roxa-700">
+                <CalendarClock className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-serif text-xl font-semibold text-roxa-900">
+                  Quando você quer receber?
+                </h2>
+                <p className="text-sm text-slate-600">
+                  Seu pedido tem itens feitos na cozinha
+                  {kitchenSchedule.daysLabel
+                    ? ` — preparamos ${kitchenSchedule.daysLabel}`
+                    : ""}
+                  . Escolha o dia e o horário de retirada ou entrega.
+                  {kitchenSchedule.hoursSummary && (
+                    <> <span className="text-slate-500">({kitchenSchedule.hoursSummary})</span></>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {!hasSlots ? (
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                Não há horários disponíveis no momento. Fale com a gente no
+                WhatsApp pra combinar a data.
+              </p>
+            ) : (
+              <>
+                <div>
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Dia
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {kitchenSchedule.days.map((d) => (
+                      <button
+                        type="button"
+                        key={d.dateLabel}
+                        onClick={() => {
+                          setScheduleDayKey(d.dateLabel);
+                          setScheduleSlot(null);
+                        }}
+                        className={
+                          d.dateLabel === activeDay?.dateLabel
+                            ? "rounded-lg bg-roxa-700 px-3.5 py-2 text-sm font-semibold text-white"
+                            : "rounded-lg border border-roxa-200 bg-white px-3.5 py-2 text-sm font-medium text-roxa-800 hover:bg-roxa-100"
+                        }
+                      >
+                        {d.dateLabel}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {activeDay && (
+                  <div>
+                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Horário
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {activeDay.slots.map((s) => (
+                        <button
+                          type="button"
+                          key={s.value}
+                          onClick={() => setScheduleSlot(s.value)}
+                          className={
+                            scheduleSlot === s.value
+                              ? "rounded-lg bg-roxa-700 px-3 py-2 text-sm font-semibold text-white tabular-nums"
+                              : "rounded-lg border border-roxa-200 bg-white px-3 py-2 text-sm font-medium text-roxa-800 hover:bg-roxa-100 tabular-nums"
+                          }
+                        >
+                          {s.timeLabel}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {scheduleSlot && (
+                  <p className="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-2 text-sm text-roxa-800 ring-1 ring-roxa-200">
+                    <Clock className="h-4 w-4" />
+                    Agendado para{" "}
+                    <strong>
+                      {activeDay?.slots.find((s) => s.value === scheduleSlot)?.label ??
+                        ""}
+                    </strong>
+                  </p>
+                )}
+              </>
+            )}
+          </section>
+        )}
+
         <section className="rounded-xl border border-roxa-100 bg-white p-5 shadow-sm space-y-4">
           <h2 className="font-serif text-xl font-semibold text-roxa-900">
             Pagamento e observações
           </h2>
 
-          {/* Pagamento online (Asaas) — só se habilitado nas configurações */}
-          {settings.asaasEnabled && (
+          {/* Pagamento online (Asaas) — indisponível no pedido agendado
+              (encomenda): o pagamento é combinado na confirmação. */}
+          {settings.asaasEnabled && !needsKitchen && (
             <Field
               label="Como você quer pagar?"
               hint="Pagar online agora confirma o pedido na hora. Combinar pelo WhatsApp mantém o fluxo atual."
@@ -907,17 +1094,30 @@ export function CheckoutClient({ settings }: { settings: SiteSettingsForCheckout
             </p>
           )}
 
+          {needsKitchen && hasSlots && !scheduleSlot && (
+            <p className="mt-3 rounded-md border border-roxa-200 bg-roxa-50 px-3 py-2 text-xs text-roxa-800">
+              Escolha um dia e horário acima pra concluir.
+            </p>
+          )}
+
           <button
             type="submit"
             disabled={!canSubmit || submitting}
             className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? "Enviando…" : "Confirmar pedido"}
+            {submitting
+              ? needsKitchen
+                ? "Agendando…"
+                : "Enviando…"
+              : needsKitchen
+                ? "Agendar pedido"
+                : "Confirmar pedido"}
           </button>
 
           <p className="mt-3 text-center text-[11px] leading-relaxed text-slate-500">
-            Após confirmar, você será redirecionado pro WhatsApp com o pedido pronto
-            pra enviar à Casa Roxa.
+            {needsKitchen
+              ? "Você agenda a data e o horário; confirmamos pelo WhatsApp e combinamos o pagamento."
+              : "Após confirmar, você será redirecionado pro WhatsApp com o pedido pronto pra enviar à Casa Roxa."}
           </p>
         </div>
 

@@ -3,7 +3,8 @@
  * Persiste em localStorage com versionamento para invalidar formato antigo.
  */
 
-export const CART_STORAGE_KEY = "casaroxa.cart.v1";
+// v2: passou a guardar requiresKitchen por item (agendamento no checkout).
+export const CART_STORAGE_KEY = "casaroxa.cart.v2";
 
 export type CartItem = {
   /** id do Product ou Combo */
@@ -13,7 +14,15 @@ export type CartItem = {
   price: number;
   imageUrl: string | null;
   quantity: number;
+  /** true = depende da cozinha (exige agendar horário de fim de semana no
+   *  checkout). Default true por segurança se ausente. */
+  requiresKitchen: boolean;
 };
+
+/** Algum item do carrinho depende da cozinha? (ausente = tratado como sim). */
+export function cartNeedsKitchen(cart: Cart): boolean {
+  return cart.items.some((it) => it.requiresKitchen !== false);
+}
 
 export type Cart = {
   items: CartItem[];

@@ -19,6 +19,7 @@ export function MenuItemActions({
     name: string;
     price: number;
     imageUrl: string | null;
+    requiresKitchen: boolean;
   };
 }) {
   const { count, hydrated } = useCart();

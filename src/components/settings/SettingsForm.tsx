@@ -81,6 +81,12 @@ type Defaults = {
   // Pagamento online (Asaas)
   asaasEnabled: boolean;
   asaasPaymentTtlHours: number;
+  // Horário da cozinha (agendamento no checkout)
+  kitchenScheduleEnabled: boolean;
+  kitchenSatOpen: string;
+  kitchenSatClose: string;
+  kitchenSunOpen: string;
+  kitchenSunClose: string;
 };
 
 const FACTORY_DEFAULTS: Defaults = {
@@ -137,6 +143,11 @@ const FACTORY_DEFAULTS: Defaults = {
   abandonedCartNotifyAfterMinutes: 30,
   asaasEnabled: false,
   asaasPaymentTtlHours: 24,
+  kitchenScheduleEnabled: true,
+  kitchenSatOpen: "07:00",
+  kitchenSatClose: "14:00",
+  kitchenSunOpen: "07:00",
+  kitchenSunClose: "13:00",
 };
 
 function toState(d: Defaults) {
@@ -196,6 +207,11 @@ function toState(d: Defaults) {
     abandonedCartNotifyAfterMinutes: String(d.abandonedCartNotifyAfterMinutes),
     asaasEnabled: d.asaasEnabled,
     asaasPaymentTtlHours: String(d.asaasPaymentTtlHours),
+    kitchenScheduleEnabled: d.kitchenScheduleEnabled,
+    kitchenSatOpen: d.kitchenSatOpen,
+    kitchenSatClose: d.kitchenSatClose,
+    kitchenSunOpen: d.kitchenSunOpen,
+    kitchenSunClose: d.kitchenSunClose,
   };
 }
 
@@ -498,6 +514,69 @@ export function SettingsForm({ initial }: { initial: Defaults }) {
           <WhatsAppApiBlock state={state} set={set} />
 
           <AsaasBlock state={state} set={set} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Horário da cozinha (agendamento no checkout)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              id="kitchenScheduleEnabled"
+              checked={state.kitchenScheduleEnabled}
+              onChange={(e) => set("kitchenScheduleEnabled", e.currentTarget.checked)}
+              className="mt-1"
+            />
+            <label htmlFor="kitchenScheduleEnabled" className="text-sm text-slate-700">
+              Ativar agendamento por horário da cozinha
+              <span className="block text-xs text-slate-500">
+                Ligado: itens marcados como “depende da cozinha” pedem data e hora
+                no checkout (fim de semana). Desligado: volta ao comportamento antigo
+                (pedido pra agora e a chave “cozinha fechada”).
+              </span>
+            </label>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Field label="Sábado — abre">
+              <Input
+                type="time"
+                value={state.kitchenSatOpen}
+                onChange={(e) => set("kitchenSatOpen", e.currentTarget.value)}
+                disabled={!state.kitchenScheduleEnabled}
+              />
+            </Field>
+            <Field label="Sábado — fecha">
+              <Input
+                type="time"
+                value={state.kitchenSatClose}
+                onChange={(e) => set("kitchenSatClose", e.currentTarget.value)}
+                disabled={!state.kitchenScheduleEnabled}
+              />
+            </Field>
+            <Field label="Domingo — abre">
+              <Input
+                type="time"
+                value={state.kitchenSunOpen}
+                onChange={(e) => set("kitchenSunOpen", e.currentTarget.value)}
+                disabled={!state.kitchenScheduleEnabled}
+              />
+            </Field>
+            <Field label="Domingo — fecha">
+              <Input
+                type="time"
+                value={state.kitchenSunClose}
+                onChange={(e) => set("kitchenSunClose", e.currentTarget.value)}
+                disabled={!state.kitchenScheduleEnabled}
+              />
+            </Field>
+          </div>
+          <p className="text-xs text-slate-500">
+            Deixe abre/fecha vazios pra fechar o dia. Os demais dias da semana ficam
+            fechados. Horário local (America/Sao_Paulo).
+          </p>
         </CardContent>
       </Card>
 

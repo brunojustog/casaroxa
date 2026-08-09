@@ -127,6 +127,7 @@ export async function createProduct(input: ProductFormData) {
       active: input.active,
       imageUrl: input.imageUrl,
       showInMenu: input.showInMenu,
+      requiresKitchen: input.requiresKitchen,
       ingredientsPublic: input.ingredientsPublic,
       gallery: input.gallery ?? Prisma.DbNull,
       youtubeUrl: input.youtubeUrl,

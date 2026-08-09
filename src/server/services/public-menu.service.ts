@@ -7,7 +7,14 @@
  */
 import { prisma } from "@/lib/prisma";
 import { PRODUCT_CATEGORY_LABEL } from "@/lib/enums";
-import { disponivelNoDia } from "@/lib/weekday";
+import { nomeDosDias } from "@/lib/weekday";
+import {
+  generateKitchenDays,
+  kitchenConfigFromSettings,
+  kitchenHoursSummary,
+  parseKitchenHours,
+  type KitchenDaySlots,
+} from "@/lib/kitchen-schedule";
 import { IngredientCategory, type ProductCategory } from "@prisma/client";
 
 /** Avaliações do Google curadas pro carrossel de prova social da Home. */
@@ -88,6 +95,8 @@ export async function getPublicMenuItem(
         ingredientsPublic: true,
         gallery: true,
         youtubeUrl: true,
+        requiresKitchen: true,
+        availableDays: true,
         recipe: {
           select: {
             items: {
@@ -124,6 +133,9 @@ export async function getPublicMenuItem(
       savings: null,
       topPick: false,
       sobEncomenda: p.status === "SOB_ENCOMENDA",
+      requiresKitchen: p.requiresKitchen,
+      availableDays: p.availableDays,
+      availableDaysLabel: p.availableDays ? nomeDosDias(p.availableDays) : null,
     };
   }
   const c = await prisma.combo.findFirst({
@@ -139,6 +151,7 @@ export async function getPublicMenuItem(
       ingredientsPublic: true,
       gallery: true,
       youtubeUrl: true,
+      requiresKitchen: true,
       items: {
         orderBy: { totalCost: "desc" },
         select: {
@@ -170,6 +183,9 @@ export async function getPublicMenuItem(
     savings: null,
     topPick: false,
     sobEncomenda: false,
+    requiresKitchen: c.requiresKitchen,
+    availableDays: null,
+    availableDaysLabel: null,
   };
 }
 
@@ -195,6 +211,14 @@ export type PublicMenuItem = {
   /** Product.status === SOB_ENCOMENDA: aparece no cardápio com badge e
    *  CTA "Encomendar" (fluxo /encomenda) em vez do carrinho. */
   sobEncomenda: boolean;
+  /** true = depende da cozinha → no checkout exige escolher horário de fim de
+   *  semana. false = pronta-entrega (comprável a qualquer hora). */
+  requiresKitchen: boolean;
+  /** Dias fixos de venda (CSV, ex.: "SAB"). null = todos os dias. Usado só
+   *  como aviso no card — o item nunca é escondido. */
+  availableDays: string | null;
+  /** Rótulo pt-BR pronto do dia (ex.: "sábado") quando availableDays é fixo. */
+  availableDaysLabel: string | null;
 };
 
 export type PublicMenuCategory = {
@@ -305,6 +329,7 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
         gallery: true,
         youtubeUrl: true,
         availableDays: true,
+        requiresKitchen: true,
       },
     }),
     prisma.combo.findMany({
@@ -325,19 +350,17 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
         ingredientsPublic: true,
         gallery: true,
         youtubeUrl: true,
+        requiresKitchen: true,
       },
     }),
     getTopPickIds(),
     getComboSavings(),
   ]);
 
-  // Produto com dia fixo (ex.: marmita só de sábado) some do cardápio de
-  // pedido imediato fora do dia. Encomenda tem regra própria (data desejada).
-  const disponiveisHoje = products.filter((p) =>
-    disponivelNoDia(p.availableDays),
-  );
-
-  const productItems: PublicMenuItem[] = disponiveisHoje.map((p) => ({
+  // O cardápio agora mostra SEMPRE todos os itens — inclusive fora do dia da
+  // cozinha. O agendamento de data/hora acontece no checkout (itens que
+  // dependem da cozinha exigem escolher um horário de fim de semana).
+  const productItems: PublicMenuItem[] = products.map((p) => ({
     id: p.id,
     slug: p.slug,
     kind: "PRODUTO",
@@ -353,6 +376,9 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
     savings: null,
     topPick: topPicks.productIds.has(p.id),
     sobEncomenda: p.status === "SOB_ENCOMENDA",
+    requiresKitchen: p.requiresKitchen,
+    availableDays: p.availableDays,
+    availableDaysLabel: p.availableDays ? nomeDosDias(p.availableDays) : null,
   }));
 
   const comboItems: PublicMenuItem[] = combos.map((c) => ({
@@ -371,6 +397,9 @@ export async function getPublicMenu(): Promise<PublicMenuCategory[]> {
     savings: comboSavings.get(c.id) ?? null,
     topPick: topPicks.comboIds.has(c.id),
     sobEncomenda: false,
+    requiresKitchen: c.requiresKitchen,
+    availableDays: null,
+    availableDaysLabel: null,
   }));
 
   // Dentro de cada categoria, ordena: topPick primeiro, depois savings desc, depois alfabético
@@ -434,6 +463,7 @@ export async function getEmporioMenu(): Promise<PublicMenuItem[]> {
       ingredientsPublic: true,
       gallery: true,
       youtubeUrl: true,
+      requiresKitchen: true,
     },
   });
 
@@ -453,6 +483,9 @@ export async function getEmporioMenu(): Promise<PublicMenuItem[]> {
     savings: null,
     topPick: false,
     sobEncomenda: p.status === "SOB_ENCOMENDA",
+    requiresKitchen: p.requiresKitchen,
+    availableDays: null,
+    availableDaysLabel: null,
   }));
 
   return items.sort((a, b) => {
@@ -481,6 +514,12 @@ export type PublicSiteSettings = {
   cardapioClosed: boolean;
   cardapioClosedMessage: string | null;
   minimumOrderValue: number | null;
+  /** Agendamento por horário da cozinha ligado. */
+  kitchenScheduleEnabled: boolean;
+  /** Ex.: "sábado e domingo" — dias em que a cozinha funciona. */
+  kitchenDaysLabel: string | null;
+  /** Ex.: "Sábado 07:00–14:00 · Domingo 07:00–13:00". */
+  kitchenHoursSummary: string | null;
   heroPromoTitle: string | null;
   heroPromoText: string | null;
   heroPromoImageUrl: string | null;
@@ -516,6 +555,8 @@ export async function getSiteSettings(): Promise<PublicSiteSettings> {
       cardapioClosed: true,
       cardapioClosedMessage: true,
       minimumOrderValue: true,
+      kitchenScheduleEnabled: true,
+      kitchenHours: true,
       heroPromoTitle: true,
       heroPromoText: true,
       heroPromoImageUrl: true,
@@ -523,6 +564,9 @@ export async function getSiteSettings(): Promise<PublicSiteSettings> {
       heroPromoLinkHref: true,
     },
   });
+
+  const kHours = parseKitchenHours(s?.kitchenHours);
+  const kDaysLabel = nomeDosDias(Object.keys(kHours).join(","));
 
   return {
     businessName: s?.businessName ?? "Casa Roxa Assados",
@@ -545,10 +589,48 @@ export async function getSiteSettings(): Promise<PublicSiteSettings> {
       s?.minimumOrderValue !== null && s?.minimumOrderValue !== undefined
         ? Number(s.minimumOrderValue)
         : null,
+    kitchenScheduleEnabled: s?.kitchenScheduleEnabled ?? true,
+    kitchenDaysLabel: kDaysLabel || null,
+    kitchenHoursSummary: kitchenHoursSummary(kHours) || null,
     heroPromoTitle: s?.heroPromoTitle ?? null,
     heroPromoText: s?.heroPromoText ?? null,
     heroPromoImageUrl: s?.heroPromoImageUrl ?? null,
     heroPromoLinkLabel: s?.heroPromoLinkLabel ?? null,
     heroPromoLinkHref: s?.heroPromoLinkHref ?? null,
+  };
+}
+
+export type KitchenScheduleForCheckout = {
+  enabled: boolean;
+  /** Ex.: "sábado e domingo". */
+  daysLabel: string | null;
+  /** Ex.: "Sábado 07:00–14:00 · Domingo 07:00–13:00". */
+  hoursSummary: string | null;
+  /** Dias com slots disponíveis (já filtrados pelo cutoff). */
+  days: KitchenDaySlots[];
+};
+
+/**
+ * Config + slots de horário da cozinha pro checkout público. Gera os próximos
+ * horários disponíveis a partir de agora (server-side, fuso SP).
+ */
+export async function getKitchenScheduleForCheckout(): Promise<KitchenScheduleForCheckout> {
+  const s = await prisma.settings.findUnique({
+    where: { id: 1 },
+    select: {
+      kitchenScheduleEnabled: true,
+      kitchenHours: true,
+      kitchenSlotStepMinutes: true,
+      kitchenScheduleWeeksAhead: true,
+      kitchenCutoffHours: true,
+    },
+  });
+  const config = kitchenConfigFromSettings(s ?? {});
+  const hours = parseKitchenHours(s?.kitchenHours);
+  return {
+    enabled: config.enabled,
+    daysLabel: nomeDosDias(Object.keys(hours).join(",")) || null,
+    hoursSummary: kitchenHoursSummary(hours) || null,
+    days: generateKitchenDays(config),
   };
 }

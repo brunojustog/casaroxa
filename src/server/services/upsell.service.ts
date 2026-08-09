@@ -26,6 +26,7 @@ export type UpsellSuggestion = {
   price: number;
   category: ProductCategory;
   reason: string;
+  requiresKitchen: boolean;
 };
 
 export async function getUpsellsForCart(input: {
@@ -96,6 +97,7 @@ export async function getUpsellsForCart(input: {
         imageUrl: true,
         salePrice: true,
         category: true,
+        requiresKitchen: true,
       },
     });
     for (const s of sides) {
@@ -108,6 +110,7 @@ export async function getUpsellsForCart(input: {
         price: Number(s.salePrice ?? 0),
         category: s.category,
         reason: "Pra acompanhar",
+        requiresKitchen: s.requiresKitchen,
       });
     }
   }
@@ -131,6 +134,7 @@ export async function getUpsellsForCart(input: {
         imageUrl: true,
         salePrice: true,
         category: true,
+        requiresKitchen: true,
       },
     });
     for (const d of drinks) {
@@ -143,6 +147,7 @@ export async function getUpsellsForCart(input: {
         price: Number(d.salePrice ?? 0),
         category: d.category,
         reason: "Pra beber junto",
+        requiresKitchen: d.requiresKitchen,
       });
     }
   }

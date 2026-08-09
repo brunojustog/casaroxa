@@ -126,6 +126,7 @@ export default async function EditarProdutoPage({
                   active: product.active,
                   imageUrl: product.imageUrl,
                   showInMenu: product.showInMenu,
+                  requiresKitchen: product.requiresKitchen,
                   ingredientsPublic: product.ingredientsPublic,
                   gallery: Array.isArray(product.gallery)
                     ? (product.gallery as string[])

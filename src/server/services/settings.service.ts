@@ -25,6 +25,21 @@ export async function updateSettings(input: SettingsFormData, userId: string) {
   const current = await prisma.settings.findUnique({ where: { id: 1 } });
   if (!current) throw new BusinessError("Settings não encontrado.");
 
+  // As faixas HH:mm de sáb/dom não são colunas — viram o JSON kitchenHours.
+  const {
+    kitchenSatOpen,
+    kitchenSatClose,
+    kitchenSunOpen,
+    kitchenSunClose,
+    ...rest
+  } = input;
+  const kitchenHours = buildKitchenHours({
+    kitchenSatOpen,
+    kitchenSatClose,
+    kitchenSunOpen,
+    kitchenSunClose,
+  });
+
   return prisma.$transaction(async (tx) => {
     // Snapshot do estado anterior
     await tx.settingsHistory.create({
@@ -37,9 +52,26 @@ export async function updateSettings(input: SettingsFormData, userId: string) {
 
     return tx.settings.update({
       where: { id: 1 },
-      data: input,
+      data: { ...rest, kitchenHours: kitchenHours as Prisma.InputJsonValue },
     });
   });
+}
+
+/** Monta o JSON kitchenHours a partir das faixas de sáb/dom do formulário. */
+function buildKitchenHours(v: {
+  kitchenSatOpen: string;
+  kitchenSatClose: string;
+  kitchenSunOpen: string;
+  kitchenSunClose: string;
+}): Record<string, { open: string; close: string }> {
+  const out: Record<string, { open: string; close: string }> = {};
+  if (v.kitchenSatOpen && v.kitchenSatClose && v.kitchenSatOpen < v.kitchenSatClose) {
+    out.SAB = { open: v.kitchenSatOpen, close: v.kitchenSatClose };
+  }
+  if (v.kitchenSunOpen && v.kitchenSunClose && v.kitchenSunOpen < v.kitchenSunClose) {
+    out.DOM = { open: v.kitchenSunOpen, close: v.kitchenSunClose };
+  }
+  return out;
 }
 
 function serializeSettings(s: Awaited<ReturnType<typeof getSettings>>) {
@@ -91,5 +123,7 @@ function serializeSettings(s: Awaited<ReturnType<typeof getSettings>>) {
     whatsappNotifyPaymentReceived: s.whatsappNotifyPaymentReceived,
     asaasEnabled: s.asaasEnabled,
     asaasPaymentTtlHours: s.asaasPaymentTtlHours,
+    kitchenScheduleEnabled: s.kitchenScheduleEnabled,
+    kitchenHours: s.kitchenHours ?? null,
   };
 }

@@ -21,6 +21,10 @@ import {
 import { prisma } from "@/lib/prisma";
 import { toDecimal, sumDecimal } from "@/lib/decimal";
 import { disponivelNoDia, nomeDosDias } from "@/lib/weekday";
+import {
+  isValidKitchenSlot,
+  kitchenConfigFromSettings,
+} from "@/lib/kitchen-schedule";
 import { BusinessError } from "@/server/auth-helpers";
 import { sendText } from "./whatsapp.service";
 import { upsertCustomerFromCheckout } from "./customer.service";
@@ -255,6 +259,25 @@ export async function createPublicOrderRequest(input: PublicOrderRequestData) {
     }
     requestedFor = trip.tripDate;
     supplyTripId = trip.id;
+  } else if (input.kitchenScheduled) {
+    // Agendamento vindo do checkout do cardápio: a data precisa ser um horário
+    // válido de funcionamento da cozinha (não o leadTime de 48h da encomenda).
+    const settings = await prisma.settings.findUnique({
+      where: { id: 1 },
+      select: {
+        kitchenScheduleEnabled: true,
+        kitchenHours: true,
+        kitchenSlotStepMinutes: true,
+        kitchenScheduleWeeksAhead: true,
+        kitchenCutoffHours: true,
+      },
+    });
+    const config = kitchenConfigFromSettings(settings ?? {});
+    if (!isValidKitchenSlot(config, input.requestedFor)) {
+      throw new BusinessError(
+        "O horário escolhido não está mais disponível. Recarregue a página e escolha outro.",
+      );
+    }
   } else {
     const settings = await prisma.settings.findUnique({
       where: { id: 1 },

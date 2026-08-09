@@ -14,6 +14,7 @@ export function AddToCartButton({
     name: string;
     price: number;
     imageUrl: string | null;
+    requiresKitchen: boolean;
   };
 }) {
   const { add } = useCart();

@@ -1,10 +1,16 @@
 import { CheckoutClient } from "@/components/public/checkout/CheckoutClient";
-import { getSiteSettings } from "@/server/services/public-menu.service";
+import {
+  getKitchenScheduleForCheckout,
+  getSiteSettings,
+} from "@/server/services/public-menu.service";
 
 export const dynamic = "force-dynamic";
 
 export default async function CheckoutPage() {
-  const settings = await getSiteSettings();
+  const [settings, kitchenSchedule] = await Promise.all([
+    getSiteSettings(),
+    getKitchenScheduleForCheckout(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -27,6 +33,7 @@ export default async function CheckoutPage() {
           minimumOrderValue: settings.minimumOrderValue,
           whatsappNumber: settings.whatsappNumber,
         }}
+        kitchenSchedule={kitchenSchedule}
       />
     </div>
   );

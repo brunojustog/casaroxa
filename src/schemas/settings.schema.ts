@@ -34,6 +34,16 @@ const optionalString = (max = 500) =>
     .nullish()
     .transform((v) => (v && v.length > 0 ? v : null));
 
+/** Horário "HH:mm" (24h) ou vazio (= dia fechado). */
+const hhmmField = z
+  .string()
+  .trim()
+  .nullish()
+  .transform((v) => (v && v.length > 0 ? v : ""))
+  .refine((v) => v === "" || /^([01]\d|2[0-3]):([0-5]\d)$/.test(v), {
+    message: "Use o formato HH:mm (ex.: 07:00)",
+  });
+
 const optionalPositive = z
   .union([z.string(), z.number()])
   .nullish()
@@ -103,6 +113,14 @@ export const settingsFormSchema = z.object({
   // Pagamento online (Asaas)
   asaasEnabled: z.coerce.boolean().default(false),
   asaasPaymentTtlHours: z.coerce.number().int().min(1).max(168).default(24),
+
+  // Horário da cozinha (agendamento no checkout). As faixas de sábado/domingo
+  // viram o JSON kitchenHours no service. "" = dia fechado.
+  kitchenScheduleEnabled: z.coerce.boolean().default(true),
+  kitchenSatOpen: hhmmField,
+  kitchenSatClose: hhmmField,
+  kitchenSunOpen: hhmmField,
+  kitchenSunClose: hhmmField,
 });
 
 export type SettingsFormInput = z.input<typeof settingsFormSchema>;

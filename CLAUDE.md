@@ -114,9 +114,21 @@ Saving a recipe through `recipe.service` automatically sets `Recipe.reviewed = f
 
 [src/server/services/nfe-import.service.ts](src/server/services/nfe-import.service.ts) parses SEFAZ NFe XML via `fast-xml-parser` and runs a fuzzy match (`xProd` vs `Ingredient.name`) returning suggestions. The user picks/creates ingredients in the preview UI before confirming. Confirmation goes through the same `purchase.service` confirm path — no shortcut around the cascade.
 
-### Chat IA (Fase 14, current branch `feat/chat-ia`)
+### Chat IA
 
-`ChatConversation` + `ChatMessage` + `AiUsageLog` models. Messages store Anthropic content blocks as JSON in `ChatMessage.content`; token counts and per-call cost (`AiUsageLog.estimatedCostUsd`) are persisted server-side. Per the latest commit, this is **read-only** — the assistant can only query data, not mutate. Treat that as load-bearing: do not add tools that write through services without explicit approval.
+`ChatConversation` + `ChatMessage` + `AiUsageLog` models. Messages store Anthropic content blocks as JSON in `ChatMessage.content`; token counts and per-call cost (`AiUsageLog.estimatedCostUsd`) are persisted server-side.
+
+**The chat is NOT read-only anymore.** `src/server/ai/tools.ts` exports `TOOLS = [...READ_TOOLS, ...WRITE_TOOLS]` and `chat.service.ts` executes any registered tool. There are ~15 read tools and ~18 write tools in `tools.write.ts` (cancel_sale, update_product_price, register_stock_movement, send_whatsapp_message, draw_raffle, …). Gates are technical: `requiresRole==="ADMIN"` blocks non-admins and `!tool.readOnly && !ctx.userId` blocks expired sessions. `destructive` is only a hint to the model (system prompt asks for textual confirmation), not a hard gate.
+
+Note: two **independent** AI write paths exist and are not connected — (a) these chat tools execute directly against services, and (b) the human-approval engine `services/ai-action.service.ts` (`proposeAction` → `AiActionApproval`, UI `/aprovacoes-ia`). The chat tools do **not** route through the approval queue.
+
+### Agendamento por horário da cozinha (checkout público)
+
+O cardápio público é **sempre visível** (o toggle `Settings.cardapioClosed` só mostra um aviso, não esconde itens). Produtos e combos têm `requiresKitchen` (boolean, default true): itens que dependem da cozinha só saem nos horários de funcionamento configurados em `Settings.kitchenHours` (JSON por dia, ex.: `{"SAB":{"open":"07:00","close":"14:00"},"DOM":{...}}`).
+
+- `src/lib/kitchen-schedule.ts` gera os slots disponíveis (fuso America/Sao_Paulo, offset fixo `-03:00`) e valida a escolha (`isValidKitchenSlot`).
+- No checkout (`CheckoutClient`), se o carrinho tem **qualquer** item com `requiresKitchen` (`cartNeedsKitchen`), o cliente escolhe um slot e o pedido vira uma **encomenda agendada** via `POST /api/public/order-request` com `kitchenScheduled: true` (valida contra os slots, não contra `orderLeadTimeHours`). Cai na fila de `/encomendas` pra aprovação, como as demais encomendas.
+- Carrinho só com itens de pronta-entrega (`requiresKitchen=false`, ex.: empório/congelados/bebidas) segue o fluxo imediato (`/api/public/order` → Sale). `public-order.service` tem rede de segurança: item de cozinha em pedido imediato é rejeitado.
 
 ## Project conventions worth knowing
 

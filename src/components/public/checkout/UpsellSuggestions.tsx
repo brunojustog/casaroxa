@@ -14,6 +14,7 @@ type Suggestion = {
   price: number;
   category: string;
   reason: string;
+  requiresKitchen: boolean;
 };
 
 const fmt = (v: number) =>
@@ -104,6 +105,7 @@ export function UpsellSuggestions() {
                   name: s.name,
                   price: s.price,
                   imageUrl: s.imageUrl,
+                  requiresKitchen: s.requiresKitchen,
                 })
               }
               className="rounded-md bg-amber-600 p-2 text-white hover:bg-amber-700"

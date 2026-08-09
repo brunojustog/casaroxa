@@ -57,6 +57,7 @@ export function ComboEditor({
   initialActive,
   initialImageUrl,
   initialShowInMenu,
+  initialRequiresKitchen,
   initialIngredientsPublic,
   initialGallery,
   initialYoutubeUrl,
@@ -74,6 +75,7 @@ export function ComboEditor({
   initialActive: boolean;
   initialImageUrl: string;
   initialShowInMenu: boolean;
+  initialRequiresKitchen: boolean;
   initialIngredientsPublic: string;
   /** Multi-linha: 1 URL por linha. */
   initialGallery: string;
@@ -95,6 +97,7 @@ export function ComboEditor({
   const [active, setActive] = useState(initialActive);
   const [imageUrl, setImageUrl] = useState(initialImageUrl);
   const [showInMenu, setShowInMenu] = useState(initialShowInMenu);
+  const [requiresKitchen, setRequiresKitchen] = useState(initialRequiresKitchen);
   const [ingredientsPublic, setIngredientsPublic] = useState(initialIngredientsPublic);
   const [gallery, setGallery] = useState(initialGallery);
   const [youtubeUrl, setYoutubeUrl] = useState(initialYoutubeUrl);
@@ -167,6 +170,7 @@ export function ComboEditor({
       active,
       imageUrl,
       showInMenu,
+      requiresKitchen,
       ingredientsPublic,
       gallery,
       youtubeUrl,
@@ -333,6 +337,20 @@ export function ComboEditor({
               />
               <label htmlFor="showInMenu" className="text-sm text-slate-700">
                 Mostrar no cardápio online (apenas se ativo e com preço)
+              </label>
+            </div>
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="requiresKitchen"
+                checked={requiresKitchen}
+                onChange={(e) => setRequiresKitchen(e.currentTarget.checked)}
+              />
+              <label htmlFor="requiresKitchen" className="text-sm text-slate-700">
+                Depende da cozinha
+                <span className="block text-xs text-slate-500">
+                  Marcado: no checkout o cliente escolhe um horário de fim de semana.
+                  Desmarque para combos de pronta-entrega.
+                </span>
               </label>
             </div>
 

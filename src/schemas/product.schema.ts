@@ -70,6 +70,8 @@ export const productFormSchema = z.object({
   active: z.coerce.boolean().default(true),
   imageUrl: optionalString(500),
   showInMenu: z.coerce.boolean().default(false),
+  /** Depende da cozinha → no checkout exige agendar horário de fim de semana. */
+  requiresKitchen: z.coerce.boolean().default(true),
   ingredientsPublic: optionalString(1000),
   gallery: galleryField,
   youtubeUrl: optionalString(500),

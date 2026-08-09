@@ -148,6 +148,7 @@ export function MenuItemDetail({ item }: { item: PublicMenuItem }) {
                   name: item.name,
                   price: item.price,
                   imageUrl: item.imageUrl,
+                  requiresKitchen: item.requiresKitchen,
                 }}
               />
             )}
